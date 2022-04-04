@@ -1,18 +1,35 @@
 pub mod module;
-
-use log::Log;
+pub mod loglevel;
+pub mod config;
+pub mod consumer;
+pub mod hook;
+use log::{LevelFilter, Log, SetLoggerError};
 use crate::logsdk::CommonLogger;
 
+//  需求: 外部调用这个log,可以打印出module ,kv等信息
+#[macro_export]
+macro_rules! log {
+    ( $($x:expr),* )=> {
+        $(println!($x))*
+    }
+}
 pub mod logsdk {
     use std::os::macos::raw::stat;
-    use log::{Log, Metadata, Record};
-    use crate::module::ModuleInterface;
+    use log::{debug, info, Log, Metadata, Record};
+    use crate::loglevel::LogLevel;
+    use crate::module::ModuleTrait;
+
+    pub trait LogConsumer {
+        fn log_able(level: LogLevel) -> bool;
+
+    }
 
     pub trait Logger {
-        fn debug(m: dyn ModuleInterface, msg: String);
-        fn info(m: dyn ModuleInterface, msg: String);
-        fn error(m: dyn ModuleInterface, msg: String);
-        fn warn(m: dyn ModuleInterface, msg: String);
+        fn debug(m: Box<dyn ModuleTrait>, msg: String);
+        fn info(m: Box<dyn ModuleTrait>, msg: String);
+        fn error(m: Box<dyn ModuleTrait>, msg: String);
+        fn warn(m: Box<dyn ModuleTrait>, msg: String);
+        fn log(&self, l: LogLevel, m: Box<dyn ModuleTrait>, msg: String);
     }
 
     pub struct CommonLogger {}
@@ -23,32 +40,46 @@ pub mod logsdk {
         }
 
         fn log(&self, record: &Record) {
-            println!("{}",record.level().to_string());
+            let a = record.args();
+            println!("{}", record.file().unwrap());
         }
 
         fn flush(&self) {}
     }
 
     impl Logger for CommonLogger {
-        fn debug(m: Box<dyn ModuleInterface>, msg: String) {
+        fn debug(m: Box<dyn ModuleTrait>, msg: String) {
             todo!()
         }
 
-        fn info(m: Box<dyn ModuleInterface>, msg: String) {
+        fn info(m: Box<dyn ModuleTrait>, msg: String) {
             todo!()
         }
 
-        fn error(m: Box<dyn ModuleInterface>, msg: String) {
+        fn error(m: Box<dyn ModuleTrait>, msg: String) {
             todo!()
         }
 
-        fn warn(m: Box<dyn ModuleInterface>, msg: String) {
+        fn warn(m: Box<dyn ModuleTrait>, msg: String) {
             todo!()
+        }
+
+        fn log(&self, l: LogLevel, m: Box<dyn ModuleTrait>, msg: String) {
+            if !self.log_able(l) {
+                return;
+            }
+        }
+    }
+
+    impl CommonLogger {
+        fn log_able(&self, logLevel: LogLevel) -> bool {
+            false
         }
     }
 }
 
 pub fn init_log() {
+    log::set_max_level(LevelFilter::Trace);
     log::set_logger(&CommonLogger {});
 }
 

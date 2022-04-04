@@ -1,6 +1,7 @@
 [workspace]
 members=[
     "sdk/logsdk",
-    "demo/selfdemo"
+    "demo/selfdemo",
+    "base/cell-base-common",
 ]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
