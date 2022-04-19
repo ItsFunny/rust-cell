@@ -3,7 +3,11 @@ pub mod loglevel;
 pub mod config;
 pub mod consumer;
 pub mod hook;
-use log::{LevelFilter, Log, SetLoggerError};
+mod event;
+pub mod layout;
+mod logwrapper;
+
+use logwrapper::{LevelFilter, Log, SetLoggerError};
 use crate::logsdk::CommonLogger;
 
 //  需求: 外部调用这个log,可以打印出module ,kv等信息
@@ -79,8 +83,8 @@ pub mod logsdk {
 }
 
 pub fn init_log() {
-    log::set_max_level(LevelFilter::Trace);
-    log::set_logger(&CommonLogger {});
+    logwrapper::set_max_level(LevelFilter::Trace);
+    logwrapper::set_logger(&CommonLogger {});
 }
 
 #[cfg(test)]

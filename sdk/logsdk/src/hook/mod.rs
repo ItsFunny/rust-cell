@@ -4,7 +4,8 @@ pub mod log_hook {
     use crate::loglevel::LogLevel;
 
     pub struct LogEntry {
-        pub log_level: LogLevel
+        pub log_level: LogLevel,
+        pub msg :str
 
     }
 
