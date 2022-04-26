@@ -5,3 +5,9 @@ pub enum LogLevel {
     WARN,
     ERROR,
 }
+
+impl LogLevel {
+    pub fn is_bigger(&self, l: LogLevel) -> bool {
+        false
+    }
+}

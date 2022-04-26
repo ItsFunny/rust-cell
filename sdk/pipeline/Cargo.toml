@@ -1,12 +1,8 @@
 [package]
-name = "logsdk"
+name = "pipeline"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-log = "0.4.14"
-cell-base-common={version="0.1.0",path="../../base/cell-base-common"}
-log4rs = "0.10.0"
-thread_local = "1.1"

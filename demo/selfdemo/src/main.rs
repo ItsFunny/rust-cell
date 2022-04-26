@@ -7,6 +7,9 @@ use backtrace::Backtrace;
 use std::borrow::Borrow;
 use std::fmt::Arguments;
 use std::ptr::null;
+use std::{thread, time};
+use std::cell::RefCell;
+use std::thread::LocalKey;
 use log::{error, Level, LevelFilter, Log, Metadata, Record};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
@@ -70,10 +73,50 @@ impl log::Log for Mylog {
 //     println!("{:?}", bt);
 // }
 
+thread_local! {
+    // Note lack of pub
+    static FOO: RefCell<usize> = RefCell::new(0);
+}
+struct Bar {
+    // Visibility here changes what can see `foo`.
+    foo: &'static LocalKey<RefCell<usize>>,
+    // Rest of your data.
+}
+
+impl Bar {
+    fn constructor() -> Self {
+        Self {
+            foo: &FOO,
+            // Rest of your data.
+        }
+    }
+}
+
 fn main() {
     // init_log();
+    test_thread_local();
+    let b = Bar::constructor();
+    b.foo.with(|x| x.replace(123));
+    println!("{:?}", b.foo)
+}
 
 
+pub struct thread_local_demo {}
+
+impl thread_local_demo {
+    thread_local! {
+ // Could add pub to make it public to whatever Foo already is public to.
+        static FOO: RefCell<usize> = RefCell::new(0);
+    }
+}
+
+fn test_thread_local() {
+    // thread_local_demo::FOO.with(|x| println!(":%?", x)
+    // )
+}
+
+
+fn testlog() {
     log::set_max_level(log::LevelFilter::Trace);
     log::set_logger(&Mylog {});
     // env_logger::init();

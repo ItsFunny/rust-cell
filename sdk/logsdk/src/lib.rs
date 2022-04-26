@@ -6,6 +6,9 @@ pub mod hook;
 mod event;
 pub mod layout;
 mod logwrapper;
+mod filter;
+mod logenums;
+mod logcache;
 
 use logwrapper::{LevelFilter, Log, SetLoggerError};
 use crate::logsdk::CommonLogger;
