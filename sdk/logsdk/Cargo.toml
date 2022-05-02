@@ -9,4 +9,3 @@ edition = "2021"
 log = "0.4.14"
 cell-base-common={version="0.1.0",path="../../base/cell-base-common"}
 log4rs = "0.10.0"
-thread_local = "1.1"
