@@ -4,11 +4,12 @@ extern crate log4rs;
 
 use backtrace::Backtrace;
 
-use std::borrow::Borrow;
+use std::borrow::{Borrow, BorrowMut};
 use std::fmt::Arguments;
 use std::ptr::null;
 use std::{thread, time};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::thread::LocalKey;
 use log::{error, Level, LevelFilter, Log, Metadata, Record};
 use log4rs::append::console::ConsoleAppender;
@@ -92,12 +93,15 @@ impl Bar {
     }
 }
 
+
 fn main() {
     // init_log();
-    test_thread_local();
-    let b = Bar::constructor();
-    b.foo.with(|x| x.replace(123));
-    println!("{:?}", b.foo)
+    // test_thread_local();
+    // let b = Bar::constructor();
+    // b.foo.with(|x| x.replace(123));
+    // println!("{:?}", b.foo)
+
+    testH();
 }
 
 
@@ -113,6 +117,24 @@ impl thread_local_demo {
 fn test_thread_local() {
     // thread_local_demo::FOO.with(|x| println!(":%?", x)
     // )
+}
+
+pub struct A {
+    pub m: HashMap<i32, i32>,
+}
+
+fn testH() {
+    let mut a = &mut A { m: HashMap::<i32, i32>::new() };
+    a.m.insert(4, 5);
+    let mut m = &mut a.m;
+    m.insert(1, 2);
+    // a.m = HashMap::<i32, i32>::new();
+    a.m.drain();
+    // a.m.insert(1, 2);
+    // let mut m = a.m.borrow_mut();
+    // m.insert(1, 2);
+    // a.m.insert(1, 2);
+    println!("{:?}", a.m)
 }
 
 
