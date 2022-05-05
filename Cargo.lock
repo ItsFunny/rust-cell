@@ -249,6 +249,7 @@ name = "logsdk"
 version = "0.1.0"
 dependencies = [
  "cell-base-common",
+ "chrono",
  "log",
  "log4rs",
 ]

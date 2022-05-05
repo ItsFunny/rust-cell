@@ -96,18 +96,17 @@ impl Bar {
 
 fn main() {
     let mut a = "asd";
-    p(a);
+    // p(a);
     // init_log();
     // test_thread_local();
     // let b = Bar::constructor();
     // b.foo.with(|x| x.replace(123));
     // println!("{:?}", b.foo)
 
+    testlog();
 
-    testH();
+    // testH();
 }
-
-fn p(s: * str) {}
 
 
 pub struct thread_local_demo {}
@@ -151,11 +150,18 @@ fn testlog() {
     // trace!("A trace");
     // debug!("A debug");
     // info!("A info");
-    info!("asddd {},",1);
+    // let f = file!();
+    // let v = module_path!();
+    // println!("{},{}", v, f);
+    // info!("asddd {},",1);
     info!(target:"阿萨德理论框架", "File info");
     warn!("A warn");
     error!("A error");
     let bt = Backtrace::new();
+    let frames = bt.frames();
+    for v in frames {
+        println!("{:?}", v)
+    }
     // do_some_work();
     println!("{:?}", bt);
 }

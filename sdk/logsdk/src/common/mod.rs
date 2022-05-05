@@ -1,3 +1,9 @@
+use std::fmt::{Display, Formatter, write};
+use crate::module::Module;
+
+static log_level_simple: [char; 5] = ['T', 'D', 'I', 'W', 'E'];
+
+#[derive(Debug)]
 pub enum LogLevel {
     Trace = 1,
     Debug = 2,
@@ -8,20 +14,35 @@ pub enum LogLevel {
 
 
 impl LogLevel {
-    pub fn get_value(&self) -> i16 {
-        1
+    pub fn get_value(self) -> usize {
+        self as usize
     }
 }
 
-pub struct LogEntry<'a> {
-    pub msg: &'a str,
-    pub log_level: LogLevel,
+impl Clone for LogLevel {
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 
-pub struct EntryFactory {}
+impl Copy for LogLevel {}
 
-impl EntryFactory {
-    pub fn new_log_entry(msg: &str, l: LogLevel) -> LogEntry {
-        LogEntry { msg: msg, log_level: l }
+
+pub fn get_simple_loglevel(l: &LogLevel) -> char {
+    let v = *l;
+    log_level_simple[v.get_value()]
+}
+
+#[derive(Debug)]
+pub struct LogEntry {
+    pub msg: *const str,
+    pub log_level: LogLevel,
+    pub module: &'static dyn Module,
+}
+
+
+impl Display for LogEntry {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "msg:{:?},loglevel:{:?},module:{}", self.msg, self.log_level, self.module)
     }
 }
