@@ -160,7 +160,10 @@ fn testlog() {
     let bt = Backtrace::new();
     let frames = bt.frames();
     for v in frames {
-        println!("{:?}", v)
+        println!("{:?}", v);
+        for s in v.symbols() {
+            println!("{},{:?},{}", s.name().unwrap(), s.addr(), s.lineno().unwrap())
+        }
     }
     // do_some_work();
     println!("{:?}", bt);

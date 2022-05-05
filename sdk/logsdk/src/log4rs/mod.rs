@@ -38,16 +38,9 @@ impl Log4rsLogger {
                 level = log::Level::Error;
             }
         }
-        // let m = format_args!("{:}", entry.msg);
-        // let rr = log::Record::builder()
-        //     .level(level)
-        //     .args(m);
-        // let r = &rr.build();
-        // self.log4rs.log(r);
-        println!("{:?}",entry.msg);
         self.log4rs.log(&log::Record::builder()
             .level(level)
-            .args(format_args!("{:?}", entry.msg))
+            .args(format_args!("{}", entry.msg))
             .build());
     }
     pub fn new(m: &CellModule) -> Self {
@@ -152,6 +145,7 @@ mod log_config {
         // }
 
         let stdout = ConsoleAppender::builder()
+            .encoder(Box::new(PatternEncoder::new("{m}{n}")))
             // .encoder(Box::new(log4rs::PatternEncoder::new(pattern)))
             .build();
 
@@ -176,7 +170,7 @@ mod tests {
     fn test_log() {
         static m: &CellModule = &module::CellModule::new(1, "asd", &LogLevel::Info);
         let l = Log4rsLogger::new(m);
-        let entry = LoggerEntryContext::create_log_entry(m, LogLevel::Info, "asdddd");
+        let entry = LoggerEntryContext::create_log_entry(m, LogLevel::Info, file!(), line!(), "asdddd");
         l.log(entry);
         // let entry = EntryFactory::new_log_entry("asdkjkk", LogLevel::Info);
         // l.loglevel_to_log4rs(&entry);

@@ -35,7 +35,7 @@ pub fn get_simple_loglevel(l: LogLevel) -> char {
 
 #[derive(Debug)]
 pub struct LogEntry {
-    pub msg: *const str,
+    pub msg: String,
     pub log_level: LogLevel,
     pub module: &'static dyn Module,
 }
