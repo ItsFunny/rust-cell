@@ -95,14 +95,19 @@ impl Bar {
 
 
 fn main() {
+    let mut a = "asd";
+    p(a);
     // init_log();
     // test_thread_local();
     // let b = Bar::constructor();
     // b.foo.with(|x| x.replace(123));
     // println!("{:?}", b.foo)
 
+
     testH();
 }
+
+fn p(s: * str) {}
 
 
 pub struct thread_local_demo {}
