@@ -15,7 +15,7 @@ pub mod log {
     use crate::module::Module;
 
     pub trait MLogger {
-        fn log(&self, entry: &LogEntry);
+        fn log(&self, entry: LogEntry);
     }
 
     pub struct Logger {}
@@ -24,22 +24,22 @@ pub mod log {
     pub struct LoggerEntryContext {}
 
     impl LoggerEntryContext {
-        pub fn create_log_entry<'a>(m: &'static dyn Module, format_msg: &'a str) -> LogEntry {
-            let msg = default_format_msg(m, format_msg);
-            let ret = LogEntry { msg: msg.as_str(), log_level: LogLevel::Trace, module: m };
+        pub fn create_log_entry<'a>(m: &'static dyn Module, l: LogLevel, format_msg: &'a str) -> LogEntry {
+            let msg = default_format_msg(m, l, format_msg);
+            println!("{}", msg);
+            println!("{}", msg.as_str());
+            let ret = LogEntry { msg: msg.as_str(), log_level: l, module: m };
             return ret;
         }
     }
 }
 
-fn default_format_msg<'a>(m: &'static dyn Module, format_msg: &'a str) -> String {
+fn default_format_msg<'a>(m: &'static dyn Module, l: LogLevel, format_msg: &'a str) -> String {
 // date (code) [module][loglevel]info
     let file = get_log_file();
     let line = line!();
     let now = get_current_time_str();
-    let l = m.log_level();
-    let ret = format!("{} ({}:{}) [{}][{}]{}", now, file, line, m.name(), get_simple_loglevel(l), format_msg);
-    ret
+    format!("{} ({}:{}) [{}][{}]{}", now, file, line, m.name(), get_simple_loglevel(l), format_msg)
 }
 
 fn get_log_file<'a>() -> &'a str {
@@ -75,14 +75,14 @@ mod tests {
     #[test]
     fn test_format() {
         static m1: &CellModule = &CellModule::new(1, "M", &LogLevel::Info);
-        let msg = default_format_msg(m1, "msg");
+        let msg = default_format_msg(m1, LogLevel::Info, "msg");
         println!("{}", msg);
     }
 
     #[test]
     fn test_create_entry() {
         static m2: &CellModule = &CellModule::new(1, "M2", &LogLevel::Info);
-        let entry = LoggerEntryContext::create_log_entry(m2, "asdd");
+        let entry = LoggerEntryContext::create_log_entry(m2, LogLevel::Info, "asdd");
         println!("{:?}", entry)
     }
 }

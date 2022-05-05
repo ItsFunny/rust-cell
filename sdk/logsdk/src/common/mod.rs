@@ -28,9 +28,9 @@ impl Clone for LogLevel {
 impl Copy for LogLevel {}
 
 
-pub fn get_simple_loglevel(l: &LogLevel) -> char {
-    let v = *l;
-    log_level_simple[v.get_value()]
+pub fn get_simple_loglevel(l: LogLevel) -> char {
+    // let v = *l;
+    log_level_simple[l.get_value()]
 }
 
 #[derive(Debug)]

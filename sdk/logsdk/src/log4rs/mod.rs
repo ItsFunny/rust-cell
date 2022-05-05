@@ -7,20 +7,19 @@ use crate::module::{CellModule, Module};
 use log4rs::append::console::ConsoleAppender;
 
 pub struct Log4rsLogger {
-    m: CellModule,
     log4rs: log4rs::Logger,
 
 }
 
 impl MLogger for Log4rsLogger {
-    fn log(&self, entry: &LogEntry) {
+    fn log(&self, entry: LogEntry) {
         self.loglevel_to_log4rs(entry);
     }
 }
 
 
 impl Log4rsLogger {
-    fn loglevel_to_log4rs(&self, entry: &LogEntry) {
+    fn loglevel_to_log4rs(&self, entry: LogEntry) {
         let level;
         match entry.log_level {
             LogLevel::Trace => {
@@ -45,17 +44,18 @@ impl Log4rsLogger {
         //     .args(m);
         // let r = &rr.build();
         // self.log4rs.log(r);
+        println!("{:?}",entry.msg);
         self.log4rs.log(&log::Record::builder()
             .level(level)
             .args(format_args!("{:?}", entry.msg))
             .build());
     }
-    pub fn new(m: CellModule) -> Self {
+    pub fn new(m: &CellModule) -> Self {
         let module_name = m.name();
         let level = m.log_level();
         let cfg = setup_by_name(module_name, level);
         let lg4 = log4rs::Logger::new(cfg);
-        let mut ret = Log4rsLogger { m, log4rs: lg4 };
+        let mut ret = Log4rsLogger { log4rs: lg4 };
         ret
     }
 }
@@ -168,13 +168,16 @@ mod tests {
     use std::borrow::Borrow;
     use crate::common::{LogLevel};
     use crate::log4rs::Log4rsLogger;
+    use crate::log::{LoggerEntryContext, MLogger};
     use crate::module;
     use crate::module::{CellModule, Module};
 
     #[test]
     fn test_log() {
-        let m = module::CellModule::new(1, "asd", &LogLevel::Info);
+        static m: &CellModule = &module::CellModule::new(1, "asd", &LogLevel::Info);
         let l = Log4rsLogger::new(m);
+        let entry = LoggerEntryContext::create_log_entry(m, LogLevel::Info, "asdddd");
+        l.log(entry);
         // let entry = EntryFactory::new_log_entry("asdkjkk", LogLevel::Info);
         // l.loglevel_to_log4rs(&entry);
         // let name = l.m.name();
