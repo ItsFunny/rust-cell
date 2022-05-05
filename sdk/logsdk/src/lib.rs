@@ -12,25 +12,17 @@ use crate::module::Module;
 
 const DATE_FORMAT_STR: &'static str = "%Y/%m/%d %H:%M:%S";
 const SKIP_CALLER: usize = 3;
-
 lazy_static! {
     static ref validList:  Vec<&'static str>={
         let mut  ret=Vec::new();
         ret.push("rust-cell/sdk/logsdk/src/lib.rs");
         ret
     };
-static    ref  blackList:  Vec<&'static str>={
+    static ref  blackList:  Vec<&'static str>={
         let mut  ret=Vec::new();
         ret.push("rust-cell/sdk/logsdk/src/lib.rs");
         ret
     };
-}
-
-pub fn AppendBlackList(str: &'static str) {
-    unsafe {
-        // BlackListMap.insert(str);
-        // println!("{:?}", BlackListMap);
-    }
 }
 
 pub mod log {
