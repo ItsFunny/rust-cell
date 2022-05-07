@@ -1,6 +1,7 @@
 pub mod consumer;
 pub mod events;
 pub mod hook;
+pub mod cellerrors;
 
 #[cfg(test)]
 mod tests {

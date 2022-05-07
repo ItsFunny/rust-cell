@@ -1,5 +1,7 @@
+mod cell_macro;
+
 use std::thread::sleep;
-use log::{Log, RecordBuilder};
+use log::{info, Log, RecordBuilder};
 use crate::common::{LogEntry, LogLevel};
 use crate::log::{Logger, MLogger};
 use crate::log4rs::log_config::{AppenderProperty, setup_by_name};
@@ -8,7 +10,6 @@ use log4rs::append::console::ConsoleAppender;
 
 pub struct Log4rsLogger {
     log4rs: log4rs::Logger,
-
 }
 
 impl MLogger for Log4rsLogger {
@@ -130,19 +131,6 @@ mod log_config {
                 level_filter = LevelFilter::Warn
             }
         }
-        // if property.default_append_property.level.get_value() == LogLevel::Debug.get_value() {
-        //     level = Level::Debug;
-        //     level_filter = LevelFilter::Debug
-        // } else if property.default_append_property.level.get_value() == LogLevel::Trace.get_value() {
-        //     level = Level::Trace;
-        //     level_filter = LevelFilter::Trace
-        // } else if property.default_append_property.level.get_value() == LogLevel::Info.get_value() {
-        //     level = Level::Info;
-        //     level_filter = LevelFilter::Info
-        // } else {
-        //     level = Level::Error;
-        //     level_filter = LevelFilter::Error
-        // }
 
         let stdout = ConsoleAppender::builder()
             .encoder(Box::new(PatternEncoder::new("{m}{n}")))
@@ -160,17 +148,20 @@ mod log_config {
 #[cfg(test)]
 mod tests {
     use std::borrow::Borrow;
+    use backtrace::Backtrace;
     use crate::common::{LogLevel};
     use crate::log4rs::Log4rsLogger;
     use crate::log::{LoggerEntryContext, MLogger};
-    use crate::module;
+    use crate::{module, stack_trace};
     use crate::module::{CellModule, Module};
 
     #[test]
     fn test_log() {
         static m: &CellModule = &module::CellModule::new(1, "asd", &LogLevel::Info);
         let l = Log4rsLogger::new(m);
-        let entry = LoggerEntryContext::create_log_entry(m, LogLevel::Info, file!(), line!(), "asdddd");
+        let bt = Backtrace::new();
+        let (s, line) = stack_trace(&bt);
+        let entry = LoggerEntryContext::create_log_entry(m, LogLevel::Info, s, line, "asdddd");
         l.log(entry);
         // let entry = EntryFactory::new_log_entry("asdkjkk", LogLevel::Info);
         // l.loglevel_to_log4rs(&entry);
