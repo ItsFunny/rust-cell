@@ -46,8 +46,9 @@ static mut CONFIGURATION: &CellLoggerConfiguration = &CellLoggerConfiguration {
 pub mod log {
     use std::collections::HashSet;
     use std::fmt::format;
+    use backtrace::Backtrace;
     use crate::common::{get_simple_loglevel, LogEntry, LogLevel};
-    use crate::{DATE_FORMAT_STR, default_format_msg, get_current_time_str};
+    use crate::{DATE_FORMAT_STR, default_format_msg, get_current_time_str, get_log_info, stack_trace};
     use crate::module::Module;
 
     pub trait MLogger {
@@ -55,31 +56,38 @@ pub mod log {
     }
 
     pub struct Logger {
-        logger: dyn MLogger,
+        logger: Box<dyn MLogger>,
     }
 
 
     impl Logger {
-        pub fn info(m: &'static dyn Module,msg :String) {}
-        // pub fn log(m: &'static dyn Module,
-        //            l: LogLevel,
-        //            fileStr: &str,
-        //            lineNo: u32,
-        //            format_msg: &'a str) {
-        //     LoggerEntryContext::create_log_entry(m,)
-        // }
+        pub fn info(&self, m: &'static dyn Module, msg: String) {
+            let bt = &Backtrace::new();
+            let (file_str, line_no) = stack_trace(bt);
+            self.log(m, LogLevel::Info, file_str, line_no, msg.as_str())
+        }
+        pub fn log(&self, m: &'static dyn Module,
+                   l: LogLevel,
+                   file_str: &str,
+                   line_no: u32,
+                   format_msg: &str) {
+            let entry = LoggerEntryContext::create_log_entry(m, l, file_str, line_no, format_msg);
+            self.logger.log(entry)
+        }
+        pub fn new(logger: Box<dyn MLogger>) -> Self {
+            Logger { logger }
+        }
     }
-
 
     pub struct LoggerEntryContext {}
 
     impl LoggerEntryContext {
         pub fn create_log_entry(m: &'static dyn Module,
-                                    l: LogLevel,
-                                    fileStr: &str,
-                                    lineNo: u32,
-                                    format_msg: &str) -> LogEntry {
-            let ret = LogEntry { msg: default_format_msg(m, fileStr, lineNo, l, format_msg), log_level: l, module: m };
+                                l: LogLevel,
+                                file_str: &str,
+                                line_no: u32,
+                                format_msg: &str) -> LogEntry {
+            let ret = LogEntry { msg: default_format_msg(m, file_str, line_no, l, format_msg), log_level: l, module: m };
             return ret;
         }
     }
@@ -127,37 +135,37 @@ fn setup_logger_configuration_inner<F>(make_f: F) -> Result<(), CellError>
 
 // TODO awful
 fn default_format_msg(m: &'static dyn Module,
-                          fileStr: &str,
-                          lineNo: u32,
-                          l: LogLevel, format_msg: &str) -> String {
+                      file_str: &str,
+                      line_no: u32,
+                      l: LogLevel, format_msg: &str) -> String {
     // date (code) [module][loglevel]info
     let now = get_current_time_str();
-    let mut arrs: Vec<&str> = fileStr.split("/").collect();
-    let mut file_info = fileStr;
+    let mut arrs: Vec<&str> = file_str.split("/").collect();
+    let mut file_info = file_str;
     let r;
     if arrs.len() > SKIP_CALLER {
         arrs.drain(0..=(arrs.len() - SKIP_CALLER));
         r = arrs.join("/");
         file_info = r.as_str();
     }
-    format!("{} ({}:{}) [{}][{}]{}", now, file_info, lineNo, m.name(), get_simple_loglevel(l), format_msg)
+    format!("{} ({}:{}) [{}][{}]{}", now, file_info, line_no, m.name(), get_simple_loglevel(l), format_msg)
 }
 
 fn stack_trace<'a>(bt: &'a Backtrace) -> (&str, u32) {
-    let fileStr;
-    let lineNo;
+    let file_str;
+    let line_no;
     let (file, line) = get_log_info(&bt);
     match file {
         None => {
-            fileStr = file!();
-            lineNo = line!();
+            file_str = file!();
+            line_no = line!();
         }
         Some(v) => {
-            fileStr = v;
-            lineNo = line.unwrap();
+            file_str = v;
+            line_no = line.unwrap();
         }
     }
-    return (fileStr, lineNo);
+    return (file_str, line_no);
 }
 
 // TODO bad code
@@ -203,7 +211,7 @@ mod tests {
     use std::time::SystemTime;
     use crate::{DATE_FORMAT_STR, default_format_msg, LogLevel, Module};
     use chrono::Local;
-    use crate::log::LoggerEntryContext;
+    use crate::log::{Logger, LoggerEntryContext};
     use crate::module::CellModule;
 
     #[test]

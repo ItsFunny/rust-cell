@@ -151,7 +151,7 @@ mod tests {
     use backtrace::Backtrace;
     use crate::common::{LogLevel};
     use crate::log4rs::Log4rsLogger;
-    use crate::log::{LoggerEntryContext, MLogger};
+    use crate::log::{Logger, LoggerEntryContext, MLogger};
     use crate::{module, stack_trace};
     use crate::module::{CellModule, Module};
 
@@ -167,5 +167,13 @@ mod tests {
         // l.loglevel_to_log4rs(&entry);
         // let name = l.m.name();
         // println!("{}", name);
+    }
+
+    #[test]
+    fn test_logger() {
+        static m: &CellModule = &module::CellModule::new(1, "LOGGER", &LogLevel::Info);
+        let l = Log4rsLogger::new(m);
+        let logger = Logger::new(Box::new(l));
+        logger.info(m, String::from("rust msg "));
     }
 }
