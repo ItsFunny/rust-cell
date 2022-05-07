@@ -10,8 +10,8 @@ use chrono::Local;
 use lazy_static::lazy_static;
 use cell_base_common::cellerrors::{CellError, ErrorEnum};
 use crate::common::{get_simple_loglevel, LogLevel};
-use crate::log::CellLoggerConfiguration;
-use crate::module::Module;
+use crate::log::{CellLoggerConfiguration, Logger};
+use crate::module::{CellModule, Module};
 
 const DATE_FORMAT_STR: &'static str = "%Y/%m/%d %H:%M:%S";
 const SKIP_CALLER: usize = 3;
@@ -42,6 +42,8 @@ static mut CONFIGURATION: &CellLoggerConfiguration = &CellLoggerConfiguration {
         "src/capture.rs",
         "rust-cell/sdk/logsdk/src/lib.rs", ],
 };
+static mut GLOBAL_LOGLEVEL: &LogLevel = &LogLevel::Info;
+static DEFAULT_MODULE: CellModule = CellModule::new(1, "ALL", unsafe { GLOBAL_LOGLEVEL });
 
 pub mod log {
     use std::collections::HashSet;
@@ -59,6 +61,8 @@ pub mod log {
         logger: Box<dyn MLogger>,
     }
 
+    // logger 是无状态的,可以直接实现
+    unsafe impl Sync for Logger {}
 
     impl Logger {
         pub fn info(&self, m: &'static dyn Module, msg: String) {

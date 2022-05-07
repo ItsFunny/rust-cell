@@ -1,12 +1,22 @@
 mod cell_macro;
 
+use std::borrow::Borrow;
+use std::cell::RefCell;
+use std::sync::Arc;
 use std::thread::sleep;
+use lazy_static::lazy_static;
 use log::{info, Log, RecordBuilder};
 use crate::common::{LogEntry, LogLevel};
 use crate::log::{Logger, MLogger};
 use crate::log4rs::log_config::{AppenderProperty, setup_by_name};
 use crate::module::{CellModule, Module};
 use log4rs::append::console::ConsoleAppender;
+use crate::DEFAULT_MODULE;
+
+lazy_static! {
+static ref  DEFAULT_LOGGER: Logger =Logger::new(Box::new(Log4rsLogger::new(&DEFAULT_MODULE)));
+}
+
 
 pub struct Log4rsLogger {
     log4rs: log4rs::Logger,
@@ -148,9 +158,10 @@ mod log_config {
 #[cfg(test)]
 mod tests {
     use std::borrow::Borrow;
+    use std::{thread, time};
     use backtrace::Backtrace;
     use crate::common::{LogLevel};
-    use crate::log4rs::Log4rsLogger;
+    use crate::log4rs::{DEFAULT_LOGGER, Log4rsLogger};
     use crate::log::{Logger, LoggerEntryContext, MLogger};
     use crate::{module, stack_trace};
     use crate::module::{CellModule, Module};
@@ -163,10 +174,6 @@ mod tests {
         let (s, line) = stack_trace(&bt);
         let entry = LoggerEntryContext::create_log_entry(m, LogLevel::Info, s, line, "asdddd");
         l.log(entry);
-        // let entry = EntryFactory::new_log_entry("asdkjkk", LogLevel::Info);
-        // l.loglevel_to_log4rs(&entry);
-        // let name = l.m.name();
-        // println!("{}", name);
     }
 
     #[test]
@@ -175,5 +182,19 @@ mod tests {
         let l = Log4rsLogger::new(m);
         let logger = Logger::new(Box::new(l));
         logger.info(m, String::from("rust msg "));
+    }
+
+    #[test]
+    fn test_default_log() {
+        static M: &CellModule = &module::CellModule::new(1, "LOGGER", &LogLevel::Info);
+        DEFAULT_LOGGER.info(M, String::from("zzzzzzzz"));
+        for i in 0..10 {
+            thread::spawn(move || {
+                let v = i.to_string();
+                DEFAULT_LOGGER.info(M, v);
+            });
+        }
+        let ten_millis = time::Duration::from_millis(10);
+        thread::sleep(ten_millis)
     }
 }
