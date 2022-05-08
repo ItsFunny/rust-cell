@@ -179,13 +179,7 @@ pub mod log {
     }
 }
 
-// type PaintF<'a, I: Into<Cow<'a, S>>, S: 'a + ToOwned + ?Sized + Debug> = dyn Fn(I) -> ANSIGenericString<'a, S>;
 type PaintF = fn(&str) -> ANSIGenericString<'_, str>;
-// type PaintF = dyn Fn(&str) -> ANSIGenericString<'_, str>;
-
-pub fn register_black_list(bs: &'static [&'static str]) {
-    unsafe {}
-}
 
 pub fn setup_logger_configuration(cfg: &'static CellLoggerConfiguration) {
     setup_logger_configuration_inner(|| cfg);
