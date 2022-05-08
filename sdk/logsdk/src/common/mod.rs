@@ -1,15 +1,15 @@
 use std::fmt::{Display, Formatter, write};
 use crate::module::Module;
 
-static log_level_simple: [char; 5] = ['T', 'D', 'I', 'W', 'E'];
+static log_level_simple: [&'static str; 5] = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"];
 
 #[derive(Debug)]
 pub enum LogLevel {
-    Trace = 1,
-    Debug = 2,
-    Info = 3,
-    Warn = 4,
-    Error = 5,
+    Trace = 0,
+    Debug = 1,
+    Info = 2,
+    Warn = 3,
+    Error = 4,
 }
 
 
@@ -28,7 +28,7 @@ impl Clone for LogLevel {
 impl Copy for LogLevel {}
 
 
-pub fn get_simple_loglevel(l: LogLevel) -> char {
+pub fn get_simple_loglevel(l: LogLevel) -> &'static str {
     // let v = *l;
     log_level_simple[l.get_value()]
 }

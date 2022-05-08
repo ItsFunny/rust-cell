@@ -159,12 +159,16 @@ mod log_config {
 mod tests {
     use std::borrow::Borrow;
     use std::{thread, time};
+    use std::collections::HashMap;
+    use ansi_term::Color::Red;
     use backtrace::Backtrace;
+    use lazy_static::lazy_static;
     use crate::common::{LogLevel};
     use crate::log4rs::{DEFAULT_LOGGER, Log4rsLogger};
     use crate::log::{Logger, LoggerEntryContext, MLogger};
-    use crate::{module, stack_trace};
+    use crate::{CellLoggerConfiguration, ColorProperty, DEFAULT_BLACK_LIST, DEFAULT_DEBUG_LEVEL_COLOR, DEFAULT_ERROR_LEVEL_COLOR, DEFAULT_INFO_LEVEL_COLOR, DEFAULT_MODULE_COLOR, DEFAULT_TRACE_LEVEL_COLOR, DEFAULT_WARN_LEVEL_COLOR, module, PaintF, setup_logger_configuration, stack_trace};
     use crate::module::{CellModule, Module};
+    use phf::phf_map;
 
     #[test]
     fn test_log() {
@@ -194,6 +198,7 @@ mod tests {
                 DEFAULT_LOGGER.info(M, v);
             });
         }
+        DEFAULT_LOGGER.error(M, String::from("error msg"));
         let ten_millis = time::Duration::from_millis(10);
         thread::sleep(ten_millis)
     }

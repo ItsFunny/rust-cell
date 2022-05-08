@@ -16,6 +16,7 @@ use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::config::{Appender, Config, Logger, Root};
+use term_painter::{Color, ToStyle};
 
 fn init_log() {
     let _ = log4rs::init_config(build_cfg()).unwrap();
@@ -141,6 +142,39 @@ fn testH() {
     println!("{:?}", a.m)
 }
 
+// fn test_env_log() {
+//     let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "trace");
+//     let mut builder = env_logger::Builder::from_env(env);
+//     println!("builder = {:?}", builder);
+//     builder
+//         .format(|buf, record| {
+//             let level = { buf.default_styled_level(record.level()) };
+//             writeln!(buf, "{}", format_args!("{:>5}", level));
+//             writeln!(buf, " {}", &record.args())
+//         })
+//         .init();
+// }
+
+#[cfg(not(target_os = "windows"))]
+pub const DIMM_COLOR: Color = Color::Custom(123);
+#[cfg(target_os = "windows")]
+pub const DIMM_COLOR: Color = Color::White;
+
+fn test_painter() {
+    let g = Color::Green;
+}
+
+// fn hashed_color(item: &str) -> Color {
+//     match item.bytes().fold(42u16, |c: u32, x: u32| (c ^ x) as u16) {
+//         c @ 0...1 => Color::Custom((c + 2) as u32),
+//         c @ 16...21 => Color::Custom((c + 6) as u32),
+//         c @ 52...55 | c @ 126...129 => Color::Custom((c + 4) as u32),
+//         c @ 163...165 | c @ 200...201 => Color::Custom((c + 3) as u32),
+//         c @ 207 => Color::Custom((c + 1) as u32),
+//         c @ 232...240 => Color::Custom((c + 9) as u32),
+//         c => Color::Custom(c as u32),
+//     }
+// }
 
 fn testlog() {
     log::set_max_level(log::LevelFilter::Trace);
@@ -167,4 +201,22 @@ fn testlog() {
     }
     // do_some_work();
     println!("{:?}", bt);
+}
+
+
+#[cfg(test)]
+mod tests {
+    use term_painter::{Color, ToStyle};
+    use crate::{DIMM_COLOR};
+
+    #[test]
+    fn test_color() {
+        let a = Color::Red.paint("aaaa");
+        println!("{}", Color::Red.paint("aaaa"));
+        println!("{}", Color::Yellow.paint("aaaa"));
+        println!("{}", Color::Black.paint("aaaa"));
+    }
+
+    #[test]
+    fn test_asd() {}
 }
