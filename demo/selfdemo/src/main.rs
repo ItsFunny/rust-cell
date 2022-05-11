@@ -219,4 +219,23 @@ mod tests {
 
     #[test]
     fn test_asd() {}
+
+
+    #[test]
+    fn test_life_time() {
+        struct Context<'a> {
+            vars: Vec<&'a str>,
+        }
+
+        fn main() {
+            let mut v = Context { vars: vec![] };
+            v.vars.push("hello");               // 'a
+
+            {
+                let s = String::from("dd");     // 'b
+                v.vars.push(&s);
+            }
+            println!("{:?}", v.vars);
+        }
+    }
 }

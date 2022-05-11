@@ -1,6 +1,7 @@
 [workspace]
 members=[
     "sdk/logsdk",
+    "sdk/pipeline",
     "demo/selfdemo",
     "base/cell-base-common",
 ]
