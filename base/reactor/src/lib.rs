@@ -2,13 +2,16 @@ pub mod command;
 pub mod context;
 pub mod channel;
 
-type ProtocolID = String;
+type ProtocolID = &'static str;
+
+pub type AliasRequestType = i8;
+
+pub type AliasResponseType = i8;
+
+pub type RunType = i8;
 
 pub mod reactor {
-    pub trait  Channel {
-
-    }
-
+    pub trait Channel {}
 }
 
 

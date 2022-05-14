@@ -1,7 +1,11 @@
+use std::fmt::Debug;
+
+pub trait ExecutorValueTrait: Debug {}
+
 pub mod context {
     pub trait Context {
-        fn discard();
-        fn done() -> bool;
+        fn discard(&mut self);
+        fn done(&self) -> bool;
         // fn unsafe_notify_done();
     }
 
@@ -11,9 +15,7 @@ pub mod context {
     pub trait ServerResponseTrait {}
 
 
-    pub trait  SummaryTrait{
-
-    }
+    pub trait SummaryTrait {}
 }
 
 #[cfg(test)]
