@@ -79,6 +79,36 @@ impl<'e, 'a, V: 'a> DefaultChainExecutor<'e, 'a, V>
 {}
 
 /////////////
+pub struct DefaultClosureReactorExecutor<'e, 'a, V> {
+    f: &'e dyn Fn(&'a V),
+}
+
+impl<'e, 'a, V> DefaultClosureReactorExecutor<'e, 'a, V> {
+    pub fn new(f: &'e dyn Fn(&'a V)) -> Self {
+        DefaultClosureReactorExecutor { f }
+    }
+}
+
+impl<'e, 'a, V> Debug for DefaultClosureReactorExecutor<'e, 'a, V>
+    where
+        V: ExecutorValueTrait<'a> + 'a,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl<'e, 'a, V> ReactorExecutor<'e, 'a, DefaultChainExecutor<'e, 'a, V>, V> for DefaultClosureReactorExecutor<'e, 'a, V>
+    where
+        V: ExecutorValueTrait<'a> + 'a,
+{
+    fn execute(&'e self, v: &'a V, chain: &'e mut DefaultChainExecutor<'e, 'a, V>) {
+        (self.f)(v);
+        chain.execute(v)
+    }
+}
+
+/////////////
 pub struct DefaultReactorExecutor
 {}
 

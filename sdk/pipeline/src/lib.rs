@@ -41,7 +41,7 @@ pub mod pipeline {
             ret
         }
 
-        pub fn execute(&'e mut self, v: &'a V) {
+        pub fn execute(&'e mut self, v: &'a mut V) {
             self.executor.execute(v)
         }
     }
@@ -50,8 +50,10 @@ pub mod pipeline {
 
 #[cfg(test)]
 mod tests {
+    use std::env::var;
     use std::fmt::{Debug, Formatter};
-    use crate::executor::{DefaultChainExecutor, DefaultChainExecutorBuilder, DefaultReactorExecutor, ExecutorValueTrait, ReactorExecutor};
+    use std::rc::Rc;
+    use crate::executor::{DefaultChainExecutor, DefaultChainExecutorBuilder, DefaultClosureReactorExecutor, DefaultReactorExecutor, ExecutorValueTrait, ReactorExecutor};
     use crate::pipeline::DefaultPipeline;
 
     #[test]
@@ -62,6 +64,12 @@ mod tests {
 
     pub struct PipValue {
         pub name: String,
+    }
+
+    impl PipValue {
+        pub fn set_name(&mut self, v: String) {
+            self.name = v
+        }
     }
 
     impl Debug for PipValue {
@@ -78,6 +86,23 @@ mod tests {
         let mut builder = DefaultChainExecutorBuilder::new();
         let executor = builder.executor(exe22).build();
         let mut pip = DefaultPipeline::new(executor);
-        pip.execute(&PipValue { name: String::from("charlie") })
+        pip.execute(&mut PipValue { name: String::from("charlie") })
+    }
+
+    impl<'a> ExecutorValueTrait<'a> for Rc<PipValue> {}
+
+    #[test]
+    fn test_closure() {
+        let mut vv = "asd";
+        let f = |v| {
+            println!("closure {:?},{}", v, vv)
+        };
+        let exe22: &dyn ReactorExecutor<DefaultChainExecutor<PipValue>, PipValue> = &DefaultClosureReactorExecutor::new(&f);
+
+        let exe23: &dyn ReactorExecutor<DefaultChainExecutor<PipValue>, PipValue> = &DefaultClosureReactorExecutor::new(&f);
+        let mut builder = DefaultChainExecutorBuilder::new();
+        let executor = builder.executor(exe22).executor(exe23).build();
+        let mut pip = DefaultPipeline::new(executor);
+        pip.execute(&mut PipValue { name: String::from("charlie") })
     }
 }
