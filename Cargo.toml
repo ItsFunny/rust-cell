@@ -3,8 +3,11 @@ members=[
     "sdk/logsdk",
     "sdk/pipeline",
     "demo/selfdemo",
+    "demo/rocket",
+    "demo/tokio",
     "base/cell-base-common",
     "base/reactor",
     "base/context",
+    "useless/hyper",
 ]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

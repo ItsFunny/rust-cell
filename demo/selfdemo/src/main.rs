@@ -18,6 +18,8 @@ use log4rs::encode::pattern::PatternEncoder;
 use log4rs::config::{Appender, Config, Logger, Root};
 use term_painter::{Color, ToStyle};
 
+
+
 fn init_log() {
     let _ = log4rs::init_config(build_cfg()).unwrap();
     let ll = log4rs::Logger::new(build_cfg());
@@ -237,5 +239,8 @@ mod tests {
             }
             println!("{:?}", v.vars);
         }
+    }
+    #[test]
+    fn test_log(){
     }
 }

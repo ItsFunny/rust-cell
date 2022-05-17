@@ -11,7 +11,7 @@ use crate::log::{Logger, MLogger};
 use crate::log4rs::log_config::{AppenderProperty, setup_by_name};
 use crate::module::{CellModule, Module};
 use log4rs::append::console::ConsoleAppender;
-use crate::DEFAULT_MODULE;
+use crate::{CONFIGURATION, DEFAULT_MODULE};
 
 lazy_static! {
 static ref  DEFAULT_LOGGER: Logger =Logger::new(Box::new(Log4rsLogger::new(&DEFAULT_MODULE)));
@@ -32,6 +32,11 @@ impl MLogger for Log4rsLogger {
 impl Log4rsLogger {
     fn loglevel_to_log4rs(&self, entry: LogEntry) {
         let level;
+        unsafe {
+            if CONFIGURATION.global_loglevel.gt(entry.log_level) {
+                return;
+            }
+        }
         match entry.log_level {
             LogLevel::Trace => {
                 level = log::Level::Trace;
@@ -163,10 +168,11 @@ mod tests {
     use ansi_term::Color::Red;
     use backtrace::Backtrace;
     use lazy_static::lazy_static;
+    use log::{info, log};
     use crate::common::{LogLevel};
     use crate::log4rs::{DEFAULT_LOGGER, Log4rsLogger};
     use crate::log::{Logger, LoggerEntryContext, MLogger};
-    use crate::{CellLoggerConfiguration, ColorProperty, DEFAULT_BLACK_LIST, DEFAULT_DEBUG_LEVEL_COLOR, DEFAULT_ERROR_LEVEL_COLOR, DEFAULT_INFO_LEVEL_COLOR, DEFAULT_MODULE_COLOR, DEFAULT_TRACE_LEVEL_COLOR, DEFAULT_WARN_LEVEL_COLOR, module, PaintF, setup_logger_configuration, stack_trace};
+    use crate::{CellLoggerConfiguration, ColorProperty, CONFIGURATION, DEFAULT_BLACK_LIST, DEFAULT_DEBUG_LEVEL_COLOR, DEFAULT_ERROR_LEVEL_COLOR, DEFAULT_INFO_LEVEL_COLOR, DEFAULT_MODULE_COLOR, DEFAULT_TRACE_LEVEL_COLOR, DEFAULT_WARN_LEVEL_COLOR, module, PaintF, set_global_level_info, setup_logger_configuration, stack_trace};
     use crate::module::{CellModule, Module};
     use phf::phf_map;
 

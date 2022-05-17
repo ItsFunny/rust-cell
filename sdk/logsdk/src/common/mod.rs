@@ -17,7 +17,12 @@ impl LogLevel {
     pub fn get_value(self) -> usize {
         self as usize
     }
+
+    pub fn gt(self, o: LogLevel) -> bool {
+        return self.get_value() > o.get_value();
+    }
 }
+
 
 impl Clone for LogLevel {
     fn clone(&self) -> Self {

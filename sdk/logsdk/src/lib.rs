@@ -15,7 +15,7 @@ use chrono::Local;
 use lazy_static::lazy_static;
 use cell_base_common::cellerrors::{CellError, ErrorEnum};
 use crate::common::{get_simple_loglevel, LogLevel};
-use crate::log::{CellLoggerConfiguration, ColorProperty, Logger};
+use crate::log::{CellLoggerConfiguration, ColorProperty, const_new_default, const_set_loglevel, FF, FFF, Logger};
 use crate::module::{CellModule, Module};
 
 const DATE_FORMAT_STR: &'static str = "%Y/%m/%d %H:%M:%S";
@@ -35,25 +35,15 @@ lazy_static! {
     static ref a:  A = A { m: HashMap::new() };
 }
 static mut MAP: Option<HashMap<Box<String>, Box<String>>> = None;
-static DEFAULT_BLACK_LIST: &'static [&'static str] = &[
+const DEFAULT_BLACK_LIST: &'static [&'static str] = &[
     "src/backtrace/libunwind.rs",
     "src/backtrace/mod.rs",
     "src/capture.rs",
     "rust-cell/sdk/logsdk/src/lib.rs", ];
 
 static ERROR_SETUP_FAILED: &ErrorEnum = &ErrorEnum::Error(1, "setup config failed");
-static mut CONFIGURATION: &CellLoggerConfiguration = &CellLoggerConfiguration {
-    black_list: DEFAULT_BLACK_LIST,
-    color_property: &ColorProperty {
-        trace_level_color: DEFAULT_TRACE_LEVEL_COLOR,
-        debug_level_color: DEFAULT_DEBUG_LEVEL_COLOR,
-        info_level_color: DEFAULT_INFO_LEVEL_COLOR,
-        warn_level_color: DEFAULT_WARN_LEVEL_COLOR,
-        error_level_color: DEFAULT_ERROR_LEVEL_COLOR,
-        default_module_color: DEFAULT_MODULE_COLOR,
-    },
-};
-static mut GLOBAL_LOGLEVEL: &LogLevel = &LogLevel::Info;
+static mut CONFIGURATION: &CellLoggerConfiguration = &const_new_default();
+static mut GLOBAL_LOGLEVEL: &LogLevel = &LogLevel::Trace;
 static DEFAULT_MODULE: CellModule = CellModule::new(1, "ALL", unsafe { GLOBAL_LOGLEVEL });
 
 const DEFAULT_TRACE_LEVEL_COLOR: PaintF = |v| {
@@ -91,7 +81,7 @@ pub mod log {
     use std::fmt::{Debug, format};
     use backtrace::Backtrace;
     use crate::common::{get_simple_loglevel, LogEntry, LogLevel};
-    use crate::{DATE_FORMAT_STR, DEFAULT_DEBUG_LEVEL_COLOR, DEFAULT_ERROR_LEVEL_COLOR, default_format_msg, DEFAULT_INFO_LEVEL_COLOR, DEFAULT_MODULE_COLOR, DEFAULT_TRACE_LEVEL_COLOR, DEFAULT_WARN_LEVEL_COLOR, get_current_time_str, get_log_info, PaintF, stack_trace};
+    use crate::{CONFIGURATION, DATE_FORMAT_STR, DEFAULT_BLACK_LIST, DEFAULT_DEBUG_LEVEL_COLOR, DEFAULT_ERROR_LEVEL_COLOR, default_format_msg, DEFAULT_INFO_LEVEL_COLOR, DEFAULT_MODULE_COLOR, DEFAULT_TRACE_LEVEL_COLOR, DEFAULT_WARN_LEVEL_COLOR, get_current_time_str, get_log_info, PaintF, stack_trace};
     use crate::module::Module;
 
     pub trait MLogger {
@@ -148,10 +138,82 @@ pub mod log {
         }
     }
 
+
     pub struct CellLoggerConfiguration {
+        pub global_loglevel: &'static LogLevel,
         pub black_list: &'static [&'static str],
         pub color_property: &'static ColorProperty,
     }
+
+    impl Clone for CellLoggerConfiguration {
+        fn clone(&self) -> Self {
+            CellLoggerConfiguration {
+                global_loglevel: &LogLevel::Trace,
+                black_list: self.black_list,
+                color_property: self.color_property,
+            }
+        }
+    }
+
+    impl Copy for CellLoggerConfiguration {}
+
+    impl CellLoggerConfiguration {}
+
+    pub trait FF {
+        fn handle(&self, c: &mut CellLoggerConfiguration);
+    }
+
+    pub struct FFF {
+        pub f: fn(c: &CellLoggerConfiguration),
+    }
+
+    impl FF for FFF {
+        fn handle(&self, c: &mut CellLoggerConfiguration) {
+            println!("1")
+        }
+    }
+
+    // TODO,macros
+    pub const fn const_new_default() -> CellLoggerConfiguration {
+        let mut ret = CellLoggerConfiguration {
+            global_loglevel: &LogLevel::Info,
+            black_list: DEFAULT_BLACK_LIST,
+            color_property: &ColorProperty {
+                trace_level_color: DEFAULT_TRACE_LEVEL_COLOR,
+                debug_level_color: DEFAULT_DEBUG_LEVEL_COLOR,
+                info_level_color: DEFAULT_INFO_LEVEL_COLOR,
+                warn_level_color: DEFAULT_WARN_LEVEL_COLOR,
+                error_level_color: DEFAULT_ERROR_LEVEL_COLOR,
+                default_module_color: DEFAULT_MODULE_COLOR,
+            },
+        };
+        const_copy(&ret)
+    }
+
+    pub const fn const_set_loglevel(l: &'static LogLevel) -> CellLoggerConfiguration {
+        let mut ret = CellLoggerConfiguration {
+            global_loglevel: l,
+            black_list: DEFAULT_BLACK_LIST,
+            color_property: &ColorProperty {
+                trace_level_color: DEFAULT_TRACE_LEVEL_COLOR,
+                debug_level_color: DEFAULT_DEBUG_LEVEL_COLOR,
+                info_level_color: DEFAULT_INFO_LEVEL_COLOR,
+                warn_level_color: DEFAULT_WARN_LEVEL_COLOR,
+                error_level_color: DEFAULT_ERROR_LEVEL_COLOR,
+                default_module_color: DEFAULT_MODULE_COLOR,
+            },
+        };
+        const_copy(&ret)
+    }
+
+    pub const fn const_copy(from: &CellLoggerConfiguration) -> CellLoggerConfiguration {
+        CellLoggerConfiguration {
+            global_loglevel: from.global_loglevel,
+            black_list: from.black_list,
+            color_property: from.color_property,
+        }
+    }
+
 
     pub trait ColorTrait: ToOwned + Sized + Debug {}
 
@@ -185,35 +247,49 @@ pub fn setup_logger_configuration(cfg: &'static CellLoggerConfiguration) {
     setup_logger_configuration_inner(|| cfg);
 }
 
+// TODO,use macros
+pub fn set_global_level_info() {
+    const cc: CellLoggerConfiguration = const_set_loglevel(&LogLevel::Info);
+    unsafe {
+        setup_logger_configuration(&cc);
+    }
+}
+// TODO,add black
+// TODO,add module color
+// TODO,add filter & module filter
 // #[cfg(atomic_cas)]
 fn setup_logger_configuration_inner<'a, F>(make_f: F) -> Result<(), CellError>
     where
         F: FnOnce() -> &'static CellLoggerConfiguration,
 {
-    let old_state = match STATE.compare_exchange(
-        UNINITIALIZED,
-        INITIALIZING,
-        Ordering::SeqCst,
-        Ordering::SeqCst,
-    ) {
-        Ok(s) | Err(s) => s,
-    };
-    match old_state {
-        UNINITIALIZED => {
-            unsafe {
-                CONFIGURATION = make_f();
-            }
-            STATE.store(INITIALIZED, Ordering::SeqCst);
-            Ok(())
-        }
-        INITIALIZING => {
-            while STATE.load(Ordering::SeqCst) == INITIALIZING {
-                std::sync::atomic::spin_loop_hint();
-            }
-            Err(CellError::new(ERROR_SETUP_FAILED))
-        }
-        _ => Err(CellError::new((ERROR_SETUP_FAILED))),
+    unsafe {
+        CONFIGURATION = make_f();
     }
+    Ok(())
+    // let old_state = match STATE.compare_exchange(
+    //     UNINITIALIZED,
+    //     INITIALIZING,
+    //     Ordering::SeqCst,
+    //     Ordering::SeqCst,
+    // ) {
+    //     Ok(s) | Err(s) => s,
+    // };
+    // match old_state {
+    //     UNINITIALIZED => {
+    //         unsafe {
+    //             CONFIGURATION = make_f();
+    //         }
+    //         STATE.store(INITIALIZED, Ordering::SeqCst);
+    //         Ok(())
+    //     }
+    //     INITIALIZING => {
+    //         while STATE.load(Ordering::SeqCst) == INITIALIZING {
+    //             std::sync::atomic::spin_loop_hint();
+    //         }
+    //         Err(CellError::new(ERROR_SETUP_FAILED))
+    //     }
+    //     _ => Err(CellError::new((ERROR_SETUP_FAILED))),
+    // }
 }
 
 
@@ -234,7 +310,8 @@ fn default_format_msg(m: &'static dyn Module,
     }
     let (level_color, module_color) = get_color(l, m.name());
     // format!("[{}] {} ({})({}:{}):{}", now, get_simple_loglevel(l), m.name(), file_info, line_no, format_msg)
-    format!("[{}] {} ({})({}:{}):{}", now, level_color(get_simple_loglevel(l)), module_color(m.name()), file_info, line_no, format_msg)
+    let mut ret = format!("[{}] {} ({})({}:{}):{}", now, level_color(get_simple_loglevel(l)), module_color(m.name()), file_info, line_no, format_msg);
+    ret
 }
 
 fn stack_trace<'a>(bt: &'a Backtrace) -> (&str, u32) {
@@ -329,8 +406,9 @@ mod tests {
     use std::time::SystemTime;
     use ansi_term::ANSIGenericString;
     use ansi_term::Color::Red;
-    use crate::{CellLoggerConfiguration, CONFIGURATION, DATE_FORMAT_STR, DEFAULT_DEBUG_LEVEL_COLOR, DEFAULT_ERROR_LEVEL_COLOR, default_format_msg, DEFAULT_INFO_LEVEL_COLOR, DEFAULT_TRACE_LEVEL_COLOR, DEFAULT_WARN_LEVEL_COLOR, LogLevel, Module, PaintF, setup_logger_configuration};
+    use crate::{CellLoggerConfiguration, CONFIGURATION, DATE_FORMAT_STR, DEFAULT_BLACK_LIST, DEFAULT_DEBUG_LEVEL_COLOR, DEFAULT_ERROR_LEVEL_COLOR, default_format_msg, DEFAULT_INFO_LEVEL_COLOR, DEFAULT_MODULE_COLOR, DEFAULT_TRACE_LEVEL_COLOR, DEFAULT_WARN_LEVEL_COLOR, GLOBAL_LOGLEVEL, LogLevel, Module, PaintF, setup_logger_configuration};
     use chrono::Local;
+    use log::error;
     use crate::log::{ColorProperty, Logger, LoggerEntryContext};
     use crate::module::CellModule;
 
@@ -375,5 +453,28 @@ mod tests {
         };
         let ret = v("asd");
         println!("{}", ret);
+    }
+
+    #[test]
+    fn test_change_cfg() {
+        // unsafe {
+        //     println!("{:?}", CONFIGURATION.global_loglevel)
+        // }
+        // static cfg: CellLoggerConfiguration = CellLoggerConfiguration::const_new_default();
+        // setup_logger_configuration(&cfg);
+        // unsafe {
+        //     println!("{:?}", CONFIGURATION.global_loglevel)
+        // }
+    }
+
+    #[test]
+    fn test_change_loglevel() {
+        // unsafe {
+        //     println!("{:?}", CONFIGURATION.global_loglevel);
+        // }
+        // set_global_loglevel(&LogLevel::Error);
+        // unsafe {
+        //     println!("{:?}", CONFIGURATION.global_loglevel);
+        // }
     }
 }

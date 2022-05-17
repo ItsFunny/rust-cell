@@ -15,7 +15,10 @@ pub mod context {
     pub trait ServerResponseTrait {}
 
 
-    pub trait SummaryTrait {}
+    pub trait SummaryTrait {
+        fn get_sequence_id(&self) -> String;
+        fn set_sequence_id(&self, seq_id: String);
+    }
 }
 
 #[cfg(test)]

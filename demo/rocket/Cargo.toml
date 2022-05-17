@@ -1,11 +1,9 @@
 [package]
-name = "reactor"
+name = "rocket"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cell-base-common={version="0.1.0",path="../../base/cell-base-common"}
-context={version="0.1.0",path="../../base/context"}
-chrono = "0.4.19"
+rocket="0.5.0-rc.2"
