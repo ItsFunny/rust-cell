@@ -1,22 +1,22 @@
 #[macro_export]
 macro_rules! cinfo {
     ($m:expr,$e:expr) => {
-        $crate::log_impl!($m,$crate::LogLevel::Info,($e));
+        $crate::log_impl!($m,LogLevel::Info,($e));
     };
 
     ($m:expr,$e:expr, $($rest:tt)*) => {
-        $crate::log_impl!($m,$crate::LogLevel::Info,($e) $($rest)*);
+        $crate::log_impl!($m,LogLevel::Info,($e) $($rest)*);
     };
 }
 
 #[macro_export]
 macro_rules! cdebug {
     ($m:expr,$e:expr) => {
-        $crate::log_impl!($m,$crate::LogLevel::Debug,($e));
+        $crate::log_impl!($m,LogLevel::Debug,($e));
     };
 
     ($m:expr,$e:expr, $($rest:tt)*) => {
-        $crate::log_impl!($m,$crate::LogLevel::Debug,($e) $($rest)*);
+        $crate::log_impl!($m,LogLevel::Debug,($e) $($rest)*);
     };
 }
 
@@ -24,22 +24,22 @@ macro_rules! cdebug {
 #[macro_export]
 macro_rules! cwarn {
     ($m:expr,$e:expr) => {
-        $crate::log_impl!($m,$crate::LogLevel::Warn,($e));
+        $crate::log_impl!($m,LogLevel::Warn,($e));
     };
 
     ($m:expr,$e:expr, $($rest:tt)*) => {
-        $crate::log_impl!($m,$crate::LogLevel::Warn,($e) $($rest)*);
+        $crate::log_impl!($m,LogLevel::Warn,($e) $($rest)*);
     };
 }
 
 #[macro_export]
 macro_rules! cerror {
     ($m:expr,$e:expr) => {
-        $crate::log_impl!($m,$crate::LogLevel::Error,($e));
+        $crate::log_impl!($m,LogLevel::Error,($e));
     };
 
     ($m:expr,$e:expr, $($rest:tt)*) => {
-        $crate::log_impl!($m,$crate::LogLevel::Error,($e) $($rest)*);
+        $crate::log_impl!($m,LogLevel::Error,($e) $($rest)*);
     };
 }
 
@@ -47,7 +47,7 @@ macro_rules! cerror {
 #[doc(hidden)]
 macro_rules! log_impl {
     ($m:expr,$lvl:expr,($($e:expr),*)) => {
-        crate::log4rs::DEFAULT_LOGGER.log($m,$lvl,file!(),line!(),format!("{}",format!($($e),*)).as_str())
+        $crate::log4rs::DEFAULT_LOGGER.log($m,$lvl,file!(),line!(),format!("{}",format!($($e),*)).as_str())
     };
 
     ($m:expr,$lvl:expr,($($e:expr),*) { $($key:ident : $value:expr),* }) => {
@@ -56,11 +56,11 @@ macro_rules! log_impl {
         $(
             msg.push_str(format!("{}={:?},",stringify!($key), $value).as_str());
         )*
-        crate::log4rs::DEFAULT_LOGGER.log($m,$lvl,file!(),line!(),msg.as_str())
+        $crate::log4rs::DEFAULT_LOGGER.log($m,$lvl,file!(),line!(),msg.as_str())
     };
 
     ($m:expr,$lvl:expr,($($e:expr),*) { $($key:ident : $value:expr,)* }) => {
-        $crate::log_impl!($m,$lvl,($($e),*) { $($key : $value),* });
+        crate::log_impl!($m,$lvl,($($e),*) { $($key : $value),* });
     };
 
     ($m:expr,$lvl:expr,($($e:expr),*) $arg:expr) => {
@@ -76,8 +76,8 @@ macro_rules! log_impl {
 
 #[cfg(test)]
 mod tests {
+    use crate::{CellModule, LogLevel, module, set_global_level_info};
     use crate::log4rs::DEFAULT_LOGGER;
-    use crate::{CellModule, LogLevel, module};
 
     #[test]
     fn test_macros() {

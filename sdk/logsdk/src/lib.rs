@@ -1,6 +1,9 @@
 pub mod module;
 pub mod common;
+#[macro_use]
 pub mod log4rs;
+#[macro_use]
+pub mod clog;
 
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -254,6 +257,7 @@ pub fn set_global_level_info() {
         setup_logger_configuration(&cc);
     }
 }
+
 // TODO,add black
 // TODO,add module color
 // TODO,add filter & module filter

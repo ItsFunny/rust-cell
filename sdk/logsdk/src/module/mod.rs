@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 use crate::common::LogLevel;
 
-pub trait Module: Display + Debug {
+pub trait Module: Display + Debug +Sync{
     fn name(&self) -> &'static str;
     fn index(&self) -> i16;
     fn log_level(&self) -> &'static LogLevel;

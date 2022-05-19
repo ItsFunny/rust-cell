@@ -1,4 +1,5 @@
-mod cell_macro;
+#[macro_use]
+pub mod cmacro;
 
 use std::borrow::Borrow;
 use std::cell::RefCell;
@@ -14,7 +15,7 @@ use log4rs::append::console::ConsoleAppender;
 use crate::{CONFIGURATION, DEFAULT_MODULE};
 
 lazy_static! {
-static ref  DEFAULT_LOGGER: Logger =Logger::new(Box::new(Log4rsLogger::new(&DEFAULT_MODULE)));
+pub static ref  DEFAULT_LOGGER: Logger =Logger::new(Box::new(Log4rsLogger::new(&DEFAULT_MODULE)));
 }
 
 

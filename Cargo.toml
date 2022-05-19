@@ -6,8 +6,8 @@ members=[
     "demo/rocket",
     "demo/tokio",
     "base/cell-base-common",
-    "base/reactor",
-    "base/context",
+    "base/core",
     "useless/hyper",
+    "useless/demo"
 ]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
