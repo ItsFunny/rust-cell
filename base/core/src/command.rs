@@ -148,8 +148,10 @@ impl Command {}
 
 #[cfg(test)]
 mod tests {
-    use crate::command::Command;
+    use http::header::HeaderName;
+    use crate::command::{Command, CommandTrait};
     use crate::core::ProtocolID;
+    use crate::wrapper::ContextResponseWrapper;
 
     #[test]
     fn it_works() {
@@ -160,9 +162,10 @@ mod tests {
     #[test]
     fn test_command() {
         let p: ProtocolID = "/protocol/v1" as ProtocolID;
-        // let mut c = Command::default();
-        // c = c.with_protocol_id(p).with_executor(&|v| {
-        //     println!("execute")
-        // });
+        let mut c = Command::default();
+        c = c.with_protocol_id(p).with_executor(&move |ctx, v| {
+            println!("execute");
+            let ret = ContextResponseWrapper::default();
+        });
     }
 }

@@ -144,7 +144,7 @@ mod tests {
     use crate::response::MockResponse;
     use crate::summary::{Summary, SummaryTrait};
     use crate::wrapper::ContextResponseWrapper;
-    use crate::output::{JSONOutputArchive, OutputArchive};
+    use crate::output::{JSONOutputArchive, OutputArchive, Serializable};
     use serde::{Deserialize, Serialize};
 
     #[test]
@@ -157,6 +157,8 @@ mod tests {
     pub struct AARet {
         name: String,
     }
+
+    impl<'a> Serializable<'a> for AARet {}
 
     #[test]
     fn test_command_context() {

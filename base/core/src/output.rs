@@ -6,6 +6,8 @@ use json::JsonValue;
 use serde::{Deserialize, Serialize};
 
 
+pub trait Serializable<'a>: Serialize + Deserialize<'a> + Debug + 'a {}
+
 pub trait OutputArchive: Sync + Send {
     fn as_bytes(&self) -> Bytes;
 }
