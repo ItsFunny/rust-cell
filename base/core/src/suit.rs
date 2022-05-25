@@ -34,8 +34,8 @@ pub struct DefaultCommandSuit<'a> {
 }
 
 impl<'a> DefaultCommandSuit<'a> {
-    pub fn new(command_ctx: &'a dyn BuzzContextTrait<'a>, e: Box<dyn CommandSuit<'a> + 'a>) -> Self {
-        DefaultCommandSuit { command_ctx, concrete: Some(e) }
+    pub fn new(command_ctx: &'a dyn BuzzContextTrait<'a>) -> Self {
+        DefaultCommandSuit { command_ctx, concrete: None }
     }
 
     pub fn set_concrete(&mut self, c: Box<dyn CommandSuit<'a> + 'a>) {
@@ -124,6 +124,7 @@ mod tests {
         let mut ctx: &mut dyn BuzzContextTrait = &mut BaseBuzzContext::new(32, c_ctx);
         let mut mock = EmptyCommandSuite::default();
         let mut box_mock = Box::new(mock);
-        let mut suit = DefaultCommandSuit::new(ctx, box_mock);
+        let mut suit = DefaultCommandSuit::new(ctx);
+        suit.set_concrete(box_mock);
     }
 }
