@@ -1,4 +1,5 @@
+use crate::context::Context;
 
-pub trait  ChannelTrait{
+pub trait ChannelTrait: Context {
 
 }

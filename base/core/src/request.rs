@@ -3,6 +3,7 @@ use http::header::HeaderName;
 use http::{HeaderValue, Response};
 use hyper::Body;
 use tokio::sync::oneshot::Sender;
+use crate::cerror::CellResult;
 use crate::header::name::CellHeaderName;
 use crate::header::value::CellHeaderValue;
 
@@ -10,7 +11,7 @@ pub trait ServerRequestTrait: Send + Sync {}
 
 pub trait ServerResponseTrait: Send + Sync {
      fn add_header(&mut self, key: HeaderName, value: HeaderValue);
-     fn fire_result(&mut self, result: Response<Body>) -> Result<(), Error>;
+     fn fire_result(&mut self, result: Response<Body>) -> CellResult<()>;
 }
 
 

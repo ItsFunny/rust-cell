@@ -2,27 +2,31 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use bytes::Bytes;
 use rocket::response::Body;
+use crate::constants::EnumsProtocolStatus;
 use crate::output::OutputArchive;
 
-pub struct ContextResponseWrapper<'r> {
-    status: Option<i32>,
+pub struct ContextResponseWrapper<'a> {
+    status: Option<&'static EnumsProtocolStatus>,
     headers: HashMap<String, String>,
     body: Option<Bytes>,
-    _prv_r: PhantomData<&'r ()>,
+    _prv_r: PhantomData<&'a ()>,
 }
 
 
-impl<'r> ContextResponseWrapper<'r> {
+impl<'a> ContextResponseWrapper<'a> {
     #[inline(always)]
     pub fn headers(&self) -> &HashMap<String, String> {
         &self.headers
     }
 
-    #[inline(always)]
-    pub fn body_mut(&mut self) -> &Option<Bytes> {
-        &self.body
+    pub fn status(&self) -> Option<&EnumsProtocolStatus> {
+        self.status
     }
-    pub fn with_status(mut self, s: i32) -> Self {
+    #[inline(always)]
+    pub fn body_mut(self) -> Option<Bytes> {
+        self.body
+    }
+    pub fn with_status(mut self, s: &'static EnumsProtocolStatus) -> Self {
         self.status = Some(s);
         self
     }

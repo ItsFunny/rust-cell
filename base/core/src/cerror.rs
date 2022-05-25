@@ -134,6 +134,7 @@ macro_rules! error_enums {
 error_enums!(
     (IO_ERROR,1,"IO FAILED");
     (JSON_SERIALIZE,2,"json serialize failed");
+    (RESPONSE_FAILED,3,"response failed");
 );
 
 

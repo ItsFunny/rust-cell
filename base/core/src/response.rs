@@ -7,6 +7,7 @@ use hyper::Body;
 use futures::*;
 use rocket::figment::map;
 use serde::ser::Error;
+use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::request::ServerResponseTrait;
 
 //////////
@@ -46,9 +47,12 @@ impl ServerResponseTrait for MockResponse {
     }
 
     // TODO
-    fn fire_result(&mut self, result: Response<Body>) -> Result<(), std_error> {
-        let res = self.tx.send(result);
-        Ok(())
+    fn fire_result(&mut self, result: Response<Body>) -> CellResult<()> {
+        self.tx.send(result).and_then(|_| {
+            Ok(())
+        }).map_err(|e| {
+            CellError::from(ErrorEnumsStruct::RESPONSE_FAILED).with_error(Box::new(e))
+        })
     }
 }
 

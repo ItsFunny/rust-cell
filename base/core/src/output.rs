@@ -7,9 +7,21 @@ use futures::task::ArcWake;
 use json::JsonValue;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::cerror::{CellError, CellResult, ErrorEnums, ErrorEnumsStruct};
+use crate::output;
 
 
 pub trait Serializable<'a>: Serialize + Deserialize<'a> + Debug + 'a {}
+
+lazy_static! {
+pub static ref DEFAULT_JSON_OUTPUT_ARCHIVE: JSONOutputArchive<'static> = JSONOutputArchive { _marker: Default::default() };
+    }
+
+
+pub fn as_json_bytes<'a, T: output::Serializable<'a>>(syn: T) -> CellResult<Bytes> {
+    unsafe {
+        DEFAULT_JSON_OUTPUT_ARCHIVE.as_bytes(Box::new(syn))
+    }
+}
 
 pub trait OutputArchive<T>: Sync + Send
 {

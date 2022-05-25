@@ -16,6 +16,8 @@ pub mod input;
 pub mod output;
 pub mod decorator;
 pub mod cerror;
+pub mod constants;
+pub mod suit;
 
 use std::fmt::Debug;
 
