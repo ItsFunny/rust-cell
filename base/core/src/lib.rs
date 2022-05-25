@@ -14,6 +14,8 @@ mod byte_str;
 pub mod header;
 pub mod input;
 pub mod output;
+pub mod decorator;
+pub mod cerror;
 
 use std::fmt::Debug;
 

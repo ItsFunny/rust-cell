@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use bytes::Bytes;
 use http::Response;
 use hyper::Body;
 use tokio::sync::oneshot::Sender;
@@ -8,6 +9,7 @@ use logsdk::log4rs::DEFAULT_LOGGER;
 use crate::context::BuzzContextTrait;
 use crate::core::{AliasRequestType, AliasResponseType, ProtocolID, RunType};
 use crate::ExecutorValueTrait;
+use crate::output::{OutputArchive, Serializable};
 use crate::request::{ServerRequestTrait, ServerResponseTrait};
 use crate::summary::SummaryTrait;
 
@@ -99,6 +101,7 @@ pub struct CommandContext<'a>
     // pub channel: &dyn ChannelTrait,
     // pub command: &dyn CommandTrait<'b>,
     // TODO: ops
+    // pub output: Box<dyn OutputArchive<Bytes>>,
 }
 
 impl Default for Command {
@@ -119,12 +122,14 @@ impl<'a> CommandContext<'a> where
                server_request: &'a mut dyn ServerRequestTrait,
                server_response: &'a mut dyn ServerResponseTrait,
                st: &'a mut dyn SummaryTrait,
+               // output: Box<dyn OutputArchive<dyn Serializable<'a>>>,
     ) -> Self {
         CommandContext {
             module,
             server_request,
             server_response,
             summary: st,
+            // output: output,
         }
     }
 }

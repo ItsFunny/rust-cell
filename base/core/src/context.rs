@@ -91,20 +91,20 @@ impl<'a> BaseBuzzContext<'a> {
             self.command_context.server_response.add_header(h_name, h_value);
         }
 
-        let body_opt = resp.body_mut();
-        match body_opt {
-            Some(body) => {
-                let ret = body.as_bytes();
-                let length_value = HeaderValue::try_from(ret.len()).unwrap();
-                self.command_context.server_response.add_header(CONTENT_LENGTH, length_value);
-                let bbb = Body::from(ret);
-                let fire_resp = Response::builder().body(bbb).unwrap();
-                self.command_context.server_response.fire_result(fire_resp);
-            }
-            None => {
-                // TODO
-            }
-        }
+        // let body_opt = resp.body_mut();
+        // match body_opt {
+        //     Some(body) => {
+        //         let ret = body.as_bytes();
+        //         let length_value = HeaderValue::try_from(ret.len()).unwrap();
+        //         self.command_context.server_response.add_header(CONTENT_LENGTH, length_value);
+        //         let bbb = Body::from(ret);
+        //         let fire_resp = Response::builder().body(bbb).unwrap();
+        //         self.command_context.server_response.fire_result(fire_resp);
+        //     }
+        //     None => {
+        //         // TODO
+        //     }
+        // }
 
         Ok(())
     }
@@ -160,34 +160,35 @@ mod tests {
 
     impl<'a> Serializable<'a> for AARet {}
 
-    #[test]
-    fn test_command_context() {
-        let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
-        static M: &CellModule = &module::CellModule::new(1, "CONTEXT", &LogLevel::Info);
-        let req: &mut dyn ServerRequestTrait = &mut MockRequest {};
-        let resp: &mut dyn ServerResponseTrait = &mut MockResponse::new(txx);
-        let ip = String::from("128");
-        let sequence_id = String::from("seq");
-        let protocol_id: ProtocolID = "p" as ProtocolID;
-        let summ: &mut dyn SummaryTrait = &mut Summary::new(Arc::new(ip), Arc::new(sequence_id), protocol_id);
-        let c_ctx: CommandContext = CommandContext::new(M, req, resp, summ);
-        let mut ctx = BaseBuzzContext::new(32, c_ctx);
-        let body = Body::from(String::from("asd"));
-        let mut wrapper = ContextResponseWrapper::default();
-        wrapper = wrapper.with_body(Box::new(JSONOutputArchive::new(Box::new(AARet { name: "charlie".to_string() }))));
-        let r = tokio::runtime::Runtime::new().unwrap();
-        futures::executor::block_on(ctx.response(&mut wrapper));
-
-        let ret = rxx.recv();
-        match ret {
-            Ok(vv) => {
-                println!("执行成功:{:?}", vv)
-            }
-            Err(e) => {
-                println!("执行失败:{:?}", e)
-            }
-        }
-    }
+    // #[test]
+    // fn test_command_context() {
+    //     let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
+    //     static M: &CellModule = &module::CellModule::new(1, "CONTEXT", &LogLevel::Info);
+    //     let req: &mut dyn ServerRequestTrait = &mut MockRequest {};
+    //     let resp: &mut dyn ServerResponseTrait = &mut MockResponse::new(txx);
+    //     let ip = String::from("128");
+    //     let sequence_id = String::from("seq");
+    //     let protocol_id: ProtocolID = "p" as ProtocolID;
+    //     let summ: &mut dyn SummaryTrait = &mut Summary::new(Arc::new(ip), Arc::new(sequence_id), protocol_id);
+    //
+    //     let c_ctx: CommandContext = CommandContext::new(M, req, resp, summ);
+    //     let mut ctx = BaseBuzzContext::new(32, c_ctx);
+    //     let body = Body::from(String::from("asd"));
+    //     let mut wrapper = ContextResponseWrapper::default();
+    //     wrapper = wrapper.with_body(JSONOutputArchive::new(Box::new(AARet { name: "charlie".to_string() })).as_bytes());
+    //     let r = tokio::runtime::Runtime::new().unwrap();
+    //     futures::executor::block_on(ctx.response(&mut wrapper));
+    //
+    //     let ret = rxx.recv();
+    //     match ret {
+    //         Ok(vv) => {
+    //             println!("执行成功:{:?}", vv)
+    //         }
+    //         Err(e) => {
+    //             println!("执行失败:{:?}", e)
+    //         }
+    //     }
+    // }
 
 
     #[test]
