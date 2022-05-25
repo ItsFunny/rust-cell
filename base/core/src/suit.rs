@@ -5,29 +5,52 @@ pub trait CommandSuit<'a>: Context {
     fn get_buzz_context(&self) -> &'a dyn BuzzContextTrait;
 }
 
+pub struct CommandSuitBuilder<'a> {
+    ctx: &'a dyn BuzzContextTrait<'a>,
+    concrete: Option<&'a mut dyn CommandSuit<'a>>,
+}
+
+impl<'a> CommandSuitBuilder<'a> {
+    pub fn new(c: &'a dyn BuzzContextTrait<'a>) -> Self {
+        CommandSuitBuilder { ctx: c, concrete: None }
+    }
+    pub fn with_concrete(mut self, c: &'a mut dyn CommandSuit<'a>) -> Self {
+        self.concrete = Some(c);
+        self
+    }
+    // pub fn build(mut self) -> DefaultCommandSuit<'a> {
+    //     if let Some(v) = self.concrete {
+    //         DefaultCommandSuit { command_ctx: self.ctx, concrete: v }
+    //     } else {
+    //         let mut mock = EmptyCommandSuite::default();
+    //         DefaultCommandSuit { command_ctx: self.ctx, concrete: &mut mock }
+    //     }
+    // }
+}
+
 pub struct DefaultCommandSuit<'a> {
     command_ctx: &'a dyn BuzzContextTrait<'a>,
-    concrete: &'a mut dyn CommandSuit<'a>,
+    concrete: Option<Box<dyn CommandSuit<'a> + 'a>>,
 }
 
 impl<'a> DefaultCommandSuit<'a> {
-    pub fn new(command_ctx: &'a dyn BuzzContextTrait<'a>, e: &'a mut dyn CommandSuit<'a>) -> Self {
-        DefaultCommandSuit { command_ctx, concrete: e }
+    pub fn new(command_ctx: &'a dyn BuzzContextTrait<'a>, e: Box<dyn CommandSuit<'a> + 'a>) -> Self {
+        DefaultCommandSuit { command_ctx, concrete: Some(e) }
     }
 
-    pub fn set_concrete(&mut self, c: &'a mut dyn CommandSuit<'a>) {
-        self.concrete = c
+    pub fn set_concrete(&mut self, c: Box<dyn CommandSuit<'a> + 'a>) {
+        self.concrete = Some(c)
     }
 }
 
 
 impl<'a> Context for DefaultCommandSuit<'a> {
     fn discard(&mut self) {
-        self.concrete.discard();
+        self.concrete.as_mut().unwrap().discard()
     }
 
     fn done(&mut self) -> bool {
-        self.concrete.done()
+        self.concrete.as_mut().unwrap().done()
     }
 }
 
@@ -78,7 +101,7 @@ mod tests {
     use crate::core::ProtocolID;
     use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
     use crate::response::MockResponse;
-    use crate::suit::{DefaultCommandSuit, EmptyCommandSuite};
+    use crate::suit::{CommandSuit, DefaultCommandSuit, EmptyCommandSuite};
     use crate::summary::{Summary, SummaryTrait};
 
     #[test]
@@ -100,6 +123,7 @@ mod tests {
         let c_ctx: CommandContext = CommandContext::new(M, req, resp, summ);
         let mut ctx: &mut dyn BuzzContextTrait = &mut BaseBuzzContext::new(32, c_ctx);
         let mut mock = EmptyCommandSuite::default();
-        let mut suit = DefaultCommandSuit::new(ctx, &mut mock);
+        let mut box_mock = Box::new(mock);
+        let mut suit = DefaultCommandSuit::new(ctx, box_mock);
     }
 }
