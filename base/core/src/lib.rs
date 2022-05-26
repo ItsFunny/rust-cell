@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate logsdk;
+extern crate core as std_core;
 
 pub mod wrapper;
 pub mod body;
@@ -18,6 +19,8 @@ pub mod decorator;
 pub mod cerror;
 pub mod constants;
 pub mod suit;
+pub mod dispatcher;
+pub mod selector;
 
 use std::fmt::Debug;
 
@@ -40,6 +43,11 @@ pub mod core {
     pub type AliasResponseType = i8;
 
     pub type RunType = i8;
+
+
+    pub fn conv_protocol_to_string(p: ProtocolID) -> String {
+        String::from(p as &str)
+    }
 }
 
 #[cfg(test)]

@@ -190,7 +190,7 @@ mod tests {
 
 
         static M: &CellModule = &module::CellModule::new(1, "CONTEXT", &LogLevel::Info);
-        let req: &mut dyn ServerRequestTrait = &mut MockRequest {};
+        let req: &mut dyn ServerRequestTrait = &mut MockRequest::new();
         let resp: &mut dyn ServerResponseTrait = &mut MockResponse::new(txx);
         let ip = String::from("128");
         let sequence_id = String::from("seq");

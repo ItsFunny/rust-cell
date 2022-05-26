@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt::Error as std_error;
 use std::rc::Rc;
 use std::sync::mpsc::Sender;
@@ -53,6 +54,10 @@ impl ServerResponseTrait for MockResponse {
         }).map_err(|e| {
             CellError::from(ErrorEnumsStruct::RESPONSE_FAILED).with_error(Box::new(e))
         })
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
