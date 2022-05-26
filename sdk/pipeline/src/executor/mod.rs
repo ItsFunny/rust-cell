@@ -7,7 +7,7 @@ pub trait ExecutorValueTrait<'a>: Debug + 'a {}
 
 
 //////////
-pub trait ChainExecutor<'e, 'a, V>: Debug + 'e
+pub trait ChainExecutor<'e:'a, 'a, V>: Debug + 'e
     where
         V: ExecutorValueTrait<'a> + 'a,
         Self: 'e,
@@ -15,12 +15,19 @@ pub trait ChainExecutor<'e, 'a, V>: Debug + 'e
     fn execute(&'e mut self, v: &'a V);
 }
 
-pub trait ReactorExecutor<'e, 'a, E, V>: Debug + 'e
+pub trait ReactorExecutor<'e:'a, 'a, E, V>: Debug + 'e
     where
         V: ExecutorValueTrait<'a> + 'a,
+        E: ChainExecutor<'e, 'a, V> + 'e,
         Self: 'e,
 {
-    fn execute(&'e self, v: &'a V, chain: &'e mut E);
+    fn execute(&'e self, v: &'a V, chain: &'e mut E) {
+        self.on_execute(v);
+        chain.execute(v)
+    }
+    fn on_execute(&'e self, v: &'a V) {
+        // do nothing
+    }
 }
 
 
@@ -35,9 +42,9 @@ pub struct DefaultChainExecutor<'e, 'a, V: 'a>
     index: usize,
 }
 
-impl<'e, 'a, V: 'a> ChainExecutor<'e, 'a, V> for DefaultChainExecutor<'e, 'a, V>
+impl<'e:'a, 'a, V: 'a> ChainExecutor<'e, 'a, V> for DefaultChainExecutor<'e, 'a, V>
     where
-        V: ExecutorValueTrait<'a>,
+        V: ExecutorValueTrait<'a> + 'a,
         Self: 'e,
 {
     fn execute(&'e mut self, v: &'a V) {
@@ -102,9 +109,8 @@ impl<'e, 'a, V> ReactorExecutor<'e, 'a, DefaultChainExecutor<'e, 'a, V>, V> for 
     where
         V: ExecutorValueTrait<'a> + 'a,
 {
-    fn execute(&'e self, v: &'a V, chain: &'e mut DefaultChainExecutor<'e, 'a, V>) {
+    fn on_execute(&'e self, v: &'a V) {
         (self.f)(v);
-        chain.execute(v)
     }
 }
 
@@ -128,18 +134,11 @@ impl<'e, 'a, V> ReactorExecutor<'e, 'a, DefaultChainExecutor<'e, 'a, V>, V> for 
     where
         V: ExecutorValueTrait<'a>
 {
-    fn execute(&'e self, v: &'a V, chain: &'e mut DefaultChainExecutor<'e, 'a, V>) {
-        self.on_execute(v);
-        chain.execute(v)
-    }
-}
-
-impl<'e, 'a> DefaultReactorExecutor
-{
-    fn on_execute<V: ExecutorValueTrait<'a>>(&self, v: &'a V) {
+    fn on_execute(&'e self, v: &'a V) {
         println!("{:?}", v);
     }
 }
+
 /////////////
 
 pub struct DefaultChainExecutorBuilder<'e, 'a, V>
@@ -218,11 +217,11 @@ mod tests {
 
     #[test]
     fn test_chain_executor() {
-        let mut executors: &mut Vec<&Box<dyn ReactorExecutor<DefaultChainExecutor<AA>, AA>>> = &mut Vec::new();
         let mut ess2: &mut Vec<&dyn ReactorExecutor<DefaultChainExecutor<AA>, AA>> = &mut Vec::new();
-        let exe2: Box<dyn ReactorExecutor<DefaultChainExecutor<AA>, AA>> = Box::new(DefaultReactorExecutor::new());
-        let exe22: &dyn ReactorExecutor<DefaultChainExecutor<AA>, AA> = &DefaultReactorExecutor::new();
-        ess2.push(exe22);
+        let e1: &dyn ReactorExecutor<DefaultChainExecutor<AA>, AA> = &DefaultReactorExecutor::new();
+        let e2: &dyn ReactorExecutor<DefaultChainExecutor<AA>, AA> = &DefaultReactorExecutor::new();
+        ess2.push(e1);
+        ess2.push(e2);
 
         let mut chain_executor = DefaultChainExecutor::new(ess2);
         chain_executor.execute(&AA { name: String::from("asd") });

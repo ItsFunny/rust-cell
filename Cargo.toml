@@ -8,6 +8,7 @@ members=[
     "base/cell-base-common",
     "base/core",
     "useless/hyper",
-    "useless/demo"
+    "useless/demo",
+    "useless/tests"
 ]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

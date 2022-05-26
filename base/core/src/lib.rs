@@ -21,7 +21,7 @@ pub mod suit;
 
 use std::fmt::Debug;
 
-pub trait ExecutorValueTrait: Debug {}
+// pub trait ExecutorValueTrait: Debug {}
 
 pub mod core {
     use std::io;
