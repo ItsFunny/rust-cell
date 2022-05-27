@@ -7,7 +7,7 @@ pub trait ExecutorValueTrait<'a>: Debug + 'a {}
 
 
 //////////
-pub trait ChainExecutor<'e:'a, 'a, V>: Debug + 'e
+pub trait ChainExecutor<'e: 'a, 'a, V>: Debug + 'e
     where
         V: ExecutorValueTrait<'a> + 'a,
         Self: 'e,
@@ -15,7 +15,7 @@ pub trait ChainExecutor<'e:'a, 'a, V>: Debug + 'e
     fn execute(&'e mut self, v: &'a V);
 }
 
-pub trait ReactorExecutor<'e:'a, 'a, E, V>: Debug + 'e
+pub trait ReactorExecutor<'e: 'a, 'a, E, V>: Debug + 'e
     where
         V: ExecutorValueTrait<'a> + 'a,
         E: ChainExecutor<'e, 'a, V> + 'e,
@@ -42,7 +42,7 @@ pub struct DefaultChainExecutor<'e, 'a, V: 'a>
     index: usize,
 }
 
-impl<'e:'a, 'a, V: 'a> ChainExecutor<'e, 'a, V> for DefaultChainExecutor<'e, 'a, V>
+impl<'e: 'a, 'a, V: 'a> ChainExecutor<'e, 'a, V> for DefaultChainExecutor<'e, 'a, V>
     where
         V: ExecutorValueTrait<'a> + 'a,
         Self: 'e,

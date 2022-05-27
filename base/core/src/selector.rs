@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::sync::mpsc::Sender;
+use std_core::cell::RefCell;
 use rocket::figment::map;
-use pipeline::executor::{DefaultChainExecutor, ExecutorValueTrait};
+use pipeline::executor::{DefaultChainExecutor, DefaultClosureReactorExecutor, ExecutorValueTrait, ReactorExecutor};
 use crate::cerror::CellResult;
 use crate::command::CommandTrait;
 use crate::core::conv_protocol_to_string;
@@ -17,7 +18,13 @@ pub struct SelectorRequest {
     pub request: Box<dyn ServerRequestTrait>,
     pub tx: Sender<&'static dyn CommandTrait>,
     // TODO wrap tx
-    pub done :bool,
+    pub done: RefCell<bool>,
+}
+
+impl SelectorRequest {
+    pub fn new(request: Box<dyn ServerRequestTrait>, tx: Sender<&'static dyn CommandTrait>) -> Self {
+        SelectorRequest { request, tx, done: RefCell::new(false) }
+    }
 }
 
 impl Debug for SelectorRequest {
@@ -72,12 +79,37 @@ impl CommandSelector for MockDefaultPureSelector {
 ////////
 
 pub struct SelectorStrategy<'e: 'a, 'a> {
-    executor: DefaultChainExecutor<'e, 'a, SelectorRequest>,
+    selector: DefaultChainExecutor<'e, 'a, SelectorRequest>,
+    // register: DefaultChainExecutor<'e, 'a, SelectorRequest>,
 }
+
+// impl<'e: 'a, 'a> From<Vec<Box<dyn CommandSelector>>> for SelectorStrategy<'e, 'a> {
+//     fn from(v: Vec<Box<dyn CommandSelector>>) -> Self {
+//         let selectors: &mut Vec<&dyn ReactorExecutor<DefaultChainExecutor<SelectorRequest>, SelectorRequest>> = &mut Vec::new();
+//         let registers: &mut Vec<&dyn ReactorExecutor<DefaultChainExecutor<SelectorRequest>, SelectorRequest>> = &mut Vec::new();
+//         for s in v.iter() {
+//             let f = move |req: &SelectorRequest| {
+//                 let ret = s.select(req);
+//                 match ret {
+//                     Some(v) => {
+//                         req.tx.send(v);
+//                     }
+//                     None => {
+//                         ;
+//                     }
+//                 };
+//             };
+//             let reactor_1 = DefaultClosureReactorExecutor::<SelectorRequest>::new(&f);
+//             selectors.push(&reactor_1);
+//         };
+//         let mut selector_executors = DefaultChainExecutor::new(selectors);
+//         SelectorStrategy { selector: selector_executors }
+//     }
+// }
 
 impl<'e: 'a, 'a> SelectorStrategy<'e, 'a> {
     pub fn new(executor: DefaultChainExecutor<'e, 'a, SelectorRequest>) -> Self {
-        SelectorStrategy { executor }
+        SelectorStrategy { selector: executor }
     }
 }
 
@@ -91,6 +123,8 @@ impl<'e: 'a, 'a> SelectorStrategy<'e, 'a> {
 
 #[cfg(test)]
 mod tests {
+    use core::cell::RefCell;
+    use std::borrow::Borrow;
     use std::sync::Arc;
     use bytes::Bytes;
     use futures::select;
@@ -134,10 +168,9 @@ mod tests {
             match ret {
                 Some(v) => {
                     req.tx.send(v);
-                    // req.done=true;
                 }
                 None => {
-                    println!("none");
+                    ;
                 }
             };
         };
@@ -148,8 +181,8 @@ mod tests {
         let mut strategy = SelectorStrategy::new(chain_executor);
         let mock_request = MockRequest::new();
         let (txx, mut rxx) = std::sync::mpsc::channel::<&'static dyn CommandTrait>();
-        let request = SelectorRequest { request: Box::new(mock_request), tx: (txx), done: false };
-        strategy.executor.execute(&request);
+        let request = SelectorRequest { request: Box::new(mock_request), tx: (txx), done: RefCell::new(false) };
+        strategy.selector.execute(&request);
         let re = rxx.try_recv();
     }
 }
