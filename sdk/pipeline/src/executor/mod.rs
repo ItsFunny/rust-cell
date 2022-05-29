@@ -21,6 +21,7 @@ pub trait ReactorExecutor<'e: 'a, 'a, E, V>: Debug + 'e
         E: ChainExecutor<'e, 'a, V> + 'e,
         Self: 'e,
 {
+    // TODO: ASYNC
     fn execute(&'e self, v: &'a V, chain: &'e mut E) {
         self.on_execute(v);
         chain.execute(v)
