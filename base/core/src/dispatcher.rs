@@ -1,14 +1,17 @@
+use core::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use pipeline::executor::ExecutorValueTrait;
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::channel::ChannelTrait;
 use crate::command::CommandTrait;
 use crate::core::ProtocolID;
 use crate::request::{ServerRequestTrait, ServerResponseTrait};
+use crate::selector::{CommandSelector, SelectorRequest};
 use crate::suit::CommandSuit;
 
 
-pub type CreateSuit<'a, T: ExecutorValueTrait<'a> + CommandSuit<'a> + 'a, > = dyn Fn(&'a dyn ServerRequestTrait, &'a dyn ServerResponseTrait) -> CellResult<&'a T>;
+pub type CreateSuit<'a, T: ExecutorValueTrait<'a> + CommandSuit<'a> + 'a, > = dyn Fn(Rc<Box<dyn ServerRequestTrait + 'a>>, Box<dyn ServerResponseTrait + 'a>) -> CellResult<&'a T>;
 
 pub struct DefaultDispatcher<'e: 'a, 'a, T>
     where
@@ -18,11 +21,12 @@ pub struct DefaultDispatcher<'e: 'a, 'a, T>
     commands: HashMap<String, Box<dyn CommandTrait>>,
     channel: Box<dyn ChannelTrait<'e, 'a, T>>,
     suit_func: &'static CreateSuit<'a, T>,
+    command_selector: Box<dyn CommandSelector>,
 }
 
 pub struct DispatchContext<'a> {
-    pub req: &'a dyn ServerRequestTrait,
-    pub resp: &'a dyn ServerResponseTrait,
+    pub req: Box<dyn ServerRequestTrait + 'a>,
+    pub resp: Box<dyn ServerResponseTrait + 'a>,
 }
 
 impl<'e: 'a, 'a, T> DefaultDispatcher<'e, 'a, T>
@@ -30,8 +34,12 @@ impl<'e: 'a, 'a, T> DefaultDispatcher<'e, 'a, T>
         Self: 'static,
         T: ExecutorValueTrait<'a> + CommandSuit<'a> + 'a,
 {
-    pub fn dispatch(&'e mut self, ctx: &'a DispatchContext<'a>) {
-        let cmd_res = self.get_cmd_from_request(ctx);
+    pub fn dispatch(&'e mut self, ctx: DispatchContext<'a>) {
+        let req_rc = Rc::new(ctx.req);
+        // TODO ,resp need wrapped by rc
+        let resp = ctx.resp;
+        let cmd_res = self.get_cmd_from_request(Rc::clone(&req_rc));
+
         let cmd;
         match cmd_res {
             Err(e) => {
@@ -42,7 +50,8 @@ impl<'e: 'a, 'a, T> DefaultDispatcher<'e, 'a, T>
             }
         }
         let suit;
-        let suit_resp = (self.suit_func)(ctx.req, ctx.resp);
+
+        let suit_resp = (self.suit_func)(Rc::clone(&req_rc), resp);
         // TODO:
         match suit_resp {
             Err(e) => {
@@ -57,7 +66,11 @@ impl<'e: 'a, 'a, T> DefaultDispatcher<'e, 'a, T>
     }
 
 
-    pub fn get_cmd_from_request(&self, ctx: &DispatchContext) -> CellResult<Box<dyn CommandTrait>> {
+    pub fn get_cmd_from_request(&self, req: Rc<Box<dyn ServerRequestTrait>>) -> CellResult<Box<dyn CommandTrait>> {
+        let (txx, mut rxx) = std::sync::mpsc::channel::<&'static dyn CommandTrait>();
+        let req = SelectorRequest::new(req, txx);
+        self.command_selector.select(&req);
+        let ret = rxx.recv();
         Err(CellError::from(ErrorEnumsStruct::JSON_SERIALIZE))
     }
 }
