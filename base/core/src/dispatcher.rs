@@ -66,12 +66,13 @@ impl<'e: 'a, 'a, T> DefaultDispatcher<'e, 'a, T>
     }
 
 
-    pub fn get_cmd_from_request(&self, req: Rc<Box<dyn ServerRequestTrait>>) -> CellResult<Box<dyn CommandTrait>> {
+    pub fn get_cmd_from_request(&self, req: Rc<Box<dyn ServerRequestTrait>>) -> CellResult<&'static dyn CommandTrait> {
         let (txx, mut rxx) = std::sync::mpsc::channel::<&'static dyn CommandTrait>();
         let req = SelectorRequest::new(req, txx);
         self.command_selector.select(&req);
-        let ret = rxx.recv();
-        Err(CellError::from(ErrorEnumsStruct::JSON_SERIALIZE))
+        rxx.recv().map_err(|e| {
+            CellError::from(ErrorEnumsStruct::UNKNOWN).with_error(Box::new(e))
+        })
     }
 }
 

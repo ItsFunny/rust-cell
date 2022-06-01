@@ -41,9 +41,13 @@ impl<'a> DefaultCommandSuit<'a> {
     pub fn new(command_ctx: &'a dyn BuzzContextTrait<'a>) -> Self {
         DefaultCommandSuit { command_ctx, concrete: None }
     }
-
-    pub fn set_concrete(&mut self, c: &'a mut dyn CommandSuit<'a>) {
-        self.concrete = Some(c)
+    // TODO FACTORY OR BUILDER
+    pub fn new_with_concrete(command_ctx: &'a dyn BuzzContextTrait<'a>,c: &'a mut dyn CommandSuit<'a>) -> Self {
+        DefaultCommandSuit { command_ctx, concrete: Some(c) }
+    }
+    pub fn set_concrete(&mut self, c: &'a mut dyn CommandSuit<'a>) -> &mut DefaultCommandSuit<'a> {
+        self.concrete = Some(c);
+        self
     }
 }
 

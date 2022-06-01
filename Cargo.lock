@@ -199,6 +199,28 @@ name = "cell-base-common"
 version = "0.1.0"
 
 [[package]]
+name = "cell-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "chrono",
+ "futures",
+ "futures-channel",
+ "http 0.2.7",
+ "hyper 0.14.18",
+ "indexmap",
+ "json",
+ "logsdk",
+ "pipeline",
+ "rocket 0.5.0-rc.2",
+ "serde",
+ "serde_json",
+ "tokio 1.18.2",
+ "uncased",
+]
+
+[[package]]
 name = "cfg-if"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -248,28 +270,6 @@ dependencies = [
  "subtle",
  "time 0.3.9",
  "version_check",
-]
-
-[[package]]
-name = "core"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "bytes",
- "chrono",
- "futures",
- "futures-channel",
- "http",
- "hyper 0.14.18",
- "indexmap",
- "json",
- "logsdk",
- "pipeline",
- "rocket 0.5.0-rc.2",
- "serde",
- "serde_json",
- "tokio 1.18.2",
- "uncased",
 ]
 
 [[package]]
@@ -607,7 +607,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "futures-util",
- "http",
+ "http 0.2.7",
  "indexmap",
  "slab",
  "tokio 1.18.2",
@@ -650,6 +650,29 @@ dependencies = [
 
 [[package]]
 name = "http"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "cell-core",
+ "chrono",
+ "futures",
+ "futures-channel",
+ "http 0.2.7",
+ "hyper 0.14.18",
+ "indexmap",
+ "json",
+ "logsdk",
+ "pipeline",
+ "rocket 0.5.0-rc.2",
+ "serde",
+ "serde_json",
+ "tokio 1.18.2",
+ "uncased",
+]
+
+[[package]]
+name = "http"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff8670570af52249509a86f5e3e18a08c60b177071826898fde8997cf5f6bfbb"
@@ -666,7 +689,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ff4f84919677303da5f147645dbea6b1881f368d03ac84e1dc09031ebd7b2c6"
 dependencies = [
  "bytes",
- "http",
+ "http 0.2.7",
  "pin-project-lite",
 ]
 
@@ -716,7 +739,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "h2",
- "http",
+ "http 0.2.7",
  "http-body",
  "httparse",
  "httpdate",
@@ -917,7 +940,7 @@ dependencies = [
  "bytes",
  "encoding_rs",
  "futures-util",
- "http",
+ "http 0.2.7",
  "httparse",
  "log",
  "memchr",
@@ -1353,7 +1376,7 @@ dependencies = [
  "cookie",
  "either",
  "futures",
- "http",
+ "http 0.2.7",
  "hyper 0.14.18",
  "indexmap",
  "log",

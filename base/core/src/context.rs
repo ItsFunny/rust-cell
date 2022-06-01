@@ -27,7 +27,9 @@ use crate::summary::{Summary, SummaryTrait};
 
 
 pub trait Context {
-    fn discard(&mut self);
+    fn discard(&mut self){
+        // do nothing
+    }
     fn done(&mut self) -> bool;
     // fn unsafe_notify_done();
 }
