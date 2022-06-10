@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.18.2", features = ["full"] }
-hyper = "0.14.18"
-http = "0.2.1"
+hyper = { version = "0.14.18", features = ["full"] }
+http = "0.2.7"
 bytes = "1.1.0"
 indexmap = "1.8.1"
 logsdk = { version = "0.1.0", path = "../../sdk/logsdk" }

@@ -3,6 +3,10 @@ pub mod dispatcher;
 mod channel;
 mod suit;
 mod context;
+mod response;
+mod request;
+mod selector;
+
 
 #[cfg(test)]
 mod tests {

@@ -2,6 +2,7 @@
 members=[
     "sdk/logsdk",
     "sdk/pipeline",
+    "sdk/pipelin2",
     "framework/http",
     "demo/selfdemo",
     "demo/rocket",

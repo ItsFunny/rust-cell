@@ -16,24 +16,24 @@ pub trait CommandSelector {
     fn on_register_cmd(&mut self, cmd: &'static dyn CommandTrait);
 }
 
-pub struct SelectorRequest {
-    pub request: Rc<Box<dyn ServerRequestTrait>>,
+pub struct SelectorRequest<'a> {
+    pub request: Rc<Box<dyn ServerRequestTrait+'a>>,
     pub tx: Sender<&'static dyn CommandTrait>,
     // TODO wrap tx
     pub done: RefCell<bool>,
 }
 
-impl SelectorRequest {
-    pub fn new(request: Rc<Box<dyn ServerRequestTrait>>, tx: Sender<&'static dyn CommandTrait>) -> Self {
+impl<'a> SelectorRequest<'a> {
+    pub fn new(request: Rc<Box<dyn ServerRequestTrait+'a>>, tx: Sender<&'static dyn CommandTrait>) -> Self {
         SelectorRequest { request, tx, done: RefCell::new(false) }
     }
 }
 
-impl Debug for SelectorRequest {
+impl<'a> Debug for SelectorRequest<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result { Ok(()) }
 }
 
-impl<'a> ExecutorValueTrait<'a> for SelectorRequest {}
+impl<'a> ExecutorValueTrait<'a> for SelectorRequest<'a> {}
 
 
 //////// mock
@@ -82,7 +82,7 @@ impl CommandSelector for MockDefaultPureSelector {
 
 pub struct SelectorStrategy<'e: 'a, 'a> {
     // selector: DefaultChainExecutor<'e, 'a, SelectorRequest>,
-    selector: DefaultPipeline<'e, 'a, SelectorRequest>,
+    selector: DefaultPipeline<'e, 'a, SelectorRequest<'a>>,
 
     // register: DefaultChainExecutor<'e, 'a, SelectorRequest>,
 }
@@ -112,7 +112,7 @@ pub struct SelectorStrategy<'e: 'a, 'a> {
 // }
 
 impl<'e: 'a, 'a> SelectorStrategy<'e, 'a> {
-    pub fn new(executor: DefaultChainExecutor<'e, 'a, SelectorRequest>) -> Self {
+    pub fn new(executor: DefaultChainExecutor<'e, 'a, SelectorRequest<'a>>) -> Self {
         SelectorStrategy { selector: DefaultPipeline::new(executor) }
     }
 }
