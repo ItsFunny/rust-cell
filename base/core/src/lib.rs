@@ -27,6 +27,7 @@ use std::fmt::Debug;
 // pub trait ExecutorValueTrait: Debug {}
 
 pub mod core {
+    use std::fmt::Debug;
     use std::io;
     use std::rc::Rc;
     use http::header::HeaderName;
@@ -44,6 +45,8 @@ pub mod core {
 
     pub type RunType = i8;
 
+
+    pub trait ExecutorValueTrait<'a>: Debug + 'a {}
 
     pub fn conv_protocol_to_string(p: ProtocolID) -> String {
         String::from(p as &str)

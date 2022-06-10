@@ -450,7 +450,7 @@ dependencies = [
  "indexmap",
  "json",
  "logsdk",
- "pipeline",
+ "pipeline2",
  "rocket 0.5.0-rc.2",
  "serde",
  "serde_json",
@@ -638,6 +638,12 @@ dependencies = [
  "redox_users",
  "winapi",
 ]
+
+[[package]]
+name = "dyn-clone"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21e50f3adc76d6a43f5ed73b698a87d0760ca74617f60f7c3b879003536fdd28"
 
 [[package]]
 name = "either"
@@ -936,7 +942,6 @@ dependencies = [
  "indexmap",
  "json",
  "logsdk",
- "pipeline",
  "rocket 0.5.0-rc.2",
  "serde",
  "serde_json",
@@ -1459,14 +1464,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
-name = "pipelin2"
-version = "0.1.0"
-
-[[package]]
-name = "pipeline"
+name = "pipeline2"
 version = "0.1.0"
 dependencies = [
- "cell-base-common",
+ "dyn-clone",
 ]
 
 [[package]]

@@ -1,13 +1,14 @@
 use std::marker::PhantomData;
-use pipeline::executor::{ChainExecutor, DefaultChainExecutor, ExecutorValueTrait};
+use pipeline2::pipeline2::DefaultPipelineV2;
 use crate::context::Context;
+use crate::core::ExecutorValueTrait;
 use crate::suit::CommandSuit;
 
 pub trait ChannelTrait<'e, 'a, T>
     where
         T: ExecutorValueTrait<'a> + CommandSuit<'a> + 'a,
 {
-    fn read_command(&'e mut self, suit: &'a T);
+    fn read_command(&mut self, suit: &T);
 }
 
 pub struct ChannelChainExecutor {}
@@ -17,23 +18,38 @@ pub struct DefaultChannel<'e, 'a, T>
         T: ExecutorValueTrait<'a> + CommandSuit<'a>,
         Self: 'e
 {
-    executor: DefaultChainExecutor<'e, 'a, T>,
+    pip: DefaultPipelineV2<'e,T>,
+    _marker_e: PhantomData<&'e ()>,
+    _marker_a: PhantomData<&'a ()>,
+    _marker_t: PhantomData<T>,
 }
 
 impl<'e, 'a, T> DefaultChannel<'e, 'a, T> where
     T: ExecutorValueTrait<'a> + CommandSuit<'a>,
     Self: 'e {
-    pub fn new(ex: DefaultChainExecutor<'e, 'a, T>) -> Self {
-        DefaultChannel { executor: ex }
+    pub fn new(p: DefaultPipelineV2<'e,T>) -> Self {
+        Self { pip: p, _marker_e: Default::default(), _marker_a: Default::default(), _marker_t: Default::default() }
     }
 }
+
+impl<'e, 'a, T> DefaultChannel<'e, 'a, T> where
+    T: ExecutorValueTrait<'a> + CommandSuit<'a>,
+    Self: 'e {}
 
 impl<'e, 'a, T> ChannelTrait<'e, 'a, T> for DefaultChannel<'e, 'a, T>
     where
         T: ExecutorValueTrait<'a> + CommandSuit<'a> + 'a,
 {
-    fn read_command(&'e mut self, suit: &'a T) {
-        self.executor.execute(suit);
+    fn read_command(&mut self, suit: &T) {
+        self.pip.execute(suit);
+    }
+}
+impl<'e, 'a, T> DefaultChannel<'e,'a,T>
+    where
+        T: ExecutorValueTrait<'a> + CommandSuit<'a> + 'a,
+{
+    pub fn echo(&self){
+        println!("{}",1)
     }
 }
 
@@ -41,15 +57,16 @@ impl<'e, 'a, T> ChannelTrait<'e, 'a, T> for DefaultChannel<'e, 'a, T>
 mod tests {
     use std::fmt::{Debug, Formatter};
     use std::marker::PhantomData;
+    use std::rc::Rc;
     use std::sync::Arc;
     use http::Response;
     use hyper::Body;
     use logsdk::common::LogLevel;
     use logsdk::module;
     use logsdk::module::CellModule;
-    use pipeline::executor::{DefaultChainExecutor, DefaultReactorExecutor, ExecutorValueTrait, ReactorExecutor};
+    use pipeline2::pipeline2::{ClosureExecutor, DefaultChainExecutor, DefaultReactorExecutor, MockExecutor, PipelineBuilder};
     use crate::channel::{ChannelTrait, DefaultChannel};
-    use crate::command::CommandContext;
+    use crate::command::{CommandContext, mock_context};
     use crate::context::{BaseBuzzContext, BuzzContextTrait};
     use crate::core::ProtocolID;
     use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
@@ -75,40 +92,22 @@ mod tests {
         }
     }
 
-    impl<'e, 'a, V> ReactorExecutor<'e, 'a, DefaultChainExecutor<'e, 'a, V>, V> for MockChannelExecutor<'e, 'a>
-        where
-            V: ExecutorValueTrait<'a> + CommandSuit<'a> + 'a,
-    {
-        fn on_execute(&'e self, v: &'a V) {
-            println!("{:?}", v);
-        }
-    }
 
     #[test]
     fn test_suit() {
-        let ess2: &mut Vec<&dyn ReactorExecutor<DefaultChainExecutor<DefaultCommandSuit>, DefaultCommandSuit>> = &mut Vec::new();
-        let e1: &dyn ReactorExecutor<DefaultChainExecutor<DefaultCommandSuit>, DefaultCommandSuit> = &MockChannelExecutor { _marker_a: Default::default(), _marker_e: Default::default() };
-        let e2: &dyn ReactorExecutor<DefaultChainExecutor<DefaultCommandSuit>, DefaultCommandSuit> = &MockChannelExecutor { _marker_a: Default::default(), _marker_e: Default::default() };
-        ess2.push(e1);
-        ess2.push(e2);
-        let mut chain_executor = DefaultChainExecutor::new(ess2);
-        let mut channel = DefaultChannel::new(chain_executor);
+        let (c,rxx,mut ctx)=mock_context();
+        let pip = PipelineBuilder::default().add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Rc::new(|v: &DefaultCommandSuit| {
+            println!("111 {:?}", v)
+        }))))).add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Rc::new(|v: &DefaultCommandSuit| {
+            println!("222 {:?}", v)
+        }))))).build();
+        // let pip=PipelineBuilder::default().add_last(DefaultReactorExecutor::new(Box::new(MockExecutor::default()))).build();
 
-        let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
-        static M: &CellModule = &module::CellModule::new(1, "CONTEXT", &LogLevel::Info);
-        let req: &mut dyn ServerRequestTrait = &mut MockRequest::new();
-        let resp: &mut dyn ServerResponseTrait = &mut MockResponse::new(txx);
-        let ip = String::from("128");
-        let sequence_id = String::from("seq");
-        let protocol_id: ProtocolID = "p" as ProtocolID;
-        let summ: &mut dyn SummaryTrait = &mut Summary::new(Arc::new(ip), Arc::new(sequence_id), protocol_id);
-        let c_ctx: CommandContext = CommandContext::new(M, req, resp, summ);
-        let mut ctx: &mut dyn BuzzContextTrait = &mut BaseBuzzContext::new(32, c_ctx);
+        let mut channel = DefaultChannel::new(pip);
 
         let mut mock = EmptyCommandSuite::default();
         let mut box_mock = Box::new(mock);
-        let mut suit = DefaultCommandSuit::new(ctx);
-        // suit.set_concrete(box_mock);
+        let mut suit = DefaultCommandSuit::new(&ctx);
 
         channel.read_command(&suit);
     }

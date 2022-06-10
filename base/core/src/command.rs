@@ -1,17 +1,23 @@
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use std::sync::Arc;
 use bytes::Bytes;
 use http::Response;
 use hyper::Body;
 use tokio::sync::oneshot::Sender;
+use logsdk::common::LogLevel;
 use logsdk::log4rs::DEFAULT_LOGGER;
-use pipeline::executor::ExecutorValueTrait;
-use crate::context::BuzzContextTrait;
-use crate::core::{AliasRequestType, AliasResponseType, ProtocolID, RunType};
+use logsdk::module;
+use logsdk::module::CellModule;
+use crate::constants::ProtocolStatus;
+use crate::context::{BaseBuzzContext, BuzzContextTrait};
+use crate::core::{AliasRequestType, AliasResponseType, ExecutorValueTrait, ProtocolID, RunType};
 use crate::output::{OutputArchive, Serializable};
-use crate::request::{ServerRequestTrait, ServerResponseTrait};
-use crate::summary::SummaryTrait;
+use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
+use crate::response::MockResponse;
+use crate::summary::{Summary, SummaryTrait};
+use crate::wrapper::ContextResponseWrapper;
 
 
 pub type Function = dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>);
@@ -92,11 +98,11 @@ impl MetaData {
 pub struct CommandContext<'a>
 {
     pub module: &'static dyn logsdk::module::Module,
-    pub server_request: &'a mut dyn ServerRequestTrait,
+    pub server_request: Box<dyn ServerRequestTrait + 'a>,
     // TODO REFCELL
-    pub server_response: &'a mut dyn ServerResponseTrait,
+    pub server_response: Box<dyn ServerResponseTrait + 'a>,
     // TODO, ARC
-    pub summary: &'a mut dyn SummaryTrait,
+    pub summary: Box<dyn SummaryTrait + 'a>,
     // TODO
     // pub channel: &dyn ChannelTrait,
     // pub command: &dyn CommandTrait<'b>,
@@ -118,9 +124,9 @@ impl Default for Command {
 impl<'a> CommandContext<'a> where
 {
     pub fn new(module: &'static dyn logsdk::module::Module,
-               server_request: &'a mut dyn ServerRequestTrait,
-               server_response: &'a mut dyn ServerResponseTrait,
-               st: &'a mut dyn SummaryTrait,
+               server_request: Box<dyn ServerRequestTrait + 'a>,
+               server_response: Box<dyn ServerResponseTrait + 'a>,
+               st: Box<dyn SummaryTrait + 'a>,
     ) -> Self {
         CommandContext {
             module,
@@ -147,6 +153,29 @@ impl CommandTrait for Command {
 
 impl Command {}
 
+pub fn mock_context<'a>() -> (Command,std::sync::mpsc::Receiver<Response<Body>>, BaseBuzzContext<'a>) {
+    let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
+    let p: ProtocolID = "/protocol/v1" as ProtocolID;
+    let mut c = Command::default();
+    c = c.with_protocol_id(p).with_executor(&move |ctx, v| {
+        println!("execute");
+        let mut ret = ContextResponseWrapper::default();
+        ret = ret.with_status(ProtocolStatus::SUCCESS);
+        ret = ret.with_body(Bytes::from("123"));
+        futures::executor::block_on(ctx.response(ret));
+    });
+
+
+    static M: &CellModule = &module::CellModule::new(1, "CONTEXT", &LogLevel::Info);
+    let req = Box::new(MockRequest::new());
+    let resp = Box::new(MockResponse::new(txx));
+    let ip = String::from("128");
+    let sequence_id = String::from("seq");
+    let summ = Box::new(Summary::new(Arc::new(ip), Arc::new(sequence_id), p));
+    let c_ctx: CommandContext = CommandContext::new(M, req, resp, summ);
+    let mut ctx = BaseBuzzContext::new(32, c_ctx);
+    return (c,rxx, ctx);
+}
 
 #[cfg(test)]
 mod tests {
@@ -158,7 +187,7 @@ mod tests {
     use logsdk::common::LogLevel;
     use logsdk::module;
     use logsdk::module::CellModule;
-    use crate::command::{Command, CommandContext, CommandTrait};
+    use crate::command::{Command, CommandContext, CommandTrait, mock_context};
     use crate::constants::ProtocolStatus;
     use crate::context::BaseBuzzContext;
     use crate::core::ProtocolID;
@@ -175,28 +204,7 @@ mod tests {
 
     #[test]
     fn test_command() {
-        let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
-
-
-        let p: ProtocolID = "/protocol/v1" as ProtocolID;
-        let mut c = Command::default();
-        c = c.with_protocol_id(p).with_executor(&move |ctx, v| {
-            println!("execute");
-            let mut ret = ContextResponseWrapper::default();
-            ret = ret.with_status(ProtocolStatus::SUCCESS);
-            ret = ret.with_body(Bytes::from("123"));
-            futures::executor::block_on(ctx.response(ret));
-        });
-
-
-        static M: &CellModule = &module::CellModule::new(1, "CONTEXT", &LogLevel::Info);
-        let req: &mut dyn ServerRequestTrait = &mut MockRequest::new();
-        let resp: &mut dyn ServerResponseTrait = &mut MockResponse::new(txx);
-        let ip = String::from("128");
-        let sequence_id = String::from("seq");
-        let summ: &mut dyn SummaryTrait = &mut Summary::new(Arc::new(ip), Arc::new(sequence_id), p);
-        let c_ctx: CommandContext = CommandContext::new(M, req, resp, summ);
-        let mut ctx = BaseBuzzContext::new(32, c_ctx);
+        let  (c,  rxx,mut ctx) = mock_context();
 
         c.execute(&mut ctx);
 

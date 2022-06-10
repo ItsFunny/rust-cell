@@ -1,8 +1,7 @@
 [workspace]
 members=[
     "sdk/logsdk",
-    "sdk/pipeline",
-    "sdk/pipelin2",
+    "sdk/pipeline2",
     "framework/http",
     "demo/selfdemo",
     "demo/rocket",

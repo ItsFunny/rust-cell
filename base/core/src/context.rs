@@ -155,7 +155,7 @@ mod tests {
     use logsdk::common::LogLevel;
     use logsdk::module;
     use logsdk::module::{CellModule, Module};
-    use crate::command::CommandContext;
+    use crate::command::{CommandContext, mock_context};
     use crate::context::{BaseBuzzContext, BuzzContextTrait};
     use crate::core::ProtocolID;
     use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
@@ -181,16 +181,7 @@ mod tests {
 
     #[test]
     fn test_command_context() {
-        let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
-        static M: &CellModule = &module::CellModule::new(1, "CONTEXT", &LogLevel::Info);
-        let req: &mut dyn ServerRequestTrait = &mut MockRequest::new();
-        let resp: &mut dyn ServerResponseTrait = &mut MockResponse::new(txx);
-        let ip = String::from("128");
-        let sequence_id = String::from("seq");
-        let protocol_id: ProtocolID = "p" as ProtocolID;
-        let summ: &mut dyn SummaryTrait = &mut Summary::new(Arc::new(ip), Arc::new(sequence_id), protocol_id);
-        let c_ctx: CommandContext = CommandContext::new(M, req, resp, summ);
-        let mut ctx = BaseBuzzContext::new(32, c_ctx);
+        let (c,rxx,mut ctx)=mock_context();
 
         let body = Body::from(String::from("asd"));
         let mut wrapper = ContextResponseWrapper::default();

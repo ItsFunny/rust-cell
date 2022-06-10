@@ -1,11 +1,10 @@
 use core::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use pipeline::executor::ExecutorValueTrait;
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::channel::ChannelTrait;
 use crate::command::CommandTrait;
-use crate::core::ProtocolID;
+use crate::core::{ExecutorValueTrait, ProtocolID};
 use crate::request::{ServerRequestTrait, ServerResponseTrait};
 use crate::selector::{CommandSelector, SelectorRequest};
 use crate::suit::CommandSuit;
@@ -71,7 +70,7 @@ impl<'e: 'a, 'a, T> DefaultDispatcher<'e, 'a, T>
             Ok(v) => {
                 suit = v;
                 // TODO fill argu
-                self.channel.read_command(&suit)
+                self.channel.read_command(suit)
             }
         }
     }

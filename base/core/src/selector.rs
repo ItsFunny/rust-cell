@@ -1,14 +1,14 @@
+use core::marker::PhantomData;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use std::sync::mpsc::Sender;
 use std_core::cell::RefCell;
 use rocket::figment::map;
-use pipeline::executor::{DefaultChainExecutor, DefaultClosureReactorExecutor, ExecutorValueTrait, ReactorExecutor};
-use pipeline::pipeline::DefaultPipeline;
+use pipeline2::pipeline2::DefaultPipelineV2;
 use crate::cerror::CellResult;
 use crate::command::CommandTrait;
-use crate::core::conv_protocol_to_string;
+use crate::core::{conv_protocol_to_string, ExecutorValueTrait};
 use crate::request::{MockRequest, ServerRequestTrait};
 
 pub trait CommandSelector {
@@ -82,9 +82,10 @@ impl CommandSelector for MockDefaultPureSelector {
 
 pub struct SelectorStrategy<'e: 'a, 'a> {
     // selector: DefaultChainExecutor<'e, 'a, SelectorRequest>,
-    selector: DefaultPipeline<'e, 'a, SelectorRequest<'a>>,
-
+    selector: DefaultPipelineV2<'a,SelectorRequest<'a>>,
     // register: DefaultChainExecutor<'e, 'a, SelectorRequest>,
+    _marker_e: PhantomData<&'e ()>,
+    _marker_a: PhantomData<&'a ()>,
 }
 
 // impl<'e: 'a, 'a> From<Vec<Box<dyn CommandSelector>>> for SelectorStrategy<'e, 'a> {
@@ -112,8 +113,8 @@ pub struct SelectorStrategy<'e: 'a, 'a> {
 // }
 
 impl<'e: 'a, 'a> SelectorStrategy<'e, 'a> {
-    pub fn new(executor: DefaultChainExecutor<'e, 'a, SelectorRequest<'a>>) -> Self {
-        SelectorStrategy { selector: DefaultPipeline::new(executor) }
+    pub fn new(executor: DefaultPipelineV2<'a,SelectorRequest<'a>>) -> Self {
+        SelectorStrategy { selector: executor, _marker_e: Default::default(), _marker_a: Default::default() }
     }
 }
 
@@ -139,7 +140,7 @@ mod tests {
     use logsdk::common::LogLevel;
     use logsdk::module;
     use logsdk::module::CellModule;
-    use pipeline::executor::{ChainExecutor, DefaultChainExecutor, DefaultClosureReactorExecutor, ReactorExecutor};
+    use pipeline2::pipeline2::{ClosureExecutor, DefaultReactorExecutor, PipelineBuilder};
     use crate::command::{Command, CommandContext, CommandTrait};
     use crate::constants::ProtocolStatus;
     use crate::context::BaseBuzzContext;
@@ -167,8 +168,7 @@ mod tests {
         c = c.do_seal();
 
         let e1 = MockDefaultPureSelector::new();
-        let ess2: &mut Vec<&dyn ReactorExecutor<DefaultChainExecutor<SelectorRequest>, SelectorRequest>> = &mut Vec::new();
-        let f = move |req: &SelectorRequest| {
+        let pip=PipelineBuilder::default().add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Rc::new(move|req:&SelectorRequest|{
             let ret = e1.select(req);
             match ret {
                 Some(v) => {
@@ -178,12 +178,8 @@ mod tests {
                     ;
                 }
             };
-        };
-        let reactor_1 = DefaultClosureReactorExecutor::<SelectorRequest>::new(&f);
-        ess2.push(&reactor_1);
-
-        let mut chain_executor = DefaultChainExecutor::new(ess2);
-        let mut strategy = SelectorStrategy::new(chain_executor);
+        }))))).build();
+        let mut strategy = SelectorStrategy::new(pip);
         let mock_request = MockRequest::new();
         let (txx, mut rxx) = std::sync::mpsc::channel::<&'static dyn CommandTrait>();
         let mut request = SelectorRequest { request: Rc::new(Box::new(mock_request)), tx: (txx), done: RefCell::new(false) };
