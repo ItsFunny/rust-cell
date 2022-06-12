@@ -27,13 +27,29 @@ use crate::summary::{Summary, SummaryTrait};
 
 
 pub trait Context {
-    fn discard(&mut self){
+    fn discard(&mut self) {
         // do nothing
     }
     fn done(&mut self) -> bool;
     // fn unsafe_notify_done();
 }
 
+
+pub struct ContextWrapper<'a> {
+    pub ctx: Box<dyn BuzzContextTrait<'a>+'a>,
+}
+
+impl<'a> ContextWrapper<'a> {
+    pub fn new(ctx: Box<dyn BuzzContextTrait<'a>+'a>) -> Self {
+        Self { ctx }
+    }
+}
+
+impl<'a> Debug for ContextWrapper<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "asd")
+    }
+}
 
 #[async_trait]
 pub trait BuzzContextTrait<'a>: Context {
@@ -181,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_command_context() {
-        let (c,rxx,mut ctx)=mock_context();
+        let (c, rxx, mut ctx) = mock_context();
 
         let body = Body::from(String::from("asd"));
         let mut wrapper = ContextResponseWrapper::default();

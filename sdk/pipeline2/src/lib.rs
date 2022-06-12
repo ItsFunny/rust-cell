@@ -42,7 +42,6 @@ pub mod pipeline2 {
         }
     }
 
-
     pub struct DefaultPipelineV2<'a, T>
     {
         executor: DefaultChainExecutor<'a, T>,
@@ -57,8 +56,6 @@ pub mod pipeline2 {
         }
         pub fn execute(&mut self, v: &T) {
             self.executor.execute(v);
-            // let e = Rc::clone(&self.executor);
-            // e.execute(v);
         }
 
         // TODO builder
@@ -76,7 +73,7 @@ pub mod pipeline2 {
             DefaultPipelineV2 { executor: DefaultChainExecutor::default() }
         }
     }
-
+    // TODO: async future
     pub struct DefaultChainExecutor<'a, T>
     {
         executors: Vec<DefaultReactorExecutor<'a, T>>,
@@ -152,9 +149,6 @@ pub mod pipeline2 {
             T: 'a,
     {
         pub fn execute(&self, t: &T) {
-            // let mut ctx = ExecutorContext::new(self.executors);
-            // ctx.next(t);
-
             let ct = copy_shuffle(&self.executors);
             let mut ctx = ExecutorContext::new(ct);
             ctx.next(t);

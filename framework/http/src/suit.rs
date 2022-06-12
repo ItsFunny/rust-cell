@@ -33,7 +33,7 @@ impl<'a> Debug for HttpSuit<'a> {
 }
 
 impl<'a> CommandSuit<'a> for HttpSuit<'a> {
-    fn get_buzz_context(&self) -> &'a dyn cell_core::context::BuzzContextTrait {
+    fn get_buzz_context(&self) ->  Box<dyn BuzzContextTrait+'a> {
         self.suit.get_buzz_context()
     }
 }

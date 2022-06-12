@@ -1,31 +1,33 @@
 use core::cell::RefCell;
+use core::ops::Deref;
 use std::collections::HashMap;
 use std::rc::Rc;
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::channel::ChannelTrait;
-use crate::command::CommandTrait;
+use crate::command::{CommandContext, CommandTrait};
+use crate::context::{BuzzContextTrait, ContextWrapper};
 use crate::core::{ExecutorValueTrait, ProtocolID};
 use crate::request::{ServerRequestTrait, ServerResponseTrait};
 use crate::selector::{CommandSelector, SelectorRequest};
-use crate::suit::CommandSuit;
+use crate::suit::{CommandSuit, DefaultCommandSuit};
 
 
-pub type CreateSuit<'a, T: ExecutorValueTrait<'a> + CommandSuit<'a> + 'a, > = dyn Fn(Rc<Box<dyn ServerRequestTrait + 'a>>, Box<dyn ServerResponseTrait + 'a>) -> CellResult<&'a T>;
 
-pub struct DefaultDispatcher<'e: 'a, 'a, T>
-    where
-        T: ExecutorValueTrait<'a> + CommandSuit<'a> + 'a,
-{
-    commands: HashMap<String, Box<dyn CommandTrait>>,
-    channel: Box<dyn ChannelTrait<'e, 'a, T>+'e>,
-    suit_func: &'e CreateSuit<'a, T>,
-    command_selector: Box<dyn CommandSelector+'e>,
+pub trait Dispatcher {
+    fn get_info<'a>(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a>>>;
 }
 
-impl<'e: 'a, 'a, T> DefaultDispatcher<'e, 'a, T> where
-    T: ExecutorValueTrait<'a> + CommandSuit<'a> + 'a, {
-    pub fn new(commands: HashMap<String, Box<dyn CommandTrait>>, channel: Box<dyn ChannelTrait<'e, 'a, T>>, suit_func: &'static CreateSuit<'a, T>, command_selector: Box<dyn CommandSelector>) -> Self {
-        Self { commands, channel, suit_func, command_selector }
+pub struct DefaultDispatcher<'e: 'a, 'a>
+{
+    channel: Box<dyn ChannelTrait<'e, 'a> + 'e>,
+    command_selector: Box<dyn CommandSelector + 'e>,
+    dispatcher: Box<dyn Dispatcher>,
+}
+
+impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a> where
+{
+    pub fn new(channel: Box<dyn ChannelTrait<'e, 'a>>, command_selector: Box<dyn CommandSelector>, dis: Box<dyn Dispatcher>) -> Self {
+        Self { channel, command_selector, dispatcher: dis }
     }
 }
 
@@ -40,9 +42,7 @@ impl<'a> DispatchContext<'a> {
     }
 }
 
-impl<'e: 'a, 'a, T> DefaultDispatcher<'e, 'a, T>
-    where
-        T: ExecutorValueTrait<'a> + CommandSuit<'a> + 'a,
+impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
 {
     pub fn dispatch(&'e mut self, ctx: DispatchContext<'a>) {
         let req_rc = Rc::new(ctx.req);
@@ -59,24 +59,38 @@ impl<'e: 'a, 'a, T> DefaultDispatcher<'e, 'a, T>
                 cmd = c;
             }
         }
-        let suit;
-
-        let suit_resp = (self.suit_func)(Rc::clone(&req_rc), resp);
-        // TODO:
-        match suit_resp {
+        let b_ctx: Box<dyn BuzzContextTrait + 'a>;
+        let command_ctx_res = self.dispatcher.get_info(Rc::clone(&req_rc), resp);
+        match command_ctx_res {
             Err(e) => {
-                return;
+                // TODO
+                panic!("as")
             }
             Ok(v) => {
-                suit = v;
-                // TODO fill argu
-                self.channel.read_command(suit)
+                b_ctx = v;
             }
         }
+        self.channel.read_command(ContextWrapper::new(b_ctx));
+        // let bbb=b_ctx.as_ref();
+        // let a: &'a dyn BuzzContextTrait = b_ctx.deref();
+        // let suit = DefaultCommandSuit::new(bbb);
+        // self.channel.read_command(&suit);
+        // let suit_resp = (self.suit_func)(Rc::clone(&req_rc), resp);
+        // // TODO:
+        // match suit_resp {
+        //     Err(e) => {
+        //         return;
+        //     }
+        //     Ok(v) => {
+        //         suit = v;
+        //         // TODO fill argu
+        //         self.channel.read_command(&suit)
+        //     }
+        // }
     }
 
 
-    pub fn get_cmd_from_request(&self, req: Rc<Box<dyn ServerRequestTrait+'a>>) -> CellResult<&'static dyn CommandTrait> {
+    pub fn get_cmd_from_request(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>) -> CellResult<&'static dyn CommandTrait> {
         let (txx, mut rxx) = std::sync::mpsc::channel::<&'static dyn CommandTrait>();
         let req = SelectorRequest::new(req, txx);
         self.command_selector.select(&req);
@@ -89,6 +103,7 @@ impl<'e: 'a, 'a, T> DefaultDispatcher<'e, 'a, T>
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
     use std::sync::Arc;
     use bytes::Bytes;
     use http::header::HeaderName;
@@ -98,12 +113,17 @@ mod tests {
     use logsdk::common::LogLevel;
     use logsdk::module;
     use logsdk::module::CellModule;
-    use crate::command::{Command, CommandContext, CommandTrait};
+    use crate::cerror::CellResult;
+    use crate::channel::mock_channel;
+    use crate::command::{Command, CommandContext, CommandTrait, mock_context};
     use crate::constants::ProtocolStatus;
     use crate::context::BaseBuzzContext;
     use crate::core::{ProtocolID, RunType};
+    use crate::dispatcher::{ DefaultDispatcher};
     use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
     use crate::response::MockResponse;
+    use crate::selector::MockDefaultPureSelector;
+    use crate::suit::{DefaultCommandSuit, EmptyCommandSuite};
     use crate::summary::{Summary, SummaryTrait};
     use crate::wrapper::ContextResponseWrapper;
 
@@ -118,4 +138,18 @@ mod tests {
         let c = Command::default();
         let c2 = c.with_run_type(1 as RunType);
     }
+
+    // #[test]
+    // fn test_dispatcher() {
+    //     let channel = mock_channel();
+    //     let selector = MockDefaultPureSelector::new();
+    //     let suite_f: &CreateSuit<DefaultCommandSuit> = &|req, resp| -> CellResult<Rc<DefaultCommandSuit>>{
+    //         let (c, rxx, mut ctx) = mock_context();
+    //         let mut mock = EmptyCommandSuite::default();
+    //         let mut box_mock = Box::new(mock);
+    //         let mut suit = DefaultCommandSuit::new(&ctx);
+    //         Ok(Rc::new(suit))
+    //     };
+    //     // let dispatcher = DefaultDispatcher::new(Box::new(channel), suite_f, Box::new(selector));
+    // }
 }
