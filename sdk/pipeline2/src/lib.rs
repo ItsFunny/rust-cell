@@ -62,6 +62,9 @@ pub mod pipeline2 {
         pub fn build(self) -> Self {
             self
         }
+        pub fn add_last(&mut self,e: DefaultReactorExecutor<'a, T>){
+            self.executor.executors.push(e);
+        }
     }
 
 

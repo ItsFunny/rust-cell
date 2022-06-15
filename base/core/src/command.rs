@@ -23,14 +23,12 @@ use crate::wrapper::ContextResponseWrapper;
 pub type Function = dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>);
 
 
-pub trait CommandTrait: 'static {
-    fn id(&self) -> ProtocolID;
-    fn execute(&self, ctx: &mut dyn BuzzContextTrait);
-}
+// pub trait CommandTrait {
+//     fn id(&self) -> ProtocolID;
+//     fn execute(&self, ctx: &mut dyn BuzzContextTrait);
+// }
 
 pub struct Command
-    where
-        Self: 'static,
 {
     pub protocol_id: ProtocolID,
     pub fun: Option<&'static Function>,
@@ -39,11 +37,33 @@ pub struct Command
     seal: bool,
 }
 
+impl Clone for Command {
+    fn clone(&self) -> Self {
+        Command {
+            protocol_id: self.protocol_id,
+            fun: self.fun,
+            meta_data: Default::default(),
+            run_type: 0,
+            seal: false,
+        }
+    }
+}
+
 pub struct MetaData {
     pub asy: bool,
     pub request_type: AliasRequestType,
     pub response_type: AliasResponseType,
 
+}
+
+impl Clone for MetaData {
+    fn clone(&self) -> Self {
+        MetaData {
+            asy: self.asy,
+            request_type: self.request_type,
+            response_type: self.response_type,
+        }
+    }
 }
 
 impl Default for MetaData {
@@ -105,7 +125,7 @@ pub struct CommandContext<'a>
     pub summary: Box<dyn SummaryTrait + 'a>,
     // TODO
     // pub channel: &dyn ChannelTrait,
-    // pub command: &dyn CommandTrait<'b>,
+    // pub command: &'static dyn CommandTrait,
     // TODO: ops
 }
 
@@ -139,21 +159,33 @@ impl<'a> CommandContext<'a> where
 
 ////////////
 
-impl CommandTrait for Command {
-    fn id(&self) -> ProtocolID {
+impl Command {
+    pub(crate) fn id(&self) -> ProtocolID {
         self.protocol_id
     }
 
-    fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
+    pub(crate) fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
         // TODO input archive
         // TODO NOE
         (self.fun).unwrap()(ctx, None)
     }
 }
+//
+// impl CommandTrait for Command {
+//     fn id(&self) -> ProtocolID {
+//         self.protocol_id
+//     }
+//
+//     fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
+//         // TODO input archive
+//         // TODO NOE
+//         (self.fun).unwrap()(ctx, None)
+//     }
+// }
 
 impl Command {}
 
-pub fn mock_context<'a>() -> (Command,std::sync::mpsc::Receiver<Response<Body>>, BaseBuzzContext<'a>) {
+pub fn mock_context<'a>() -> (Command, std::sync::mpsc::Receiver<Response<Body>>, BaseBuzzContext<'a>) {
     let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
     let p: ProtocolID = "/protocol/v1" as ProtocolID;
     let mut c = Command::default();
@@ -174,7 +206,7 @@ pub fn mock_context<'a>() -> (Command,std::sync::mpsc::Receiver<Response<Body>>,
     let summ = Box::new(Summary::new(Arc::new(ip), Arc::new(sequence_id), p));
     let c_ctx: CommandContext = CommandContext::new(M, req, resp, summ);
     let mut ctx = BaseBuzzContext::new(32, c_ctx);
-    return (c,rxx, ctx);
+    return (c, rxx, ctx);
 }
 
 #[cfg(test)]
@@ -187,7 +219,7 @@ mod tests {
     use logsdk::common::LogLevel;
     use logsdk::module;
     use logsdk::module::CellModule;
-    use crate::command::{Command, CommandContext, CommandTrait, mock_context};
+    use crate::command::{Command, CommandContext, mock_context};
     use crate::constants::ProtocolStatus;
     use crate::context::BaseBuzzContext;
     use crate::core::ProtocolID;
@@ -204,7 +236,7 @@ mod tests {
 
     #[test]
     fn test_command() {
-        let  (c,  rxx,mut ctx) = mock_context();
+        let (c, rxx, mut ctx) = mock_context();
 
         c.execute(&mut ctx);
 

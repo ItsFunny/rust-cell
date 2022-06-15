@@ -1,4 +1,5 @@
 use core::marker::PhantomData;
+use core::ops::Deref;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
@@ -7,24 +8,25 @@ use std_core::cell::RefCell;
 use rocket::figment::map;
 use pipeline2::pipeline2::DefaultPipelineV2;
 use crate::cerror::CellResult;
-use crate::command::CommandTrait;
+use crate::command::*;
 use crate::core::{conv_protocol_to_string, ExecutorValueTrait};
 use crate::request::{MockRequest, ServerRequestTrait};
 
 pub trait CommandSelector {
-    fn select(&self, req: &SelectorRequest) -> Option<&'static dyn CommandTrait>;
-    fn on_register_cmd(&mut self, cmd: &'static dyn CommandTrait);
+    // FIXME , reference or clone ?
+    fn select(&self, req: &SelectorRequest) -> Option<&'static Command>;
+    fn on_register_cmd(&mut self, cmd: &'static Command);
 }
 
 pub struct SelectorRequest<'a> {
     pub request: Rc<Box<dyn ServerRequestTrait+'a>>,
-    pub tx: Sender<&'static dyn CommandTrait>,
+    pub tx: Sender<&'static Command>,
     // TODO wrap tx
     pub done: RefCell<bool>,
 }
 
 impl<'a> SelectorRequest<'a> {
-    pub fn new(request: Rc<Box<dyn ServerRequestTrait+'a>>, tx: Sender<&'static dyn CommandTrait>) -> Self {
+    pub fn new(request: Rc<Box<dyn ServerRequestTrait+'a>>, tx: Sender<&'static Command>) -> Self {
         SelectorRequest { request, tx, done: RefCell::new(false) }
     }
 }
@@ -38,7 +40,7 @@ impl<'a> ExecutorValueTrait<'a> for SelectorRequest<'a> {}
 
 //////// mock
 pub struct MockDefaultPureSelector {
-    commands: HashMap<String, &'static dyn CommandTrait>,
+    commands: HashMap<String, &'static Command>,
 }
 
 impl MockDefaultPureSelector {
@@ -48,7 +50,7 @@ impl MockDefaultPureSelector {
 }
 
 impl CommandSelector for MockDefaultPureSelector {
-    fn select(&self, req: &SelectorRequest) -> Option<&'static dyn CommandTrait> {
+    fn select(&self, req: &SelectorRequest) -> Option<&'static Command> {
         let any = req.request.as_any();
         let p;
         match any.downcast_ref::<MockRequest>() {
@@ -63,7 +65,7 @@ impl CommandSelector for MockDefaultPureSelector {
         let opt_get = self.commands.get(&string_id);
         match opt_get {
             Some(ret) => {
-                let a = &(**ret);
+                let a = *ret;
                 Some(a)
             }
             None => {
@@ -72,7 +74,7 @@ impl CommandSelector for MockDefaultPureSelector {
         }
     }
 
-    fn on_register_cmd(&mut self, cmd: &'static dyn CommandTrait) {
+    fn on_register_cmd(&mut self, cmd: &'static Command) {
         let id = cmd.id();
         let string_id = conv_protocol_to_string(id);
         self.commands.insert(string_id, cmd);
@@ -141,7 +143,7 @@ mod tests {
     use logsdk::module;
     use logsdk::module::CellModule;
     use pipeline2::pipeline2::{ClosureExecutor, DefaultReactorExecutor, PipelineBuilder};
-    use crate::command::{Command, CommandContext, CommandTrait};
+    use crate::command::*;
     use crate::constants::ProtocolStatus;
     use crate::context::BaseBuzzContext;
     use crate::core::{ProtocolID, RunType};
@@ -181,7 +183,7 @@ mod tests {
         }))))).build();
         let mut strategy = SelectorStrategy::new(pip);
         let mock_request = MockRequest::new();
-        let (txx, mut rxx) = std::sync::mpsc::channel::<&'static dyn CommandTrait>();
+        let (txx, mut rxx) = std::sync::mpsc::channel::<&'static Command>();
         let mut request = SelectorRequest { request: Rc::new(Box::new(mock_request)), tx: (txx), done: RefCell::new(false) };
         strategy.selector.execute(&mut request);
         let re = rxx.try_recv();

@@ -14,7 +14,7 @@ use rocket::futures::StreamExt;
 use tokio::runtime::Handle;
 use logsdk::{cinfo, log4rs, module};
 use logsdk::common::LogLevel;
-use crate::command::CommandContext;
+use crate::command::{Command, CommandContext};
 use crate::wrapper::ContextResponseWrapper;
 use async_trait::async_trait;
 use bytes::{Buf, Bytes};
@@ -36,12 +36,14 @@ pub trait Context {
 
 
 pub struct ContextWrapper<'a> {
-    pub ctx: Box<dyn BuzzContextTrait<'a>+'a>,
+    pub ctx: Box<dyn BuzzContextTrait<'a> + 'a>,
+    // note: The reason I use rc instead of using box is "I dont have to clone data ,all I want is pointer ,it is enough"
+    pub cmd: Rc<Command>,
 }
 
 impl<'a> ContextWrapper<'a> {
-    pub fn new(ctx: Box<dyn BuzzContextTrait<'a>+'a>) -> Self {
-        Self { ctx }
+    pub fn new(ctx: Box<dyn BuzzContextTrait<'a> + 'a>, cmd: Rc<Command>) -> Self {
+        Self { ctx, cmd }
     }
 }
 

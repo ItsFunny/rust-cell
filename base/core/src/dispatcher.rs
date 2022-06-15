@@ -4,29 +4,28 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::channel::ChannelTrait;
-use crate::command::{CommandContext, CommandTrait};
-use crate::context::{BuzzContextTrait, ContextWrapper};
+use crate::command::{Command, CommandContext, mock_context};
+use crate::context::{BaseBuzzContext, BuzzContextTrait, ContextWrapper};
 use crate::core::{ExecutorValueTrait, ProtocolID};
 use crate::request::{ServerRequestTrait, ServerResponseTrait};
 use crate::selector::{CommandSelector, SelectorRequest};
 use crate::suit::{CommandSuit, DefaultCommandSuit};
 
 
-
 pub trait Dispatcher {
-    fn get_info<'a>(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a>>>;
+    fn get_info<'a>(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>>;
 }
 
 pub struct DefaultDispatcher<'e: 'a, 'a>
 {
     channel: Box<dyn ChannelTrait<'e, 'a> + 'e>,
     command_selector: Box<dyn CommandSelector + 'e>,
-    dispatcher: Box<dyn Dispatcher>,
+    dispatcher: Box<dyn Dispatcher + 'e>,
 }
 
 impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a> where
 {
-    pub fn new(channel: Box<dyn ChannelTrait<'e, 'a>>, command_selector: Box<dyn CommandSelector>, dis: Box<dyn Dispatcher>) -> Self {
+    pub fn new(channel: Box<dyn ChannelTrait<'e, 'a>>, command_selector: Box<dyn CommandSelector>, dis: Box<dyn Dispatcher + 'e>) -> Self {
         Self { channel, command_selector, dispatcher: dis }
     }
 }
@@ -44,7 +43,7 @@ impl<'a> DispatchContext<'a> {
 
 impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
 {
-    pub fn dispatch(&'e mut self, ctx: DispatchContext<'a>) {
+    pub fn dispatch(&mut self, ctx: DispatchContext<'a>) {
         let req_rc = Rc::new(ctx.req);
         // TODO ,resp need wrapped by rc
         let resp = ctx.resp;
@@ -54,6 +53,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
         match cmd_res {
             Err(e) => {
                 // TODO ,log
+                panic!("asd")
             }
             Ok(c) => {
                 cmd = c;
@@ -70,7 +70,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
                 b_ctx = v;
             }
         }
-        self.channel.read_command(ContextWrapper::new(b_ctx));
+        self.channel.read_command(ContextWrapper::new(b_ctx,Rc::new(cmd.clone())));
         // let bbb=b_ctx.as_ref();
         // let a: &'a dyn BuzzContextTrait = b_ctx.deref();
         // let suit = DefaultCommandSuit::new(bbb);
@@ -90,13 +90,23 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
     }
 
 
-    pub fn get_cmd_from_request(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>) -> CellResult<&'static dyn CommandTrait> {
-        let (txx, mut rxx) = std::sync::mpsc::channel::<&'static dyn CommandTrait>();
+    pub fn get_cmd_from_request(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>) -> CellResult<&'static Command> {
+        let (txx, mut rxx) = std::sync::mpsc::channel::<&'static Command>();
         let req = SelectorRequest::new(req, txx);
         self.command_selector.select(&req);
         rxx.recv().map_err(|e| {
             CellError::from(ErrorEnumsStruct::UNKNOWN).with_error(Box::new(e))
         })
+    }
+}
+
+pub struct MockDispatcher {}
+
+impl Dispatcher for MockDispatcher {
+    fn get_info<'a>(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>> {
+        let (c, rxx, ctx) = mock_context();
+        let res: Box<dyn BuzzContextTrait<'a>> = Box::new(ctx);
+        Ok(res)
     }
 }
 
@@ -115,11 +125,11 @@ mod tests {
     use logsdk::module::CellModule;
     use crate::cerror::CellResult;
     use crate::channel::mock_channel;
-    use crate::command::{Command, CommandContext, CommandTrait, mock_context};
+    use crate::command::{Command, CommandContext, mock_context};
     use crate::constants::ProtocolStatus;
     use crate::context::BaseBuzzContext;
     use crate::core::{ProtocolID, RunType};
-    use crate::dispatcher::{ DefaultDispatcher};
+    use crate::dispatcher::{DefaultDispatcher, DispatchContext, MockDispatcher};
     use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
     use crate::response::MockResponse;
     use crate::selector::MockDefaultPureSelector;
@@ -139,17 +149,16 @@ mod tests {
         let c2 = c.with_run_type(1 as RunType);
     }
 
-    // #[test]
-    // fn test_dispatcher() {
-    //     let channel = mock_channel();
-    //     let selector = MockDefaultPureSelector::new();
-    //     let suite_f: &CreateSuit<DefaultCommandSuit> = &|req, resp| -> CellResult<Rc<DefaultCommandSuit>>{
-    //         let (c, rxx, mut ctx) = mock_context();
-    //         let mut mock = EmptyCommandSuite::default();
-    //         let mut box_mock = Box::new(mock);
-    //         let mut suit = DefaultCommandSuit::new(&ctx);
-    //         Ok(Rc::new(suit))
-    //     };
-    //     // let dispatcher = DefaultDispatcher::new(Box::new(channel), suite_f, Box::new(selector));
-    // }
+    #[test]
+    fn test_dispatcher() {
+        let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
+        let channel = mock_channel();
+        let selector = MockDefaultPureSelector::new();
+        let mock_dispatcher = MockDispatcher {};
+        let mut dispatcher = DefaultDispatcher::new(Box::new(channel), Box::new(selector), Box::new(mock_dispatcher));
+        let req = Box::new(MockRequest::new());
+        let resp = Box::new(MockResponse::new(txx));
+        let ctx=DispatchContext::new(req,resp);
+        dispatcher.dispatch(ctx);
+    }
 }

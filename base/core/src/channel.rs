@@ -7,7 +7,7 @@ use crate::suit::{CommandSuit, DefaultCommandSuit};
 
 pub trait ChannelTrait<'e, 'a>
 {
-    fn read_command(&mut self, suit:ContextWrapper<'a>);
+    fn read_command(&mut self, suit: ContextWrapper<'a>);
 }
 
 pub struct ChannelChainExecutor {}
@@ -23,23 +23,31 @@ pub struct DefaultChannel<'e, 'a>
 }
 
 impl<'e, 'a> DefaultChannel<'e, 'a> where
-    // T: ExecutorValueTrait<'a> + CommandSuit<'a>,
+// T: ExecutorValueTrait<'a> + CommandSuit<'a>,
     Self: 'e {
-    pub fn new(p: DefaultPipelineV2<'e,ContextWrapper<'a>>) -> Self {
+    pub fn new(p: DefaultPipelineV2<'e, ContextWrapper<'a>>) -> Self {
         Self {
-            pip: p, _marker_e: Default::default(), _marker_a: Default::default(),
+            pip: p,
+            _marker_e: Default::default(),
+            _marker_a: Default::default(),
             // _marker_t: Default::default()
         }
+    }
+    pub fn seal(&mut self) {
+        let cmd_executor = DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Rc::new(|v: &ContextWrapper| {
+            println!("cmd execute");
+        }))));
+        self.pip.add_last(cmd_executor);
     }
 }
 
 impl<'e, 'a> DefaultChannel<'e, 'a> where
-    // T: ExecutorValueTrait<'a> + CommandSuit<'a>,
+// T: ExecutorValueTrait<'a> + CommandSuit<'a>,
     Self: 'e {}
 
 impl<'e, 'a> ChannelTrait<'e, 'a> for DefaultChannel<'e, 'a>
 {
-    fn read_command(&mut self, suit:ContextWrapper<'a>) {
+    fn read_command(&mut self, suit: ContextWrapper<'a>) {
         self.pip.execute(&suit);
     }
 }
@@ -105,7 +113,7 @@ mod tests {
     fn test_suit() {
         let (c, rxx, mut ctx) = mock_context();
         let mut channel = mock_channel();
-        let wrapper=ContextWrapper::new(Box::new(ctx));
+        let wrapper = ContextWrapper::new(Box::new(ctx), Rc::new(c.clone()));
         channel.read_command(wrapper)
     }
 }
