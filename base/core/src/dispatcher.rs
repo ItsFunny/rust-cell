@@ -70,7 +70,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
                 b_ctx = v;
             }
         }
-        self.channel.read_command(ContextWrapper::new(b_ctx,Rc::new(cmd.clone())));
+        self.channel.read_command(ContextWrapper::new(b_ctx, Rc::new(cmd)));
         // let bbb=b_ctx.as_ref();
         // let a: &'a dyn BuzzContextTrait = b_ctx.deref();
         // let suit = DefaultCommandSuit::new(bbb);
@@ -90,13 +90,19 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
     }
 
 
-    pub fn get_cmd_from_request(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>) -> CellResult<&'static Command> {
-        let (txx, mut rxx) = std::sync::mpsc::channel::<&'static Command>();
+    pub fn get_cmd_from_request(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>) -> CellResult<Command> {
+        // TODO ,useless
+        let (txx, mut rxx) = std::sync::mpsc::channel::<Command>();
         let req = SelectorRequest::new(req, txx);
-        self.command_selector.select(&req);
-        rxx.recv().map_err(|e| {
-            CellError::from(ErrorEnumsStruct::UNKNOWN).with_error(Box::new(e))
-        })
+        let ret = self.command_selector.select(&req);
+        match ret {
+            None => {
+                Err(CellError::from(ErrorEnumsStruct::UNKNOWN))
+            }
+            Some(v) => {
+                Ok(v)
+            }
+        }
     }
 }
 
@@ -158,7 +164,7 @@ mod tests {
         let mut dispatcher = DefaultDispatcher::new(Box::new(channel), Box::new(selector), Box::new(mock_dispatcher));
         let req = Box::new(MockRequest::new());
         let resp = Box::new(MockResponse::new(txx));
-        let ctx=DispatchContext::new(req,resp);
+        let ctx = DispatchContext::new(req, resp);
         dispatcher.dispatch(ctx);
     }
 }

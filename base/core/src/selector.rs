@@ -14,19 +14,19 @@ use crate::request::{MockRequest, ServerRequestTrait};
 
 pub trait CommandSelector {
     // FIXME , reference or clone ?
-    fn select(&self, req: &SelectorRequest) -> Option<&'static Command>;
-    fn on_register_cmd(&mut self, cmd: &'static Command);
+    fn select(&self, req: &SelectorRequest) -> Option<Command>;
+    fn on_register_cmd(&mut self, cmd: Command);
 }
 
 pub struct SelectorRequest<'a> {
-    pub request: Rc<Box<dyn ServerRequestTrait+'a>>,
-    pub tx: Sender<&'static Command>,
+    pub request: Rc<Box<dyn ServerRequestTrait + 'a>>,
+    pub tx: Sender<Command>,
     // TODO wrap tx
     pub done: RefCell<bool>,
 }
 
 impl<'a> SelectorRequest<'a> {
-    pub fn new(request: Rc<Box<dyn ServerRequestTrait+'a>>, tx: Sender<&'static Command>) -> Self {
+    pub fn new(request: Rc<Box<dyn ServerRequestTrait + 'a>>, tx: Sender<Command>) -> Self {
         SelectorRequest { request, tx, done: RefCell::new(false) }
     }
 }
@@ -40,17 +40,19 @@ impl<'a> ExecutorValueTrait<'a> for SelectorRequest<'a> {}
 
 //////// mock
 pub struct MockDefaultPureSelector {
-    commands: HashMap<String, &'static Command>,
+    commands: HashMap<String, Command>,
 }
 
 impl MockDefaultPureSelector {
     pub fn new() -> Self {
-        MockDefaultPureSelector { commands: Default::default() }
+        let mut ret = MockDefaultPureSelector { commands: Default::default() };
+        ret.on_register_cmd(mock_command());
+        return ret;
     }
 }
 
 impl CommandSelector for MockDefaultPureSelector {
-    fn select(&self, req: &SelectorRequest) -> Option<&'static Command> {
+    fn select(&self, req: &SelectorRequest) -> Option<Command> {
         let any = req.request.as_any();
         let p;
         match any.downcast_ref::<MockRequest>() {
@@ -65,8 +67,8 @@ impl CommandSelector for MockDefaultPureSelector {
         let opt_get = self.commands.get(&string_id);
         match opt_get {
             Some(ret) => {
-                let a = *ret;
-                Some(a)
+                // TODO
+                Some(ret.clone())
             }
             None => {
                 None
@@ -74,7 +76,7 @@ impl CommandSelector for MockDefaultPureSelector {
         }
     }
 
-    fn on_register_cmd(&mut self, cmd: &'static Command) {
+    fn on_register_cmd(&mut self, cmd: Command) {
         let id = cmd.id();
         let string_id = conv_protocol_to_string(id);
         self.commands.insert(string_id, cmd);
@@ -84,7 +86,7 @@ impl CommandSelector for MockDefaultPureSelector {
 
 pub struct SelectorStrategy<'e: 'a, 'a> {
     // selector: DefaultChainExecutor<'e, 'a, SelectorRequest>,
-    selector: DefaultPipelineV2<'a,SelectorRequest<'a>>,
+    selector: DefaultPipelineV2<'a, SelectorRequest<'a>>,
     // register: DefaultChainExecutor<'e, 'a, SelectorRequest>,
     _marker_e: PhantomData<&'e ()>,
     _marker_a: PhantomData<&'a ()>,
@@ -115,7 +117,7 @@ pub struct SelectorStrategy<'e: 'a, 'a> {
 // }
 
 impl<'e: 'a, 'a> SelectorStrategy<'e, 'a> {
-    pub fn new(executor: DefaultPipelineV2<'a,SelectorRequest<'a>>) -> Self {
+    pub fn new(executor: DefaultPipelineV2<'a, SelectorRequest<'a>>) -> Self {
         SelectorStrategy { selector: executor, _marker_e: Default::default(), _marker_a: Default::default() }
     }
 }
@@ -161,16 +163,10 @@ mod tests {
 
     #[test]
     fn test_selector() {
-        let mut c = Command::default();
-        c = c.with_protocol_id("/v1/protocol");
-        c = c.with_run_type(1 as RunType);
-        c = c.with_executor(&move |ctx, v| {
-            println!("ctx")
-        });
-        c = c.do_seal();
+        let mut c=mock_command();
 
         let e1 = MockDefaultPureSelector::new();
-        let pip=PipelineBuilder::default().add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Rc::new(move|req:&SelectorRequest|{
+        let pip = PipelineBuilder::default().add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Rc::new(move |req: &SelectorRequest| {
             let ret = e1.select(req);
             match ret {
                 Some(v) => {
@@ -183,7 +179,7 @@ mod tests {
         }))))).build();
         let mut strategy = SelectorStrategy::new(pip);
         let mock_request = MockRequest::new();
-        let (txx, mut rxx) = std::sync::mpsc::channel::<&'static Command>();
+        let (txx, mut rxx) = std::sync::mpsc::channel::<Command>();
         let mut request = SelectorRequest { request: Rc::new(Box::new(mock_request)), tx: (txx), done: RefCell::new(false) };
         strategy.selector.execute(&mut request);
         let re = rxx.try_recv();

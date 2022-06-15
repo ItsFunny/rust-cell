@@ -37,6 +37,18 @@ pub struct Command
     seal: bool,
 }
 
+pub fn mock_command() -> Command {
+    let mut c = Command::default();
+    c = c.with_protocol_id("protocol").with_executor(&move |ctx, v| {
+        println!("execute");
+        let mut ret = ContextResponseWrapper::default();
+        ret = ret.with_status(ProtocolStatus::SUCCESS);
+        ret = ret.with_body(Bytes::from("123"));
+        futures::executor::block_on(ctx.response(ret));
+    });
+    return c;
+}
+
 impl Clone for Command {
     fn clone(&self) -> Self {
         Command {
@@ -188,15 +200,7 @@ impl Command {}
 pub fn mock_context<'a>() -> (Command, std::sync::mpsc::Receiver<Response<Body>>, BaseBuzzContext<'a>) {
     let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
     let p: ProtocolID = "/protocol/v1" as ProtocolID;
-    let mut c = Command::default();
-    c = c.with_protocol_id(p).with_executor(&move |ctx, v| {
-        println!("execute");
-        let mut ret = ContextResponseWrapper::default();
-        ret = ret.with_status(ProtocolStatus::SUCCESS);
-        ret = ret.with_body(Bytes::from("123"));
-        futures::executor::block_on(ctx.response(ret));
-    });
-
+    let mut c = mock_command();
 
     static M: &CellModule = &module::CellModule::new(1, "CONTEXT", &LogLevel::Info);
     let req = Box::new(MockRequest::new());
