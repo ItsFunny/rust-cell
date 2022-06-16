@@ -172,11 +172,11 @@ impl<'a> CommandContext<'a> where
 ////////////
 
 impl Command {
-    pub(crate) fn id(&self) -> ProtocolID {
+    pub fn id(&self) -> ProtocolID {
         self.protocol_id
     }
 
-    pub(crate) fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
+    pub fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
         // TODO input archive
         // TODO NOE
         (self.fun).unwrap()(ctx, None)

@@ -1,16 +1,16 @@
 use std::collections::HashMap;
-use cell_core::command::CommandTrait;
+use cell_core::command::Command;
 use cell_core::core::conv_protocol_to_string;
 use cell_core::selector::{CommandSelector, SelectorRequest};
 use crate::request::HttpRequest;
 
 pub struct HttpSelector {
-    commands: HashMap<String, &'static dyn CommandTrait>,
+    commands: HashMap<String, Command>,
 }
 
 
 impl CommandSelector for HttpSelector {
-    fn select(&self, req: &SelectorRequest) -> Option<&'static dyn CommandTrait> {
+    fn select(&self, req: &SelectorRequest)  -> Option<Command>{
         let any = req.request.as_any();
         let p;
         match any.downcast_ref::<HttpRequest>() {
@@ -26,8 +26,7 @@ impl CommandSelector for HttpSelector {
         let opt_get = self.commands.get(&string_id);
         match opt_get {
             Some(ret) => {
-                let a = &(**ret);
-                Some(a)
+                Some(ret.clone())
             }
             None => {
                 None
@@ -35,7 +34,7 @@ impl CommandSelector for HttpSelector {
         }
     }
 
-    fn on_register_cmd(&mut self, cmd: &'static dyn CommandTrait) {
+    fn on_register_cmd(&mut self, cmd: Command){
         let id = cmd.id();
         let string_id = conv_protocol_to_string(id);
         self.commands.insert(string_id, cmd);

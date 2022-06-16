@@ -942,6 +942,7 @@ dependencies = [
  "indexmap",
  "json",
  "logsdk",
+ "pipeline2",
  "rocket 0.5.0-rc.2",
  "serde",
  "serde_json",
