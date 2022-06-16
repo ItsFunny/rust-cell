@@ -9,6 +9,7 @@ use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use hyper::server::conn::AddrStream;
 use cell_core::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use cell_core::channel::ChannelTrait;
+use cell_core::dispatcher::{DefaultDispatcher, DispatchContext};
 use cell_core::request::MockRequest;
 use crate::channel::HttpChannel;
 use crate::dispatcher::HttpDispatcher;
@@ -16,7 +17,7 @@ use crate::request::HttpRequest;
 use crate::response::HttpResponse;
 
 pub struct HttpServer<'e, 'a> {
-    dispatcher: HttpDispatcher<'e, 'a>,
+    dispatcher: DefaultDispatcher<'e,'a>,
     _marker_e: PhantomData<&'e ()>,
     _marker_a: PhantomData<&'a ()>,
 }
@@ -80,10 +81,13 @@ impl<'e, 'a> HttpServer<'e, 'a> {
 
         Ok(())
     }
-    pub  fn dispatch(mut self, req: HttpRequest, resp: HttpResponse) {
-        let mut a =self.dispatcher;
-        a.dispatch(req,resp);
-        // self.dispatcher.dispatch(req, resp)
+    pub fn dispatch(mut self, req: HttpRequest, resp: HttpResponse) {
+        let mut a = self.dispatcher;
+        let ctx = DispatchContext::new(Box::new(req), Box::new(resp));
+        a.dispatch(ctx);
+    }
+    pub fn new(dispatcher: DefaultDispatcher<'e, 'a>) -> Self {
+        Self { dispatcher, _marker_e: PhantomData::default(), _marker_a: PhantomData::default() }
     }
 }
 //
@@ -91,7 +95,7 @@ impl<'e, 'a> HttpServer<'e, 'a> {
 //     echo(hyp_req).await
 // }
 
-async fn c()-> Result<Response<Body>, hyper::Error>{
+async fn c() -> Result<Response<Body>, hyper::Error> {
     Ok(Response::new(Body::from(String::from("asd"))))
 }
 
@@ -147,6 +151,10 @@ async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
 
 #[cfg(test)]
 mod tests {
+    use cell_core::dispatcher::DefaultDispatcher;
+    use crate::channel::HttpChannel;
+    use crate::dispatcher::HttpDispatcher;
+    use crate::selector::HttpSelector;
     use crate::server::HttpServer;
 
     #[test]
@@ -156,5 +164,14 @@ mod tests {
     }
 
     #[test]
-    fn test_http_server() {}
+    fn test_http_server() {
+        let selector = HttpSelector::default();
+        let channel = HttpChannel::default();
+        let http_dispatch = HttpDispatcher::new();
+        let default_dispatcher = DefaultDispatcher::new(
+            Box::new(channel),
+            Box::new(selector),
+            Box::new(http_dispatch));
+        let s = HttpServer::new(default_dispatcher);
+    }
 }

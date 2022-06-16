@@ -1,7 +1,9 @@
+use std::rc::Rc;
 use cell_core::channel::*;
 use cell_core::context::ContextWrapper;
+use cell_core::dispatcher::DefaultDispatcher;
 use cell_core::suit::CommandSuit;
-use pipeline2::pipeline2::DefaultPipelineV2;
+use pipeline2::pipeline2::{ClosureExecutor, DefaultPipelineV2, DefaultReactorExecutor, PipelineBuilder};
 
 pub struct HttpChannel<'e, 'a>
     where
@@ -14,6 +16,16 @@ impl<'e, 'a> HttpChannel<'e, 'a> where
     Self: 'e {
     pub fn new(executors:  DefaultPipelineV2<'e, ContextWrapper<'a>>) -> Self {
         HttpChannel { channel: DefaultChannel::new(executors) }
+    }
+}
+impl<'e,'a> Default for HttpChannel<'e,'a>{
+    fn default() -> Self {
+        let pip = PipelineBuilder::default().add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Rc::new(|v: &ContextWrapper| {
+            println!("http:111 {:?}", v)
+        }))))).add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Rc::new(|v: &ContextWrapper| {
+            println!("http:222 {:?}", v)
+        }))))).build();
+        HttpChannel::new(pip)
     }
 }
 

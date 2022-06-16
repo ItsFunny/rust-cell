@@ -7,6 +7,13 @@ use crate::request::HttpRequest;
 pub struct HttpSelector {
     commands: HashMap<String, Command>,
 }
+impl Default for HttpSelector{
+    fn default() -> Self {
+        HttpSelector{
+            commands: Default::default()
+        }
+    }
+}
 
 
 impl CommandSelector for HttpSelector {
