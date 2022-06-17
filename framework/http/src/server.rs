@@ -17,7 +17,7 @@ use crate::request::HttpRequest;
 use crate::response::HttpResponse;
 
 pub struct HttpServer<'e, 'a> {
-    dispatcher: DefaultDispatcher<'e,'a>,
+    dispatcher: DefaultDispatcher<'e, 'a>,
     _marker_e: PhantomData<&'e ()>,
     _marker_a: PhantomData<&'a ()>,
 }
@@ -45,6 +45,33 @@ unsafe impl<'e, 'a> Sync for HttpServer<'e, 'a> {}
 //
 //
 
+// fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+//     let body = async {
+//         let addr = ([127, 0, 0, 1], 3000).into();
+//         let service = make_service_fn(|_conn: &AddrStream| {
+//             let a = _conn.clone();
+//             ::std::io::_print(::core::fmt::Arguments::new_v1(
+//                 &["", "\n"],
+//                 &[::core::fmt::ArgumentV1::new_debug(&a)],
+//             ));
+//             async move { Ok::<_, hyper::Error>(service_fn(echo)) }
+//         });
+//         let server = Server::bind(&addr).serve(service);
+//         ::std::io::_print(::core::fmt::Arguments::new_v1(
+//             &["Listening on http://", "\n"],
+//             &[::core::fmt::ArgumentV1::new_display(&addr)],
+//         ));
+//         server.await?;
+//         Ok(())
+//     };
+//     #[allow(clippy::expect_used)]
+//     tokio::runtime::Builder::new_multi_thread()
+//         .enable_all()
+//         .build()
+//         .expect("Failed building the Runtime")
+//         .block_on(body)
+// }
+
 
 impl<'e, 'a> HttpServer<'e, 'a> {
     pub async fn start(mut self) -> CellResult<()> {
@@ -61,11 +88,12 @@ impl<'e, 'a> HttpServer<'e, 'a> {
             //         });
             async move {
                 Ok::<_, hyper::Error>(service_fn(move |req| {
-                    let http_req = HttpRequest::new(req);
-                    let http_resp = HttpResponse::new();
+
+                    // self.dispatcher.dispatch(ctx);
                     // ss.dispatch(http_req, http_resp);
                     // cell_hyper_service_fn(req)
                     c()
+                    // self.hyper_service_fn(req)
                 }))
             }
         }
@@ -80,6 +108,20 @@ impl<'e, 'a> HttpServer<'e, 'a> {
         });
 
         Ok(())
+    }
+
+
+    pub async fn hyper_service_fn(mut self,req :Request<Body>)->Result<Response<Body>, io::Error>{
+        let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
+        tokio::spawn(async move {
+            let http_req = Box::new(HttpRequest::new(req));
+            let http_resp = Box::new(HttpResponse::new(txx));
+            let ctx = DispatchContext::new(http_req,http_resp);
+            self.dispatcher.dispatch(ctx);
+        });
+        rxx.recv().map_err(|e|{
+            io::Error::new(io::ErrorKind::BrokenPipe, e)
+        })
     }
     pub fn dispatch(mut self, req: HttpRequest, resp: HttpResponse) {
         let mut a = self.dispatcher;
@@ -173,5 +215,15 @@ mod tests {
             Box::new(selector),
             Box::new(http_dispatch));
         let s = HttpServer::new(default_dispatcher);
+        let body=async{
+            s.start().await
+        };
+        // futures::executor::block_on();
+
+        tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed building the Runtime")
+        .block_on(body);
     }
 }

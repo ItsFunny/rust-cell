@@ -1,17 +1,22 @@
 use std::any::Any;
+use std::sync::mpsc::Sender;
 use http::header::HeaderName;
 use http::{HeaderValue, Response};
 use hyper::Body;
+use futures::*;
 use cell_core::cerror::CellResult;
 use cell_core::request::ServerResponseTrait;
 
-pub struct HttpResponse {}
+pub struct HttpResponse {
+    tx: Sender<Response<Body>>,
+}
 
 impl HttpResponse {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(tx: Sender<Response<Body>>) -> Self {
+        Self { tx }
     }
 }
+
 
 impl ServerResponseTrait for HttpResponse {
     fn add_header(&mut self, key: HeaderName, value: HeaderValue) {
@@ -26,3 +31,7 @@ impl ServerResponseTrait for HttpResponse {
         self
     }
 }
+
+unsafe impl Send for HttpResponse {}
+
+unsafe impl Sync for HttpResponse {}
