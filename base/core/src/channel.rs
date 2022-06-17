@@ -4,10 +4,12 @@ use pipeline2::pipeline2::{ClosureExecutor, DefaultPipelineV2, DefaultReactorExe
 use crate::context::{BuzzContextTrait, Context, ContextWrapper};
 use crate::core::ExecutorValueTrait;
 use crate::suit::{CommandSuit, DefaultCommandSuit};
+use async_trait::async_trait;
 
+#[async_trait(?Send)]
 pub trait ChannelTrait<'e, 'a>
 {
-    fn read_command(&mut self, suit: ContextWrapper<'a>);
+   async fn read_command(&mut self, suit: ContextWrapper<'a>);
 }
 
 pub struct ChannelChainExecutor {}
@@ -45,10 +47,11 @@ impl<'e, 'a> DefaultChannel<'e, 'a> where
 // T: ExecutorValueTrait<'a> + CommandSuit<'a>,
     Self: 'e {}
 
+#[async_trait(?Send)]
 impl<'e, 'a> ChannelTrait<'e, 'a> for DefaultChannel<'e, 'a>
 {
-    fn read_command(&mut self, suit: ContextWrapper<'a>) {
-        self.pip.execute(&suit);
+    async fn read_command(&mut self, suit: ContextWrapper<'a>) {
+        self.pip.execute(&suit).await;
     }
 }
 
@@ -114,6 +117,6 @@ mod tests {
         let (c, rxx, mut ctx) = mock_context();
         let mut channel = mock_channel();
         let wrapper = ContextWrapper::new(Box::new(ctx), Rc::new(c.clone()));
-        channel.read_command(wrapper)
+        futures::executor::block_on(channel.read_command(wrapper));
     }
 }

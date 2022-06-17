@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn test_selector() {
-        let mut c=mock_command();
+        let mut c = mock_command();
 
         let e1 = MockDefaultPureSelector::new();
         let pip = PipelineBuilder::default().add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Rc::new(move |req: &SelectorRequest| {
@@ -181,7 +181,15 @@ mod tests {
         let mock_request = MockRequest::new();
         let (txx, mut rxx) = std::sync::mpsc::channel::<Command>();
         let mut request = SelectorRequest { request: Rc::new(Box::new(mock_request)), tx: (txx), done: RefCell::new(false) };
-        strategy.selector.execute(&mut request);
+        futures::executor::block_on(strategy.selector.execute(&mut request));
         let re = rxx.try_recv();
+        match re {
+            Ok(v) => {
+                println!("success")
+            }
+            Err(e) => {
+                println!("err")
+            }
+        }
     }
 }

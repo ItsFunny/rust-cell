@@ -40,7 +40,7 @@ pub struct ContextWrapper<'a> {
     // note: The reason I use rc instead of using box is "I dont have to clone data ,all I want is pointer ,it is enough"
     pub cmd: Rc<Command>,
 }
-
+unsafe impl<'a> Send for ContextWrapper<'a>{}
 impl<'a> ContextWrapper<'a> {
     pub fn new(ctx: Box<dyn BuzzContextTrait<'a> + 'a>, cmd: Rc<Command>) -> Self {
         Self { ctx, cmd }

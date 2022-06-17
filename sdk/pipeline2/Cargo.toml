@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 dyn-clone = "1.0.5"
+futures = "0.3.21"
+tokio = "1.19.2"
+async-recursion = "1.0.0"

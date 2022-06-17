@@ -11,6 +11,7 @@ pub mod pipeline2 {
     use std::marker::PhantomData;
     use std::rc::Rc;
     use dyn_clone::{clone_trait_object, DynClone};
+    use async_recursion::async_recursion;
 
     pub struct PipelineBuilder<'a, T>
     {
@@ -54,15 +55,15 @@ pub mod pipeline2 {
         pub fn new(executor: DefaultChainExecutor<'a, T>) -> Self {
             Self { executor }
         }
-        pub fn execute(&mut self, v: &T) {
-            self.executor.execute(v);
+        pub async fn execute(&mut self, v: &T) {
+            self.executor.execute(v).await;
         }
 
         // TODO builder
         pub fn build(self) -> Self {
             self
         }
-        pub fn add_last(&mut self,e: DefaultReactorExecutor<'a, T>){
+        pub fn add_last(&mut self, e: DefaultReactorExecutor<'a, T>) {
             self.executor.executors.push(e);
         }
     }
@@ -76,6 +77,7 @@ pub mod pipeline2 {
             DefaultPipelineV2 { executor: DefaultChainExecutor::default() }
         }
     }
+
     // TODO: async future
     pub struct DefaultChainExecutor<'a, T>
     {
@@ -138,9 +140,10 @@ pub mod pipeline2 {
         where
             T: 'a,
     {
-        pub fn execute(self, t: &T, c: &mut ExecutorContext<'a, T>) {
+        #[async_recursion(?Send)]
+        pub async fn execute(self, t: &T, c: &mut ExecutorContext<'a, T>) {
             self.f.execute(t);
-            c.next(t)
+            c.next(t).await
         }
         pub fn new(f: Box<dyn Executor<'a, T> + 'a>) -> Self {
             Self { _marker_a: PhantomData::default(), f }
@@ -151,10 +154,10 @@ pub mod pipeline2 {
         where
             T: 'a,
     {
-        pub fn execute(&self, t: &T) {
+        pub async fn execute(&self, t: &T) {
             let ct = copy_shuffle(&self.executors);
             let mut ctx = ExecutorContext::new(ct);
-            ctx.next(t);
+            ctx.next(t).await;
         }
     }
 
@@ -181,12 +184,12 @@ pub mod pipeline2 {
         where
             T: 'a,
     {
-        pub fn next(&mut self, t: &T) {
+        pub async fn next(&mut self, t: &T) {
             if self.executors.len() == 0 {
                 return;
             }
             let ee = self.executors.remove(0);
-            ee.execute(t, self);
+            ee.execute(t, self).await;
         }
     }
 
@@ -257,12 +260,6 @@ pub mod pipeline2 {
         }
     }
 
-    //
-    // impl<T, F> ExecutorClone<'a,T> for ClosureExecutor<T, F> where F: 'static + Clone + Fn(&T) {
-    //     fn clone_box(&self) -> Box<dyn Executor<'a,T>> {
-    //         todo!()
-    //     }
-    // }
 
     impl<'a, T> Executor<'a, T> for ClosureExecutor<'a, T>
         where
@@ -276,26 +273,28 @@ pub mod pipeline2 {
     pub struct MockExecutor<T> {
         _marker_a: PhantomData<T>,
     }
-    impl<T> Default for MockExecutor<T>{
+
+    impl<T> Default for MockExecutor<T> {
         fn default() -> Self {
-            MockExecutor{ _marker_a: Default::default() }
+            MockExecutor { _marker_a: Default::default() }
         }
     }
 
-    impl<'a,T> Executor<'a, T> for MockExecutor<T>
+    impl<'a, T> Executor<'a, T> for MockExecutor<T>
         where
             T: 'a,
     {
         fn execute(&self, v: &T) {
-            println!("{:?}",1)
+            println!("{:?}", 1)
         }
     }
-    impl<'a,T> Clone for MockExecutor<T>
+
+    impl<'a, T> Clone for MockExecutor<T>
         where
             T: 'a,
     {
         fn clone(&self) -> Self {
-            MockExecutor{ _marker_a: Default::default() }
+            MockExecutor { _marker_a: Default::default() }
         }
     }
 }
@@ -303,7 +302,7 @@ pub mod pipeline2 {
 
 #[cfg(test)]
 mod tests {
-    use std::rc;
+    use std::{rc, thread, time};
     use std::rc::Rc;
     use crate::pipeline2::{ClosureExecutor, DefaultChainExecutor, DefaultPipelineV2, DefaultReactorExecutor, PipelineBuilder};
 
@@ -329,7 +328,7 @@ mod tests {
         let builder = PipelineBuilder::default();
         let pip2 = builder.add_last(e1);
         let mut final_pip = pip2.add_last(e2).build();
-        final_pip.execute(&123);
-        final_pip.execute(&456);
+        futures::executor::block_on(final_pip.execute(&123));
+        futures::executor::block_on(final_pip.execute(&456));
     }
 }
