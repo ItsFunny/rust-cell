@@ -43,7 +43,7 @@ impl<'a> DispatchContext<'a> {
 
 impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
 {
-    pub fn dispatch(&mut self, ctx: DispatchContext<'a>) {
+    pub async fn dispatch(&mut self, ctx: DispatchContext<'a>) {
         let req_rc = Rc::new(ctx.req);
         // TODO ,resp need wrapped by rc
         let resp = ctx.resp;
@@ -70,7 +70,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
                 b_ctx = v;
             }
         }
-        self.channel.read_command(ContextWrapper::new(b_ctx, Rc::new(cmd)));
+        self.channel.read_command(ContextWrapper::new(b_ctx, Rc::new(cmd))).await
         // let bbb=b_ctx.as_ref();
         // let a: &'a dyn BuzzContextTrait = b_ctx.deref();
         // let suit = DefaultCommandSuit::new(bbb);
@@ -93,6 +93,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
     pub fn get_cmd_from_request(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>) -> CellResult<Command> {
         // TODO ,useless
         let (txx, mut rxx) = std::sync::mpsc::channel::<Command>();
+        // let (tx, rx) = oneshot::channel();
         let req = SelectorRequest::new(req, txx);
         let ret = self.command_selector.select(&req);
         match ret {
@@ -165,6 +166,6 @@ mod tests {
         let req = Box::new(MockRequest::new());
         let resp = Box::new(MockResponse::new(txx));
         let ctx = DispatchContext::new(req, resp);
-        dispatcher.dispatch(ctx);
+        futures::executor::block_on(dispatcher.dispatch(ctx));
     }
 }

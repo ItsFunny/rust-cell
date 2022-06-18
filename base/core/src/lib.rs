@@ -51,6 +51,12 @@ pub mod core {
     pub fn conv_protocol_to_string(p: ProtocolID) -> String {
         String::from(p as &str)
     }
+
+
+    // pub trait DynClone
+    // {
+    //     fn clone_box(&self) -> Box<dyn Executor<'a, T> + 'a>;
+    // }
 }
 
 #[cfg(test)]

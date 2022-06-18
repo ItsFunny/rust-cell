@@ -7,6 +7,8 @@ use futures::TryStreamExt;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use hyper::server::conn::AddrStream;
+use tokio::sync::oneshot;
+use tokio::sync::oneshot::Sender;
 use cell_core::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use cell_core::channel::ChannelTrait;
 use cell_core::dispatcher::{DefaultDispatcher, DispatchContext};
@@ -25,6 +27,15 @@ pub struct HttpServer<'e, 'a> {
 unsafe impl<'e, 'a> Send for HttpServer<'e, 'a> {}
 
 unsafe impl<'e, 'a> Sync for HttpServer<'e, 'a> {}
+impl<'e,'a> Clone for HttpServer<'e,'a>{
+    fn clone(&self) -> Self {
+        HttpServer{
+            dispatcher: (),
+            _marker_e: Default::default(),
+            _marker_a: Default::default()
+        }
+    }
+}
 // fn create_tcp_listener(addr: net::SocketAddr, backlog: u32) -> CellResult<net::TcpListener> {
 //     use socket2::{Domain, Protocol, Socket, Type};
 //     let domain = Domain::for_address(addr);
@@ -88,12 +99,26 @@ impl<'e, 'a> HttpServer<'e, 'a> {
             //         });
             async move {
                 Ok::<_, hyper::Error>(service_fn(move |req| {
-
-                    // self.dispatcher.dispatch(ctx);
-                    // ss.dispatch(http_req, http_resp);
-                    // cell_hyper_service_fn(req)
-                    c()
-                    // self.hyper_service_fn(req)
+                    let (tx, rx) = oneshot::channel();
+                    tokio::spawn(async move {
+                        // hyper_service_fn(req, tx)
+                    });
+                    rx.await.map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))
+                    // let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
+                    // let (tx, rx) = oneshot::channel();
+                    // tokio::spawn(async move {
+                    //     let http_req=HttpRequest::new(req);
+                    //     let http_resp=HttpResponse::new(tx);
+                    //     let ctx=DispatchContext::new(Box::new(http_req),Box::new(http_resp));
+                    //     self.dispatcher.dispatch(ctx);
+                    // });
+                    // // self.dispatcher.dispatch(ctx);
+                    // // ss.dispatch(http_req, http_resp);
+                    // // cell_hyper_service_fn(req)
+                    // // self.hyper_service_fn(req)
+                    // // rxx.recv()
+                    // rx.await.map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))
+                    // c()
                 }))
             }
         }
@@ -111,17 +136,11 @@ impl<'e, 'a> HttpServer<'e, 'a> {
     }
 
 
-    pub async fn hyper_service_fn(mut self,req :Request<Body>)->Result<Response<Body>, io::Error>{
-        let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
-        tokio::spawn(async move {
-            let http_req = Box::new(HttpRequest::new(req));
-            let http_resp = Box::new(HttpResponse::new(txx));
-            let ctx = DispatchContext::new(http_req,http_resp);
-            self.dispatcher.dispatch(ctx);
-        });
-        rxx.recv().map_err(|e|{
-            io::Error::new(io::ErrorKind::BrokenPipe, e)
-        })
+    pub async fn hyper_service_fn(mut server:HttpServer, req: Request<Body>, tx: Sender<Response<Body>>) {
+        let http_req = Box::new(HttpRequest::new(req));
+        let http_resp = Box::new(HttpResponse::new(tx));
+        let ctx = DispatchContext::new(http_req, http_resp);
+        server.dispatcher.dispatch(ctx)
     }
     pub fn dispatch(mut self, req: HttpRequest, resp: HttpResponse) {
         let mut a = self.dispatcher;
@@ -215,15 +234,15 @@ mod tests {
             Box::new(selector),
             Box::new(http_dispatch));
         let s = HttpServer::new(default_dispatcher);
-        let body=async{
+        let body = async {
             s.start().await
         };
         // futures::executor::block_on();
 
         tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .expect("Failed building the Runtime")
-        .block_on(body);
+            .enable_all()
+            .build()
+            .expect("Failed building the Runtime")
+            .block_on(body);
     }
 }

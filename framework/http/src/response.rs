@@ -4,15 +4,16 @@ use http::header::HeaderName;
 use http::{HeaderValue, Response};
 use hyper::Body;
 use futures::*;
+use tokio::sync::oneshot;
 use cell_core::cerror::CellResult;
 use cell_core::request::ServerResponseTrait;
 
 pub struct HttpResponse {
-    tx: Sender<Response<Body>>,
+    tx:oneshot::Sender<Response<Body>>,
 }
 
 impl HttpResponse {
-    pub fn new(tx: Sender<Response<Body>>) -> Self {
+    pub fn new(tx: oneshot::Sender<Response<Body>>) -> Self {
         Self { tx }
     }
 }
@@ -24,7 +25,7 @@ impl ServerResponseTrait for HttpResponse {
     }
 
     fn fire_result(&mut self, result: Response<Body>) -> CellResult<()> {
-        todo!()
+        self.txx.send(result)
     }
 
     fn as_any(&self) -> &dyn Any {
