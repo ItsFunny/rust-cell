@@ -82,7 +82,7 @@ pub fn mock_command() -> Command {
         ret = ret.with_body(Bytes::from("123"));
         futures::executor::block_on(ctx.response(ret));
     }));
-    c = c.with_protocol_id("protocol").with_executor(Arc::new(f));
+    c = c.with_protocol_id("/protocol").with_executor(Arc::new(f));
     return c;
 }
 

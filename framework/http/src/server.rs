@@ -19,22 +19,22 @@ use crate::dispatcher::HttpDispatcher;
 use crate::request::HttpRequest;
 use crate::response::HttpResponse;
 
-pub struct HttpServer<'a> {
-    dispatcher: DefaultDispatcher<'static, 'a>,
+pub struct HttpServer {
+    dispatcher: DefaultDispatcher<'static, 'static>,
     // _marker_e: PhantomData<&'e ()>,
-    _marker_a: PhantomData<&'a ()>,
+    // _marker_a: PhantomData<&'a ()>,
 }
 
-impl <'a> Debug for HttpServer<'a> {
+impl  Debug for HttpServer{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f,"asd")
     }
 }
 
-unsafe impl< 'a> Send for HttpServer< 'a> {}
+unsafe impl Send for HttpServer{}
 
-unsafe impl< 'a> Sync for HttpServer< 'a> {}
-// impl<'a> Clone for HttpServer<'a>{
+unsafe impl Sync for HttpServer{}
+// impl<'static> Clone for HttpServer<'static>{
 //     fn clone(&self) -> Self {
 //         HttpServer{
 //             dispatcher: (),
@@ -92,7 +92,7 @@ unsafe impl< 'a> Sync for HttpServer< 'a> {}
 // }
 
 
-impl< 'a> HttpServer< 'a> {
+impl HttpServer{
     pub async fn start(mut self) -> CellResult<()> {
         let addr = ([127, 0, 0, 1], 3000).into();
         let s1 = Arc::new(self);
@@ -108,7 +108,8 @@ impl< 'a> HttpServer< 'a> {
             let s2 = s1.clone();
             async move {
                 Ok::<_, hyper::Error>(service_fn(move |req| {
-                    c()
+                    // c()
+                    async_hyper_service_fn(s2.clone(),req)
 
                     // let (tx, rx) = oneshot::channel();
                     // let http_req = HttpRequest::new(req);
@@ -162,15 +163,13 @@ impl< 'a> HttpServer< 'a> {
         let ctx = DispatchContext::new(Box::new(req), Box::new(resp));
         a.dispatch(ctx);
     }
-    pub fn new(dispatcher: DefaultDispatcher<'static,'a>) -> Self {
+    pub fn new(dispatcher: DefaultDispatcher<'static,'static>) -> Self {
         Self { dispatcher,
-            // _marker_e: PhantomData::default(),
-            _marker_a: PhantomData::default()
         }
     }
 }
 
-pub async fn async_hyper_service_fn(mut server: Arc<HttpServer<'static>>, req: Request<Body>) -> Result<Response<Body>, std::io::Error> {
+pub async fn async_hyper_service_fn(mut server: Arc<HttpServer>, req: Request<Body>) -> Result<Response<Body>, std::io::Error> {
     let (tx, rx) = oneshot::channel();
     tokio::spawn(async move {
         let http_req = Box::new(HttpRequest::new(req));
@@ -182,26 +181,11 @@ pub async fn async_hyper_service_fn(mut server: Arc<HttpServer<'static>>, req: R
     rx.await.map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))
 }
 
-pub async fn hyper_service_fn< 'a>(server: Arc<HttpServer< 'a>>, req: Request<Body>, tx: Sender<Response<Body>>) {
-    let http_req = Box::new(HttpRequest::new(req));
-    let http_resp = Box::new(HttpResponse::new(tx));
-    let ctx = DispatchContext::new(http_req, http_resp);
-    server.dispatcher.dispatch(ctx);
-}
-//
-// async fn cell_hyper_service_fn< 'a>(hyp_req: hyper::Request<hyper::Body>) -> Result<Response<Body>, hyper::Error> {
-//     echo(hyp_req).await
-// }
 
 async fn c() -> Result<Response<Body>, hyper::Error> {
     Ok(Response::new(Body::from(String::from("asd"))))
 }
 
-// async fn dispatch<'a>(mut server: Arc<HttpServer<'a>>, req: Request<Body>){
-//     let http_req=HttpRequest::new(req);
-//     let http_resp=HttpResponse::new();
-//     server.dispatch(http_req,http_resp);
-// }
 
 async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
     match (req.method(), req.uri().path()) {
@@ -249,7 +233,9 @@ async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
 
 #[cfg(test)]
 mod tests {
+    use cell_core::command::mock_command;
     use cell_core::dispatcher::DefaultDispatcher;
+    use cell_core::selector::CommandSelector;
     use crate::channel::HttpChannel;
     use crate::dispatcher::HttpDispatcher;
     use crate::selector::HttpSelector;
@@ -261,25 +247,27 @@ mod tests {
         assert_eq!(result, 4);
     }
 
-    // #[test]
-    // fn test_http_server() {
-    //     let selector = HttpSelector::default();
-    //     let channel = HttpChannel::default();
-    //     let http_dispatch = HttpDispatcher::new();
-    //     let default_dispatcher = DefaultDispatcher::new(
-    //         Box::new(channel),
-    //         Box::new(selector),
-    //         Box::new(http_dispatch));
-    //     let s = HttpServer::new(default_dispatcher);
-    //     let body = async {
-    //         s.start().await
-    //     };
-    //     // futures::executor::block_on();
-    //
-    //     tokio::runtime::Builder::new_multi_thread()
-    //         .enable_all()
-    //         .build()
-    //         .expect("Failed building the Runtime")
-    //         .block_on(body);
-    // }
+    #[test]
+    fn test_http_server() {
+        let mut selector = HttpSelector::default();
+        let cmd=mock_command();
+        selector.on_register_cmd(cmd);
+        let channel = HttpChannel::default();
+        let http_dispatch = HttpDispatcher::new();
+        let default_dispatcher = DefaultDispatcher::new(
+            Box::new(channel),
+            Box::new(selector),
+            Box::new(http_dispatch));
+        let s = HttpServer::new(default_dispatcher);
+        let body = async {
+            s.start().await
+        };
+        // futures::executor::block_on();
+
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("Failed building the Runtime")
+            .block_on(body);
+    }
 }
