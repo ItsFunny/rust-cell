@@ -13,7 +13,7 @@ use crate::request::{ServerRequestTrait, ServerResponseTrait};
 use crate::selector::{CommandSelector, SelectorRequest};
 
 
-pub trait Dispatcher:Send+Sync {
+pub trait Dispatcher: Send + Sync {
     fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>>;
 }
 
@@ -36,6 +36,10 @@ pub struct DispatchContext<'a> {
     pub req: Box<dyn ServerRequestTrait + 'a>,
     pub resp: Box<dyn ServerResponseTrait + 'a>,
 }
+
+unsafe impl<'a> Send for DispatchContext<'a> {}
+
+unsafe impl<'a> Sync for DispatchContext<'a> {}
 
 impl<'a> DispatchContext<'a> {
     pub fn new(req: Box<dyn ServerRequestTrait + 'a>, resp: Box<dyn ServerResponseTrait + 'a>) -> Self {

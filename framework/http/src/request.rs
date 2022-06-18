@@ -6,6 +6,13 @@ pub struct HttpRequest {
   pub  request: Request<Body>
 }
 
+unsafe impl Send for HttpRequest {
+
+}
+unsafe impl Sync for HttpRequest {
+
+}
+
 impl HttpRequest {
     pub fn new(request: Request<Body>) -> Self {
         Self { request }

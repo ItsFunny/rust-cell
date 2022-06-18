@@ -12,6 +12,13 @@ pub struct HttpResponse {
     tx:oneshot::Sender<Response<Body>>,
 }
 
+unsafe impl Send for HttpResponse {
+
+}
+unsafe impl Sync for HttpResponse {
+
+}
+
 impl HttpResponse {
     pub fn new(tx: oneshot::Sender<Response<Body>>) -> Self {
         Self { tx }
@@ -33,7 +40,3 @@ impl ServerResponseTrait for HttpResponse {
         self
     }
 }
-
-unsafe impl Send for HttpResponse {}
-
-unsafe impl Sync for HttpResponse {}

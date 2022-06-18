@@ -15,6 +15,9 @@ pub struct CellError {
     wrapped_error: Option<Box<CellError>>,
 }
 
+unsafe  impl Send for CellError{}
+unsafe  impl Sync for CellError{}
+
 impl CellError {
     pub fn get_code(&self) -> usize {
         self.code
