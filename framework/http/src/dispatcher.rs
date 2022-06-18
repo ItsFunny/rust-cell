@@ -1,9 +1,9 @@
 use std::rc::Rc;
+use std::sync::Arc;
 use cell_core::cerror::CellResult;
 use cell_core::context::BuzzContextTrait;
 use cell_core::dispatcher::{DefaultDispatcher, DispatchContext, Dispatcher};
 use cell_core::request::{ServerRequestTrait, ServerResponseTrait};
-use cell_core::suit::CommandSuit;
 use crate::request::HttpRequest;
 use crate::response::HttpResponse;
 
@@ -25,7 +25,7 @@ impl HttpDispatcher {
 }
 
 impl Dispatcher for HttpDispatcher {
-    fn get_info<'a>(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>> {
+    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>> {
         todo!()
     }
 }

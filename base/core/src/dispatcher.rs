@@ -1,7 +1,9 @@
 use core::cell::RefCell;
 use core::ops::Deref;
+use std::arch;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::channel::ChannelTrait;
 use crate::command::{Command, CommandContext, mock_context};
@@ -9,12 +11,12 @@ use crate::context::{BaseBuzzContext, BuzzContextTrait, ContextWrapper};
 use crate::core::{ExecutorValueTrait, ProtocolID};
 use crate::request::{ServerRequestTrait, ServerResponseTrait};
 use crate::selector::{CommandSelector, SelectorRequest};
-use crate::suit::{CommandSuit, DefaultCommandSuit};
 
 
-pub trait Dispatcher {
-    fn get_info<'a>(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>>;
+pub trait Dispatcher:Send+Sync {
+    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>>;
 }
+
 
 pub struct DefaultDispatcher<'e: 'a, 'a>
 {
@@ -43,8 +45,9 @@ impl<'a> DispatchContext<'a> {
 
 impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
 {
-    pub async fn dispatch(&mut self, ctx: DispatchContext<'a>) {
-        let req_rc = Rc::new(ctx.req);
+    #[inline]
+    pub async fn dispatch(&self, ctx: DispatchContext<'a>) {
+        let req_rc = Arc::new(ctx.req);
         // TODO ,resp need wrapped by rc
         let resp = ctx.resp;
         let cmd_res = self.get_cmd_from_request(req_rc.clone());
@@ -60,7 +63,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
             }
         }
         let b_ctx: Box<dyn BuzzContextTrait + 'a>;
-        let command_ctx_res = self.dispatcher.get_info(Rc::clone(&req_rc), resp);
+        let command_ctx_res = self.dispatcher.get_info(req_rc.clone(), resp);
         match command_ctx_res {
             Err(e) => {
                 // TODO
@@ -70,7 +73,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
                 b_ctx = v;
             }
         }
-        self.channel.read_command(ContextWrapper::new(b_ctx, Rc::new(cmd))).await
+        self.channel.read_command(ContextWrapper::new(b_ctx, Arc::new(cmd))).await
         // let bbb=b_ctx.as_ref();
         // let a: &'a dyn BuzzContextTrait = b_ctx.deref();
         // let suit = DefaultCommandSuit::new(bbb);
@@ -90,7 +93,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
     }
 
 
-    pub fn get_cmd_from_request(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>) -> CellResult<Command> {
+    pub fn get_cmd_from_request(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>) -> CellResult<Command> {
         // TODO ,useless
         let (txx, mut rxx) = std::sync::mpsc::channel::<Command>();
         // let (tx, rx) = oneshot::channel();
@@ -110,7 +113,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
 pub struct MockDispatcher {}
 
 impl Dispatcher for MockDispatcher {
-    fn get_info<'a>(&self, req: Rc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>> {
+    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>> {
         let (c, rxx, ctx) = mock_context();
         let res: Box<dyn BuzzContextTrait<'a>> = Box::new(ctx);
         Ok(res)
@@ -140,7 +143,6 @@ mod tests {
     use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
     use crate::response::MockResponse;
     use crate::selector::MockDefaultPureSelector;
-    use crate::suit::{DefaultCommandSuit, EmptyCommandSuite};
     use crate::summary::{Summary, SummaryTrait};
     use crate::wrapper::ContextResponseWrapper;
 

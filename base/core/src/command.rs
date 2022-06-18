@@ -22,6 +22,30 @@ use crate::wrapper::ContextResponseWrapper;
 
 pub type Function = dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>);
 
+pub trait Func: Sync + Send {
+    fn handle(&self, c: &mut dyn BuzzContextTrait, t: Option<&dyn ExecutorValueTrait>);
+}
+
+unsafe impl  Sync for ClosureFunc {}
+
+unsafe  impl  Send for ClosureFunc{}
+
+pub struct ClosureFunc {
+    f: Arc<dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>)>,
+}
+
+
+impl ClosureFunc {
+    pub fn new(f: Arc<dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>)>) -> Self {
+        Self { f }
+    }
+}
+
+impl Func for ClosureFunc {
+    fn handle(&self, c: &mut dyn BuzzContextTrait, t: Option<&dyn ExecutorValueTrait>) {
+        (self.f)(c,t)
+    }
+}
 
 // pub trait CommandTrait {
 //     fn id(&self) -> ProtocolID;
@@ -31,29 +55,50 @@ pub type Function = dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueT
 pub struct Command
 {
     pub protocol_id: ProtocolID,
-    pub fun: Option<&'static Function>,
+    // pub fun: Option<&'static Function>,
+    pub fun: Option<Arc<ClosureFunc>>,
     pub meta_data: MetaData,
     pub run_type: RunType,
     seal: bool,
 }
 
+// pub fn mock_command() -> Command {
+//     let mut c = Command::default();
+//     c = c.with_protocol_id("protocol").with_executor(&move |ctx, v| {
+//         println!("execute");
+//         let mut ret = ContextResponseWrapper::default();
+//         ret = ret.with_status(ProtocolStatus::SUCCESS);
+//         ret = ret.with_body(Bytes::from("123"));
+//         futures::executor::block_on(ctx.response(ret));
+//     });
+//     return c;
+// }
 pub fn mock_command() -> Command {
     let mut c = Command::default();
-    c = c.with_protocol_id("protocol").with_executor(&move |ctx, v| {
+    let f=ClosureFunc::new(Arc::new(move |ctx, v| {
         println!("execute");
         let mut ret = ContextResponseWrapper::default();
         ret = ret.with_status(ProtocolStatus::SUCCESS);
         ret = ret.with_body(Bytes::from("123"));
         futures::executor::block_on(ctx.response(ret));
-    });
+    }));
+    c = c.with_protocol_id("protocol").with_executor(Arc::new(f));
     return c;
 }
 
+
 impl Clone for Command {
     fn clone(&self) -> Self {
+        // Command {
+        //     protocol_id: self.protocol_id,
+        //     fun: self.fun,
+        //     meta_data: Default::default(),
+        //     run_type: 0,
+        //     seal: false,
+        // }
         Command {
             protocol_id: self.protocol_id,
-            fun: self.fun,
+            fun: self.fun.clone(),
             meta_data: Default::default(),
             run_type: 0,
             seal: false,
@@ -93,7 +138,11 @@ impl Command {
         self.protocol_id = p;
         self
     }
-    pub fn with_executor(mut self, e: &'static Function) -> Self {
+    // pub fn with_executor(mut self, e: &'static Function) -> Self {
+    //     self.fun = Some(e);
+    //     self
+    // }
+    pub fn with_executor(mut self, e:Arc<ClosureFunc>) -> Self {
         self.fun = Some(e);
         self
     }
@@ -179,7 +228,9 @@ impl Command {
     pub fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
         // TODO input archive
         // TODO NOE
-        (self.fun).unwrap()(ctx, None)
+        // (self.fun).unwrap()(ctx, None)
+        // let a=self.fun.unwrap();
+        self.fun.as_ref().unwrap().handle(ctx,None)
     }
 }
 //
@@ -223,6 +274,7 @@ mod tests {
     use logsdk::common::LogLevel;
     use logsdk::module;
     use logsdk::module::CellModule;
+    use pipeline2::pipeline2::is_send;
     use crate::command::{Command, CommandContext, mock_context};
     use crate::constants::ProtocolStatus;
     use crate::context::BaseBuzzContext;
@@ -243,7 +295,8 @@ mod tests {
         let (c, rxx, mut ctx) = mock_context();
 
         c.execute(&mut ctx);
-
+        is_send(c);
+        println!("111111111");
 
         let ret = rxx.recv();
         match ret {

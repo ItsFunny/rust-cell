@@ -14,7 +14,8 @@ impl Default for HttpSelector{
         }
     }
 }
-
+unsafe impl  Send for HttpSelector{}
+unsafe impl  Sync for HttpSelector{}
 
 impl CommandSelector for HttpSelector {
     fn select(&self, req: &SelectorRequest)  -> Option<Command>{

@@ -10,8 +10,10 @@ pub mod pipeline2 {
     use std::fmt::Debug;
     use std::marker::PhantomData;
     use std::rc::Rc;
+    use std::sync::Arc;
     use dyn_clone::{clone_trait_object, DynClone};
     use async_recursion::async_recursion;
+    use async_trait::async_trait;
 
     pub struct PipelineBuilder<'a, T>
     {
@@ -20,7 +22,7 @@ pub mod pipeline2 {
 
     impl<'a, T> Default for PipelineBuilder<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         fn default() -> Self {
             PipelineBuilder { executors: Vec::new() }
@@ -29,7 +31,7 @@ pub mod pipeline2 {
 
     impl<'a, T> PipelineBuilder<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         pub fn add_last(mut self, e: DefaultReactorExecutor<'a, T>) -> Self {
             self.executors.push(e);
@@ -48,15 +50,26 @@ pub mod pipeline2 {
         executor: DefaultChainExecutor<'a, T>,
     }
 
+    pub fn is_send<T: Send>(t: T) {
+        println!("true")
+    }
+
+    // unsafe impl<'a, T> Send for DefaultPipelineV2<'a, T> {}
+    //
+    // unsafe impl<'a, T> Sync for DefaultPipelineV2<'a, T> {}
+
+
     impl<'a, T> DefaultPipelineV2<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         pub fn new(executor: DefaultChainExecutor<'a, T>) -> Self {
             Self { executor }
         }
-        pub async fn execute(&mut self, v: &T) {
-            self.executor.execute(v).await;
+
+
+        pub async fn execute(&self, v: &T) {
+            self.executor.execute(v).await
         }
 
         // TODO builder
@@ -71,7 +84,7 @@ pub mod pipeline2 {
 
     impl<'a, T> Default for DefaultPipelineV2<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         fn default() -> Self {
             DefaultPipelineV2 { executor: DefaultChainExecutor::default() }
@@ -82,22 +95,25 @@ pub mod pipeline2 {
     pub struct DefaultChainExecutor<'a, T>
     {
         executors: Vec<DefaultReactorExecutor<'a, T>>,
-        _marker_a: PhantomData<T>,
     }
+
+    // unsafe impl<'a, T> Send for DefaultChainExecutor<'a, T> {}
+
+    // unsafe impl<'a, T> Sync for DefaultChainExecutor<'a, T> {}
 
     impl<'a, T> Default for DefaultChainExecutor<'a, T>
     {
         fn default() -> Self {
-            DefaultChainExecutor { executors: Vec::new(), _marker_a: Default::default() }
+            DefaultChainExecutor { executors: Vec::new() }
         }
     }
 
     impl<'a, T> DefaultChainExecutor<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         pub fn new(executors: Vec<DefaultReactorExecutor<'a, T>>) -> Self {
-            Self { executors, _marker_a: PhantomData::default() }
+            Self { executors }
         }
     }
 
@@ -123,36 +139,39 @@ pub mod pipeline2 {
 
     pub struct DefaultReactorExecutor<'a, T>
     {
-        _marker_a: PhantomData<T>,
         f: Box<dyn Executor<'a, T> + 'a>,
     }
 
+    // unsafe impl<'a, T> Send for DefaultReactorExecutor<'a, T> {}
+
+    // unsafe impl<'a, T> Sync for DefaultReactorExecutor<'a, T> {}
+
     impl<'a, T> Clone for DefaultReactorExecutor<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         fn clone(&self) -> Self {
-            DefaultReactorExecutor { _marker_a: Default::default(), f: self.f.clone() }
+            DefaultReactorExecutor { f: self.f.clone() }
         }
     }
 
     impl<'a, T> DefaultReactorExecutor<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
-        #[async_recursion(?Send)]
+        #[async_recursion]
         pub async fn execute(self, t: &T, c: &mut ExecutorContext<'a, T>) {
             self.f.execute(t);
             c.next(t).await
         }
         pub fn new(f: Box<dyn Executor<'a, T> + 'a>) -> Self {
-            Self { _marker_a: PhantomData::default(), f }
+            Self { f }
         }
     }
 
     impl<'a, T> DefaultChainExecutor<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         pub async fn execute(&self, t: &T) {
             let ct = copy_shuffle(&self.executors);
@@ -171,9 +190,13 @@ pub mod pipeline2 {
         executors: Vec<DefaultReactorExecutor<'a, T>>,
     }
 
+    // unsafe impl<'a, T> Send for ExecutorContext<'a,T> {}
+
+    // unsafe impl<'a, T> Sync for ExecutorContext<'a,T> {}
+
     impl<'a, T> ExecutorContext<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         pub fn new(executors: Vec<DefaultReactorExecutor<'a, T>>) -> Self {
             Self { executors }
@@ -182,7 +205,7 @@ pub mod pipeline2 {
 
     impl<'a, T> ExecutorContext<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         pub async fn next(&mut self, t: &T) {
             if self.executors.len() == 0 {
@@ -195,19 +218,24 @@ pub mod pipeline2 {
 
     pub struct ClosureExecutor<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
-        _marker_t: PhantomData<T>,
-        _marker_a: PhantomData<&'a ()>,
-        f: Rc<dyn Fn(&T) + 'a>,
+        f: Arc<dyn Fn(&T) + 'a>,
     }
+
+    unsafe impl<'a, T> Sync for ClosureExecutor<'a, T>
+        where
+            T: 'a + Sync + Send, {}
+
+    unsafe impl<'a, T> Send for ClosureExecutor<'a, T> where
+        T: 'a + Sync + Send, {}
 
     impl<'a, T> ClosureExecutor<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
-        pub fn new(f: Rc<dyn Fn(&T) + 'a>) -> Self {
-            Self { _marker_t: PhantomData::default(), _marker_a: Default::default(), f }
+        pub fn new(f: Arc<dyn Fn(&T) + 'a>) -> Self {
+            Self { f }
         }
     }
 
@@ -218,25 +246,25 @@ pub mod pipeline2 {
     // }
 
 
-    pub trait Executor<'a, T>: ExecutorClone<'a, T>
+    pub trait Executor<'a, T>: ExecutorClone<'a, T> + Send + Sync
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         fn execute(&self, v: &T);
     }
 
     impl<'a, T> Clone for ClosureExecutor<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         fn clone(&self) -> Self {
-            ClosureExecutor { _marker_t: Default::default(), _marker_a: Default::default(), f: self.f.clone() }
+            ClosureExecutor { f: self.f.clone() }
         }
     }
 
     impl<'a, T> Clone for Box<dyn Executor<'a, T> + 'a>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         fn clone(&self) -> Box<dyn Executor<'a, T> + 'a> {
             self.clone_box()
@@ -245,7 +273,7 @@ pub mod pipeline2 {
 
     pub trait ExecutorClone<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         fn clone_box(&self) -> Box<dyn Executor<'a, T> + 'a>;
     }
@@ -253,7 +281,7 @@ pub mod pipeline2 {
     impl<'a, T, F> ExecutorClone<'a, F> for T
         where
             T: Executor<'a, F> + Clone + 'a,
-            F: 'a,
+            F: 'a + Sync + Send,
     {
         fn clone_box(&self) -> Box<dyn Executor<'a, F> + 'a> {
             Box::new(self.clone())
@@ -263,7 +291,7 @@ pub mod pipeline2 {
 
     impl<'a, T> Executor<'a, T> for ClosureExecutor<'a, T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         fn execute(&self, v: &T) {
             (self.f)(v)
@@ -282,7 +310,7 @@ pub mod pipeline2 {
 
     impl<'a, T> Executor<'a, T> for MockExecutor<T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         fn execute(&self, v: &T) {
             println!("{:?}", 1)
@@ -291,7 +319,7 @@ pub mod pipeline2 {
 
     impl<'a, T> Clone for MockExecutor<T>
         where
-            T: 'a,
+            T: 'a + Sync + Send,
     {
         fn clone(&self) -> Self {
             MockExecutor { _marker_a: Default::default() }
@@ -304,12 +332,19 @@ pub mod pipeline2 {
 mod tests {
     use std::{rc, thread, time};
     use std::rc::Rc;
-    use crate::pipeline2::{ClosureExecutor, DefaultChainExecutor, DefaultPipelineV2, DefaultReactorExecutor, PipelineBuilder};
+    use std::sync::Arc;
+    use crate::pipeline2::{ClosureExecutor, DefaultChainExecutor, DefaultPipelineV2, DefaultReactorExecutor, ExecutorContext, is_send, PipelineBuilder};
 
     #[test]
     fn it_works() {
         let result = 2 + 2;
         assert_eq!(result, 4);
+    }
+
+    #[test]
+    fn test_is_send() {
+        let a = DefaultPipelineV2::<i32>::default();
+        is_send(a);
     }
 
 
@@ -322,9 +357,9 @@ mod tests {
         let f2 = |v: &i64| {
             println!("f2:{}", v)
         };
-
-        let e1 = DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Rc::new(f1))));
-        let e2 = DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Rc::new(f2))));
+        is_send(ExecutorContext::<i32>::new(Vec::new()));
+        let e1 = DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(f1))));
+        let e2 = DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(f2))));
         let builder = PipelineBuilder::default();
         let pip2 = builder.add_last(e1);
         let mut final_pip = pip2.add_last(e2).build();

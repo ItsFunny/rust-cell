@@ -25,7 +25,8 @@ impl ServerResponseTrait for HttpResponse {
     }
 
     fn fire_result(&mut self, result: Response<Body>) -> CellResult<()> {
-        self.txx.send(result)
+        // self.txx.send(result)
+        Ok(())
     }
 
     fn as_any(&self) -> &dyn Any {

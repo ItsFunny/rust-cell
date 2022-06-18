@@ -12,6 +12,10 @@ pub struct ContextResponseWrapper<'a> {
     _prv_r: PhantomData<&'a ()>,
 }
 
+// unsafe impl<'a> Send for ContextResponseWrapper<'a> {}
+//
+// unsafe impl<'a> Sync for ContextResponseWrapper<'a> {}
+
 
 impl<'a> ContextResponseWrapper<'a> {
     #[inline(always)]

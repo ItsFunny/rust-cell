@@ -19,6 +19,7 @@ use crate::wrapper::ContextResponseWrapper;
 use async_trait::async_trait;
 use bytes::{Buf, Bytes};
 use logsdk::module::CellModule;
+use pipeline2::pipeline2::DefaultPipelineV2;
 use crate::cerror::CellResult;
 use crate::core::ProtocolID;
 use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
@@ -38,11 +39,12 @@ pub trait Context {
 pub struct ContextWrapper<'a> {
     pub ctx: Box<dyn BuzzContextTrait<'a> + 'a>,
     // note: The reason I use rc instead of using box is "I dont have to clone data ,all I want is pointer ,it is enough"
-    pub cmd: Rc<Command>,
+    pub cmd: Arc<Command>,
 }
-unsafe impl<'a> Send for ContextWrapper<'a>{}
+
+
 impl<'a> ContextWrapper<'a> {
-    pub fn new(ctx: Box<dyn BuzzContextTrait<'a> + 'a>, cmd: Rc<Command>) -> Self {
+    pub fn new(ctx: Box<dyn BuzzContextTrait<'a> + 'a>, cmd: Arc<Command>) -> Self {
         Self { ctx, cmd }
     }
 }
@@ -54,7 +56,7 @@ impl<'a> Debug for ContextWrapper<'a> {
 }
 
 #[async_trait]
-pub trait BuzzContextTrait<'a>: Context {
+pub trait BuzzContextTrait<'a>: Context + Send + Sync {
     async fn response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()>;
     async fn on_response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()>;
 }
