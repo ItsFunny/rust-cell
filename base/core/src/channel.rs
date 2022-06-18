@@ -41,7 +41,7 @@ impl<'e, 'a> DefaultChannel<'e, 'a> where
         }
     }
     pub fn seal(&mut self) {
-        let cmd_executor = DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(|v: &ContextWrapper| {
+        let cmd_executor = DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(|v: &mut ContextWrapper| {
             println!("cmd execute");
         }))));
         self.pip.add_last(cmd_executor);
@@ -56,8 +56,8 @@ impl<'e, 'a> DefaultChannel<'e, 'a> where
 #[async_trait]
 impl<'e, 'a> ChannelTrait<'e, 'a> for DefaultChannel<'e, 'a>
 {
-    async fn read_command(&self, suit: ContextWrapper<'a>) {
-        self.pip.execute(&suit).await
+    async fn read_command(&self, mut suit: ContextWrapper<'a>) {
+        self.pip.execute(&mut suit).await
     }
 }
 
@@ -69,9 +69,9 @@ impl<'e, 'a> DefaultChannel<'e, 'a>
 }
 
 pub fn mock_channel<'e, 'a>() -> DefaultChannel<'e, 'a> {
-    let pip = PipelineBuilder::default().add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(|v: &ContextWrapper| {
+    let pip = PipelineBuilder::default().add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(|v: &mut ContextWrapper| {
         println!("111 {:?}", v)
-    }))))).add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(|v: &ContextWrapper| {
+    }))))).add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(|v: &mut ContextWrapper| {
         println!("222 {:?}", v)
     }))))).build();
 

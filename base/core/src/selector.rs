@@ -13,21 +13,21 @@ use crate::command::*;
 use crate::core::{conv_protocol_to_string, ExecutorValueTrait};
 use crate::request::{MockRequest, ServerRequestTrait};
 
-pub trait CommandSelector: Send + Sync {
+pub trait CommandSelector<'a>: Send + Sync {
     // FIXME , reference or clone ?
-    fn select(&self, req: &SelectorRequest) -> Option<Command>;
-    fn on_register_cmd(&mut self, cmd: Command);
+    fn select(&self, req: &SelectorRequest) -> Option<Command<'a>>;
+    fn on_register_cmd(&mut self, cmd: Command<'a>);
 }
 
 pub struct SelectorRequest<'a> {
     pub request: Arc<Box<dyn ServerRequestTrait + 'a>>,
-    pub tx: Sender<Command>,
+    pub tx: Sender<Command<'a>>,
     // TODO wrap tx
     pub done: RefCell<bool>,
 }
 
 impl<'a> SelectorRequest<'a> {
-    pub fn new(request: Arc<Box<dyn ServerRequestTrait + 'a>>, tx: Sender<Command>) -> Self {
+    pub fn new(request: Arc<Box<dyn ServerRequestTrait + 'a>>, tx: Sender<Command<'a>>) -> Self {
         SelectorRequest { request, tx, done: RefCell::new(false) }
     }
 }
@@ -40,15 +40,15 @@ impl<'a> ExecutorValueTrait<'a> for SelectorRequest<'a> {}
 
 
 //////// mock
-pub struct MockDefaultPureSelector {
-    commands: HashMap<String, Command>,
+pub struct MockDefaultPureSelector<'a> {
+    commands: HashMap<String, Command<'a>>,
 }
 
-unsafe impl Send for MockDefaultPureSelector {}
+unsafe impl<'a> Send for MockDefaultPureSelector<'a> {}
 
-unsafe impl Sync for MockDefaultPureSelector {}
+unsafe impl<'a> Sync for MockDefaultPureSelector<'a> {}
 
-impl MockDefaultPureSelector {
+impl<'a> MockDefaultPureSelector<'a> {
     pub fn new() -> Self {
         let mut ret = MockDefaultPureSelector { commands: Default::default() };
         ret.on_register_cmd(mock_command());
@@ -56,8 +56,8 @@ impl MockDefaultPureSelector {
     }
 }
 
-impl CommandSelector for MockDefaultPureSelector {
-    fn select(&self, req: &SelectorRequest) -> Option<Command> {
+impl<'a> CommandSelector<'a> for MockDefaultPureSelector<'a> {
+    fn select(&self, req: &SelectorRequest) -> Option<Command<'a>> {
         let any = req.request.as_any();
         let p;
         match any.downcast_ref::<MockRequest>() {
@@ -81,7 +81,7 @@ impl CommandSelector for MockDefaultPureSelector {
         }
     }
 
-    fn on_register_cmd(&mut self, cmd: Command) {
+    fn on_register_cmd(&mut self, cmd: Command<'a>) {
         let id = cmd.id();
         let string_id = conv_protocol_to_string(id);
         self.commands.insert(string_id, cmd);

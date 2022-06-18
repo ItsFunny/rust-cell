@@ -21,13 +21,13 @@ pub trait Dispatcher: Send + Sync {
 pub struct DefaultDispatcher<'e: 'a, 'a>
 {
     channel: Box<dyn ChannelTrait<'e, 'a> + 'e>,
-    command_selector: Box<dyn CommandSelector + 'e>,
+    command_selector: Box<dyn CommandSelector<'a> + 'e>,
     dispatcher: Box<dyn Dispatcher + 'e>,
 }
 
 impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a> where
 {
-    pub fn new(channel: Box<dyn ChannelTrait<'e, 'a>>, command_selector: Box<dyn CommandSelector>, dis: Box<dyn Dispatcher + 'e>) -> Self {
+    pub fn new(channel: Box<dyn ChannelTrait<'e, 'a>>, command_selector: Box<dyn CommandSelector<'a>>, dis: Box<dyn Dispatcher + 'e>) -> Self {
         Self { channel, command_selector, dispatcher: dis }
     }
 }
@@ -56,7 +56,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
         let resp = ctx.resp;
         let cmd_res = self.get_cmd_from_request(req_rc.clone());
 
-        let cmd;
+        let cmd:Command;
         match cmd_res {
             Err(e) => {
                 // TODO ,log
@@ -97,7 +97,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
     }
 
 
-    pub fn get_cmd_from_request(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>) -> CellResult<Command> {
+    pub fn get_cmd_from_request(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>) -> CellResult<Command<'a>> {
         // TODO ,useless
         let (txx, mut rxx) = std::sync::mpsc::channel::<Command>();
         // let (tx, rx) = oneshot::channel();

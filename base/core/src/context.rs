@@ -39,12 +39,12 @@ pub trait Context {
 pub struct ContextWrapper<'a> {
     pub ctx: Box<dyn BuzzContextTrait<'a> + 'a>,
     // note: The reason I use rc instead of using box is "I dont have to clone data ,all I want is pointer ,it is enough"
-    pub cmd: Arc<Command>,
+    pub cmd: Arc<Command<'a>>,
 }
 
 
 impl<'a> ContextWrapper<'a> {
-    pub fn new(ctx: Box<dyn BuzzContextTrait<'a> + 'a>, cmd: Arc<Command>) -> Self {
+    pub fn new(ctx: Box<dyn BuzzContextTrait<'a> + 'a>, cmd: Arc<Command<'a>>) -> Self {
         Self { ctx, cmd }
     }
 }

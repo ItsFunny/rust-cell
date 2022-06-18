@@ -68,7 +68,7 @@ pub mod pipeline2 {
         }
 
 
-        pub async fn execute(&self, v: &T) {
+        pub async fn execute(&self, v: &mut T) {
             self.executor.execute(v).await
         }
 
@@ -160,7 +160,7 @@ pub mod pipeline2 {
             T: 'a + Sync + Send,
     {
         #[async_recursion]
-        pub async fn execute(self, t: &T, c: &mut ExecutorContext<'a, T>) {
+        pub async fn execute(self, t: &mut T, c: &mut ExecutorContext<'a, T>) {
             self.f.execute(t);
             c.next(t).await
         }
@@ -173,7 +173,7 @@ pub mod pipeline2 {
         where
             T: 'a + Sync + Send,
     {
-        pub async fn execute(&self, t: &T) {
+        pub async fn execute(&self, t: &mut T) {
             let ct = copy_shuffle(&self.executors);
             let mut ctx = ExecutorContext::new(ct);
             ctx.next(t).await;
@@ -207,7 +207,7 @@ pub mod pipeline2 {
         where
             T: 'a + Sync + Send,
     {
-        pub async fn next(&mut self, t: &T) {
+        pub async fn next(&mut self, t: &mut T) {
             if self.executors.len() == 0 {
                 return;
             }
@@ -220,7 +220,7 @@ pub mod pipeline2 {
         where
             T: 'a + Sync + Send,
     {
-        f: Arc<dyn Fn(&T) + 'a>,
+        f: Arc<dyn Fn(&mut T) + 'a>,
     }
 
     unsafe impl<'a, T> Sync for ClosureExecutor<'a, T>
@@ -234,7 +234,7 @@ pub mod pipeline2 {
         where
             T: 'a + Sync + Send,
     {
-        pub fn new(f: Arc<dyn Fn(&T) + 'a>) -> Self {
+        pub fn new(f: Arc<dyn Fn(&mut T) + 'a>) -> Self {
             Self { f }
         }
     }
@@ -250,7 +250,7 @@ pub mod pipeline2 {
         where
             T: 'a + Sync + Send,
     {
-        fn execute(&self, v: &T);
+        fn execute(&self, v: &mut T);
     }
 
     impl<'a, T> Clone for ClosureExecutor<'a, T>
@@ -293,7 +293,7 @@ pub mod pipeline2 {
         where
             T: 'a + Sync + Send,
     {
-        fn execute(&self, v: &T) {
+        fn execute(&self, v: &mut T) {
             (self.f)(v)
         }
     }
@@ -312,7 +312,7 @@ pub mod pipeline2 {
         where
             T: 'a + Sync + Send,
     {
-        fn execute(&self, v: &T) {
+        fn execute(&self, v: &mut T) {
             println!("{:?}", 1)
         }
     }
@@ -351,10 +351,10 @@ mod tests {
     #[test]
     fn test_pipeline() {
         let mut pip = DefaultPipelineV2::<i64>::default();
-        let f1 = |v: &i64| {
+        let f1 = |v: &mut i64| {
             println!("f1:{}", v)
         };
-        let f2 = |v: &i64| {
+        let f2 = |v: &mut i64| {
             println!("f2:{}", v)
         };
         is_send(ExecutorContext::<i32>::new(Vec::new()));
@@ -363,7 +363,7 @@ mod tests {
         let builder = PipelineBuilder::default();
         let pip2 = builder.add_last(e1);
         let mut final_pip = pip2.add_last(e2).build();
-        futures::executor::block_on(final_pip.execute(&123));
-        futures::executor::block_on(final_pip.execute(&456));
+        futures::executor::block_on(final_pip.execute(&mut 123));
+        futures::executor::block_on(final_pip.execute(&mut 456));
     }
 }

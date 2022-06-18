@@ -1,6 +1,7 @@
 use std::rc::Rc;
 use std::sync::Arc;
 use cell_core::cerror::CellResult;
+use cell_core::command::mock_context;
 use cell_core::context::BuzzContextTrait;
 use cell_core::dispatcher::{DefaultDispatcher, DispatchContext, Dispatcher};
 use cell_core::request::{ServerRequestTrait, ServerResponseTrait};
@@ -26,7 +27,9 @@ impl HttpDispatcher {
 
 impl Dispatcher for HttpDispatcher {
     fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>> {
-        todo!()
+        let (c, rxx, ctx) = mock_context();
+        let res: Box<dyn BuzzContextTrait<'a>> = Box::new(ctx);
+        Ok(res)
     }
 }
 

@@ -22,26 +22,27 @@ use crate::wrapper::ContextResponseWrapper;
 
 pub type Function = dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>);
 
-pub trait Func: Sync + Send {
-    fn handle(&self, c: &mut dyn BuzzContextTrait, t: Option<&dyn ExecutorValueTrait>);
+// pub trait Func<'a>: Sync + Send {
+//     fn handle(&self, c: Box< dyn BuzzContextTrait+'a>, t: Option<&dyn ExecutorValueTrait>);
+// }
+
+unsafe impl  Sync for ClosureFunc<'_> {}
+
+unsafe  impl  Send for ClosureFunc<'_>{}
+
+pub struct ClosureFunc<'a> {
+    f: Arc<dyn Fn( &mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>)>,
+    _marker_e: PhantomData<&'a ()>,
 }
 
-unsafe impl  Sync for ClosureFunc {}
 
-unsafe  impl  Send for ClosureFunc{}
-
-pub struct ClosureFunc {
-    f: Arc<dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>)>,
-}
-
-
-impl ClosureFunc {
+impl<'a> ClosureFunc<'a> {
     pub fn new(f: Arc<dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>)>) -> Self {
-        Self { f }
+        Self { f, _marker_e: Default::default() }
     }
 }
 
-impl Func for ClosureFunc {
+impl<'a>  ClosureFunc<'a> {
     fn handle(&self, c: &mut dyn BuzzContextTrait, t: Option<&dyn ExecutorValueTrait>) {
         (self.f)(c,t)
     }
@@ -52,11 +53,11 @@ impl Func for ClosureFunc {
 //     fn execute(&self, ctx: &mut dyn BuzzContextTrait);
 // }
 
-pub struct Command
+pub struct Command<'a>
 {
     pub protocol_id: ProtocolID,
     // pub fun: Option<&'static Function>,
-    pub fun: Option<Arc<ClosureFunc>>,
+    pub fun: Option<Arc<ClosureFunc<'a>>>,
     pub meta_data: MetaData,
     pub run_type: RunType,
     seal: bool,
@@ -73,9 +74,9 @@ pub struct Command
 //     });
 //     return c;
 // }
-pub fn mock_command() -> Command {
+pub fn mock_command<'a>() -> Command<'a> {
     let mut c = Command::default();
-    let f=ClosureFunc::new(Arc::new(move |ctx, v| {
+    let f=ClosureFunc::new(Arc::new(move |mut ctx, v| {
         println!("execute");
         let mut ret = ContextResponseWrapper::default();
         ret = ret.with_status(ProtocolStatus::SUCCESS);
@@ -87,7 +88,7 @@ pub fn mock_command() -> Command {
 }
 
 
-impl Clone for Command {
+impl<'a> Clone for Command<'a> {
     fn clone(&self) -> Self {
         // Command {
         //     protocol_id: self.protocol_id,
@@ -133,7 +134,7 @@ impl Default for MetaData {
     }
 }
 
-impl Command {
+impl<'a> Command<'a> {
     pub fn with_protocol_id(mut self, p: ProtocolID) -> Self {
         self.protocol_id = p;
         self
@@ -142,7 +143,7 @@ impl Command {
     //     self.fun = Some(e);
     //     self
     // }
-    pub fn with_executor(mut self, e:Arc<ClosureFunc>) -> Self {
+    pub fn with_executor(mut self, e:Arc<ClosureFunc<'a>>) -> Self {
         self.fun = Some(e);
         self
     }
@@ -190,7 +191,7 @@ pub struct CommandContext<'a>
     // TODO: ops
 }
 
-impl Default for Command {
+impl<'a> Default for Command<'a> {
     fn default() -> Self {
         Command {
             protocol_id: "",
@@ -220,12 +221,12 @@ impl<'a> CommandContext<'a> where
 
 ////////////
 
-impl Command {
+impl<'a> Command<'a> {
     pub fn id(&self) -> ProtocolID {
         self.protocol_id
     }
 
-    pub fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
+    pub  fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
         // TODO input archive
         // TODO NOE
         // (self.fun).unwrap()(ctx, None)
@@ -246,9 +247,8 @@ impl Command {
 //     }
 // }
 
-impl Command {}
 
-pub fn mock_context<'a>() -> (Command, std::sync::mpsc::Receiver<Response<Body>>, BaseBuzzContext<'a>) {
+pub fn mock_context<'a>() -> (Command<'a>, std::sync::mpsc::Receiver<Response<Body>>, BaseBuzzContext<'a>) {
     let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
     let p: ProtocolID = "/protocol/v1" as ProtocolID;
     let mut c = mock_command();
@@ -294,6 +294,7 @@ mod tests {
     fn test_command() {
         let (c, rxx, mut ctx) = mock_context();
 
+        // futures::executor::block_on(c.execute(&mut ctx));
         c.execute(&mut ctx);
         is_send(c);
         println!("111111111");
