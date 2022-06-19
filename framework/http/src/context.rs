@@ -25,11 +25,11 @@ impl<'a> Context for HttpContext<'a> {
 
 #[async_trait]
 impl<'a> BuzzContextTrait<'a> for HttpContext<'a> {
-    async fn response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()> {
-        self.ctx.response(resp).await
+    fn response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()> {
+        self.ctx.response(resp)
     }
 
-    async fn on_response(&mut self, resp: cell_core::wrapper::ContextResponseWrapper<'a>) -> cell_core::cerror::CellResult<()> {
+    fn on_response(&mut self, resp: cell_core::wrapper::ContextResponseWrapper<'a>) -> cell_core::cerror::CellResult<()> {
         todo!()
     }
 }

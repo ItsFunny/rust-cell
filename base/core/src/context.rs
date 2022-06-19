@@ -55,10 +55,9 @@ impl<'a> Debug for ContextWrapper<'a> {
     }
 }
 
-#[async_trait]
 pub trait BuzzContextTrait<'a>: Context + Send + Sync {
-    async fn response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()>;
-    async fn on_response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()>;
+     fn response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()>;
+     fn on_response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()>;
 }
 
 pub struct BaseBuzzContext<'a> {
@@ -87,7 +86,7 @@ impl<'a> Context for BaseBuzzContext<'a> {
 }
 
 impl<'a> BaseBuzzContext<'a> {
-    async fn async_response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()> {
+    fn sync_response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()> {
         let now = Local::now().timestamp();
         let consume_time = now - self.request_timestamp;
         let sequence_id = self.command_context.summary.get_sequence_id();
@@ -151,13 +150,12 @@ impl<'a> BaseBuzzContext<'a> {
     }
 }
 
-#[async_trait]
 impl<'a> BuzzContextTrait<'a> for BaseBuzzContext<'a> {
-    async fn response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()> {
-        self.async_response(resp).await
+    fn response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()> {
+        self.sync_response(resp)
     }
 
-    async fn on_response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()> {
+    fn on_response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()> {
         todo!()
     }
 }

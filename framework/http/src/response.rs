@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::sync::Arc;
 use std::sync::mpsc::Sender;
 use http::header::HeaderName;
 use http::{HeaderValue, Response};
@@ -9,7 +10,7 @@ use cell_core::cerror::CellResult;
 use cell_core::request::ServerResponseTrait;
 
 pub struct HttpResponse {
-    tx:oneshot::Sender<Response<Body>>,
+    tx :oneshot::Sender<Response<Body>>,
 }
 
 unsafe impl Send for HttpResponse {
@@ -20,7 +21,7 @@ unsafe impl Sync for HttpResponse {
 }
 
 impl HttpResponse {
-    pub fn new(tx: oneshot::Sender<Response<Body>>) -> Self {
+    pub fn new(tx: Arc<oneshot::Sender<Response<Body>>>) -> Self {
         Self { tx }
     }
 }
@@ -32,7 +33,10 @@ impl ServerResponseTrait for HttpResponse {
     }
 
     fn fire_result(&mut self, result: Response<Body>) -> CellResult<()> {
+        let (tx,rx)=std::sync::mpsc::channel::<Response<Body>>();
         // self.txx.send(result)
+        // TODO ,use another channel ,because of the ownship
+        self.tx.send(result);
         Ok(())
     }
 

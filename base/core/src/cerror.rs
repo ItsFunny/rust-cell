@@ -140,6 +140,7 @@ error_enums!(
     (JSON_SERIALIZE,3,"json serialize failed");
     (RESPONSE_FAILED,4,"response failed");
     (COMMAND_NOT_EXISTS,5,"command not exists");
+    (CHANNEL_SEND_FAILED,6,"channel send failed");
 );
 
 

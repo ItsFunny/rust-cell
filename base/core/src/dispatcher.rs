@@ -78,22 +78,6 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
             }
         }
         self.channel.read_command(ContextWrapper::new(b_ctx, Arc::new(cmd))).await
-        // let bbb=b_ctx.as_ref();
-        // let a: &'a dyn BuzzContextTrait = b_ctx.deref();
-        // let suit = DefaultCommandSuit::new(bbb);
-        // self.channel.read_command(&suit);
-        // let suit_resp = (self.suit_func)(Rc::clone(&req_rc), resp);
-        // // TODO:
-        // match suit_resp {
-        //     Err(e) => {
-        //         return;
-        //     }
-        //     Ok(v) => {
-        //         suit = v;
-        //         // TODO fill argu
-        //         self.channel.read_command(&suit)
-        //     }
-        // }
     }
 
 

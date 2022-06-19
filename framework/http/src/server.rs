@@ -4,6 +4,7 @@ use std::future::Future;
 use std::io;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use futures::future::ok;
 use futures::TryStreamExt;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
@@ -173,12 +174,22 @@ pub async fn async_hyper_service_fn(mut server: Arc<HttpServer>, req: Request<Bo
     let (tx, rx) = oneshot::channel();
     tokio::spawn(async move {
         let http_req = Box::new(HttpRequest::new(req));
-        let http_resp = Box::new(HttpResponse::new(tx));
+        let http_resp = Box::new(HttpResponse::new(Arc::new(tx)));
         let ctx = DispatchContext::new(http_req, http_resp);
         // println!("{:?}",server);
         server.dispatcher.dispatch(ctx).await;
     });
-    rx.await.map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))
+    let ret=rx.await.map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e));
+    match ret {
+        Ok(V)=>{
+            println!("success");
+            Ok(V)
+        },
+        Err(e)=>{
+            println!("failed:{}",e);
+            Err(e)
+        }
+    }
 }
 
 

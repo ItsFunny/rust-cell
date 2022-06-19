@@ -81,11 +81,25 @@ pub fn mock_command<'a>() -> Command<'a> {
         let mut ret = ContextResponseWrapper::default();
         ret = ret.with_status(ProtocolStatus::SUCCESS);
         ret = ret.with_body(Bytes::from("123"));
-        futures::executor::block_on(ctx.response(ret));
+        ctx.response(ret);
     }));
     c = c.with_protocol_id("/protocol").with_executor(Arc::new(f));
     return c;
 }
+
+pub fn mock_command2<'a>() -> Command<'a> {
+    let mut c = Command::default();
+    let f=ClosureFunc::new(Arc::new(move |mut ctx, v| {
+        println!("execute");
+        let mut ret = ContextResponseWrapper::default();
+        ret = ret.with_status(ProtocolStatus::SUCCESS);
+        ret = ret.with_body(Bytes::from("123"));
+        ctx.response(ret);
+    }));
+    c = c.with_protocol_id("/protocol").with_executor(Arc::new(f));
+    return c;
+}
+
 
 
 impl<'a> Clone for Command<'a> {
