@@ -78,7 +78,6 @@ impl Error for CellError {
         }
     }
 }
-
 // TODO ,add from
 
 
@@ -110,6 +109,9 @@ impl ErrorEnums {
             }
         }
     }
+    pub fn is_success(&self)->bool{
+        self.get_code()==0
+    }
 }
 
 
@@ -135,6 +137,7 @@ macro_rules! error_enums {
 }
 
 error_enums!(
+    (SUCCESS,0,"success");
     (UNKNOWN,1,"unknown");
     (IO_ERROR,2,"IO FAILED");
     (JSON_SERIALIZE,3,"json serialize failed");

@@ -1,5 +1,4 @@
-use std::error::Error;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Error, Formatter};
 use std::future::Future;
 use std::io;
 use std::marker::PhantomData;
@@ -11,7 +10,7 @@ use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use hyper::server::conn::AddrStream;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::Sender;
-use cell_core::cerror::{CellError, CellResult, ErrorEnumsStruct};
+use cell_core::cerror::{CellError, CellResult, ErrorEnums, ErrorEnumsStruct};
 use cell_core::channel::ChannelTrait;
 use cell_core::dispatcher::{DefaultDispatcher, DispatchContext};
 use cell_core::request::MockRequest;
@@ -26,15 +25,15 @@ pub struct HttpServer {
     // _marker_a: PhantomData<&'a ()>,
 }
 
-impl  Debug for HttpServer{
+impl Debug for HttpServer {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f,"asd")
+        write!(f, "asd")
     }
 }
 
-unsafe impl Send for HttpServer{}
+unsafe impl Send for HttpServer {}
 
-unsafe impl Sync for HttpServer{}
+unsafe impl Sync for HttpServer {}
 // impl<'static> Clone for HttpServer<'static>{
 //     fn clone(&self) -> Self {
 //         HttpServer{
@@ -93,7 +92,7 @@ unsafe impl Sync for HttpServer{}
 // }
 
 
-impl HttpServer{
+impl HttpServer {
     pub async fn start(mut self) -> CellResult<()> {
         let addr = ([127, 0, 0, 1], 3000).into();
         let s1 = Arc::new(self);
@@ -110,7 +109,7 @@ impl HttpServer{
             async move {
                 Ok::<_, hyper::Error>(service_fn(move |req| {
                     // c()
-                    async_hyper_service_fn(s2.clone(),req)
+                    async_hyper_service_fn(s2.clone(), req)
 
                     // let (tx, rx) = oneshot::channel();
                     // let http_req = HttpRequest::new(req);
@@ -164,29 +163,62 @@ impl HttpServer{
         let ctx = DispatchContext::new(Box::new(req), Box::new(resp));
         a.dispatch(ctx);
     }
-    pub fn new(dispatcher: DefaultDispatcher<'static,'static>) -> Self {
-        Self { dispatcher,
+    pub fn new(dispatcher: DefaultDispatcher<'static, 'static>) -> Self {
+        Self {
+            dispatcher,
         }
     }
 }
 
+
+pub struct ChannelWrapper {
+    Err: Option<io::Error>,
+    Ret: Option<Response<Body>>,
+}
+
 pub async fn async_hyper_service_fn(mut server: Arc<HttpServer>, req: Request<Body>) -> Result<Response<Body>, std::io::Error> {
     let (tx, rx) = oneshot::channel();
+    let (txx, rxx) = std::sync::mpsc::channel::<Response<Body>>();
     tokio::spawn(async move {
         let http_req = Box::new(HttpRequest::new(req));
-        let http_resp = Box::new(HttpResponse::new(Arc::new(tx)));
+        let http_resp = Box::new(HttpResponse::new(txx));
         let ctx = DispatchContext::new(http_req, http_resp);
-        // println!("{:?}",server);
         server.dispatcher.dispatch(ctx).await;
+        let rrr = rxx.recv().map_err(|e| {
+            io::Error::new(io::ErrorKind::BrokenPipe, e)
+        });
+        let ret: ChannelWrapper;
+        match rrr {
+            Ok(v) => {
+                println!("success");
+                ret = ChannelWrapper { Err: None, Ret: Some(v) };
+            }
+            Err(e) => {
+                // let a=e;
+                println!("failed:{}", e);
+                ret = ChannelWrapper { Err: Some(e), Ret: None };
+            }
+        }
+        tx.send(ret);
     });
-    let ret=rx.await.map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e));
+    let ret = rx.await.map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e));
     match ret {
-        Ok(V)=>{
-            println!("success");
-            Ok(V)
-        },
-        Err(e)=>{
-            println!("failed:{}",e);
+        Ok(v) => {
+
+            if let Some(e) = v.Err {
+                // Err(v.Err.unwrap())
+                // Err(Error::from(io::ErrorKind::BrokenPipe))
+                Err(e)
+                // Err(CellError::from(ErrorEnumsStruct::UNKNOWN))
+                // Err(io::Error::new(io::ErrorKind::BrokenPipe, e))
+                // Err(CellError::from(ErrorEnumsStruct::JSON_SERIALIZE))
+            } else {
+                println!("success");
+                Ok(v.Ret.unwrap())
+            }
+        }
+        Err(e) => {
+            println!("failed:{}", e);
             Err(e)
         }
     }
@@ -261,7 +293,7 @@ mod tests {
     #[test]
     fn test_http_server() {
         let mut selector = HttpSelector::default();
-        let cmd=mock_command();
+        let cmd = mock_command();
         selector.on_register_cmd(cmd);
         let channel = HttpChannel::default();
         let http_dispatch = HttpDispatcher::new();
