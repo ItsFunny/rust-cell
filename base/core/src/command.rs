@@ -26,12 +26,12 @@ pub type Function = dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueT
 //     fn handle(&self, c: Box< dyn BuzzContextTrait+'a>, t: Option<&dyn ExecutorValueTrait>);
 // }
 
-unsafe impl  Sync for ClosureFunc<'_> {}
+unsafe impl Sync for ClosureFunc<'_> {}
 
-unsafe  impl  Send for ClosureFunc<'_>{}
+unsafe impl Send for ClosureFunc<'_> {}
 
 pub struct ClosureFunc<'a> {
-    f: Arc<dyn Fn( &mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>)>,
+    f: Arc<dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>)>,
     _marker_e: PhantomData<&'a ()>,
 }
 
@@ -42,9 +42,9 @@ impl<'a> ClosureFunc<'a> {
     }
 }
 
-impl<'a>  ClosureFunc<'a> {
+impl<'a> ClosureFunc<'a> {
     fn handle(&self, c: &mut dyn BuzzContextTrait, t: Option<&dyn ExecutorValueTrait>) {
-        (self.f)(c,t)
+        (self.f)(c, t)
     }
 }
 
@@ -76,7 +76,7 @@ pub struct Command<'a>
 // }
 pub fn mock_command<'a>() -> Command<'a> {
     let mut c = Command::default();
-    let f=ClosureFunc::new(Arc::new(move |mut ctx, v| {
+    let f = ClosureFunc::new(Arc::new(move |mut ctx, v| {
         println!("execute");
         let mut ret = ContextResponseWrapper::default();
         ret = ret.with_status(ProtocolStatus::SUCCESS);
@@ -89,7 +89,7 @@ pub fn mock_command<'a>() -> Command<'a> {
 
 pub fn mock_command2<'a>() -> Command<'a> {
     let mut c = Command::default();
-    let f=ClosureFunc::new(Arc::new(move |mut ctx, v| {
+    let f = ClosureFunc::new(Arc::new(move |mut ctx, v| {
         println!("execute");
         let mut ret = ContextResponseWrapper::default();
         ret = ret.with_status(ProtocolStatus::SUCCESS);
@@ -99,7 +99,6 @@ pub fn mock_command2<'a>() -> Command<'a> {
     c = c.with_protocol_id("/protocol").with_executor(Arc::new(f));
     return c;
 }
-
 
 
 impl<'a> Clone for Command<'a> {
@@ -157,7 +156,7 @@ impl<'a> Command<'a> {
     //     self.fun = Some(e);
     //     self
     // }
-    pub fn with_executor(mut self, e:Arc<ClosureFunc<'a>>) -> Self {
+    pub fn with_executor(mut self, e: Arc<ClosureFunc<'a>>) -> Self {
         self.fun = Some(e);
         self
     }
@@ -193,8 +192,8 @@ impl MetaData {
 
 pub struct CommandContext<'a>
 {
-    pub module: &'static dyn logsdk::module::Module,
-    pub server_request: Box<dyn ServerRequestTrait + 'a>,
+    pub module: &'static CellModule,
+    pub server_request: Arc<Box<dyn ServerRequestTrait + 'a>>,
     // TODO REFCELL
     pub server_response: Box<dyn ServerResponseTrait + 'a>,
     // TODO, ARC
@@ -219,8 +218,8 @@ impl<'a> Default for Command<'a> {
 
 impl<'a> CommandContext<'a> where
 {
-    pub fn new(module: &'static dyn logsdk::module::Module,
-               server_request: Box<dyn ServerRequestTrait + 'a>,
+    pub fn new(module: &'static CellModule,
+               server_request: Arc<Box<dyn ServerRequestTrait + 'a>>,
                server_response: Box<dyn ServerResponseTrait + 'a>,
                st: Box<dyn SummaryTrait + 'a>,
     ) -> Self {
@@ -240,12 +239,12 @@ impl<'a> Command<'a> {
         self.protocol_id
     }
 
-    pub  fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
+    pub fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
         // TODO input archive
         // TODO NOE
         // (self.fun).unwrap()(ctx, None)
         // let a=self.fun.unwrap();
-        self.fun.as_ref().unwrap().handle(ctx,None)
+        self.fun.as_ref().unwrap().handle(ctx, None)
     }
 }
 //
@@ -268,7 +267,8 @@ pub fn mock_context<'a>() -> (Command<'a>, std::sync::mpsc::Receiver<Response<Bo
     let mut c = mock_command();
 
     static M: &CellModule = &module::CellModule::new(1, "CONTEXT", &LogLevel::Info);
-    let req = Box::new(MockRequest::new());
+    let box_request: Box<dyn ServerRequestTrait> = Box::new(MockRequest::new());
+    let req = Arc::new(box_request);
     let resp = Box::new(MockResponse::new(txx));
     let ip = String::from("128");
     let sequence_id = String::from("seq");

@@ -3,7 +3,6 @@ pub mod events;
 pub mod hook;
 pub mod cellerrors;
 pub mod context;
-
 #[cfg(test)]
 mod tests {
     #[test]

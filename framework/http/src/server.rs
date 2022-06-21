@@ -2,6 +2,7 @@ use std::fmt::{Debug, Error, Formatter};
 use std::future::Future;
 use std::io;
 use std::marker::PhantomData;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use futures::future::ok;
 use futures::TryStreamExt;
@@ -97,8 +98,8 @@ impl HttpServer {
         let addr = ([127, 0, 0, 1], 3000).into();
         let s1 = Arc::new(self);
         let service = make_service_fn(|_conn: &AddrStream| {
-            let a = _conn.clone();
-            println!("{:?}", a);
+            // let a = _conn.clone();
+            let addr=_conn.remote_addr();
             //         service_fn(move |req| {
             //             let http_req=HttpRequest::new(req);
             // let http_resp=HttpResponse::new();
@@ -109,7 +110,7 @@ impl HttpServer {
             async move {
                 Ok::<_, hyper::Error>(service_fn(move |req| {
                     // c()
-                    async_hyper_service_fn(s2.clone(), req)
+                    async_hyper_service_fn(s2.clone(), req, addr)
 
                     // let (tx, rx) = oneshot::channel();
                     // let http_req = HttpRequest::new(req);
@@ -176,11 +177,11 @@ pub struct ChannelWrapper {
     Ret: Option<Response<Body>>,
 }
 
-pub async fn async_hyper_service_fn(mut server: Arc<HttpServer>, req: Request<Body>) -> Result<Response<Body>, std::io::Error> {
+pub async fn async_hyper_service_fn(mut server: Arc<HttpServer>, req: Request<Body>, remote_addr: SocketAddr) -> Result<Response<Body>, std::io::Error> {
     let (tx, rx) = oneshot::channel();
     let (txx, rxx) = std::sync::mpsc::channel::<Response<Body>>();
     tokio::spawn(async move {
-        let http_req = Box::new(HttpRequest::new(req));
+        let http_req = Box::new(HttpRequest::new(req, remote_addr.ip().to_string()));
         let http_resp = Box::new(HttpResponse::new(txx));
         let ctx = DispatchContext::new(http_req, http_resp);
         server.dispatcher.dispatch(ctx).await;
@@ -204,7 +205,6 @@ pub async fn async_hyper_service_fn(mut server: Arc<HttpServer>, req: Request<Bo
     let ret = rx.await.map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e));
     match ret {
         Ok(v) => {
-
             if let Some(e) = v.Err {
                 // Err(v.Err.unwrap())
                 // Err(Error::from(io::ErrorKind::BrokenPipe))

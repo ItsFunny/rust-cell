@@ -1,3 +1,5 @@
+extern crate core;
+
 pub mod server;
 pub mod dispatcher;
 mod channel;

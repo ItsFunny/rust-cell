@@ -14,7 +14,7 @@ use crate::selector::{CommandSelector, SelectorRequest};
 
 
 pub trait Dispatcher: Send + Sync {
-    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>>;
+    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>,cmd:&Command<'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>>;
 }
 
 
@@ -67,7 +67,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
             }
         }
         let b_ctx: Box<dyn BuzzContextTrait + 'a>;
-        let command_ctx_res = self.dispatcher.get_info(req_rc.clone(), resp);
+        let command_ctx_res = self.dispatcher.get_info(req_rc.clone(), resp,&cmd);
         match command_ctx_res {
             Err(e) => {
                 // TODO
@@ -101,7 +101,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
 pub struct MockDispatcher {}
 
 impl Dispatcher for MockDispatcher {
-    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>> {
+    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>,cmd:&Command<'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>> {
         let (c, rxx, ctx) = mock_context();
         let res: Box<dyn BuzzContextTrait<'a>> = Box::new(ctx);
         Ok(res)

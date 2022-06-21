@@ -215,7 +215,7 @@ mod tests {
         }
 
         let r = tokio::runtime::Runtime::new().unwrap();
-        futures::executor::block_on(ctx.response(wrapper));
+        ctx.response(wrapper);
 
         let ret = rxx.recv();
         match ret {

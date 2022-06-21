@@ -11,6 +11,7 @@ use crate::header::value::CellHeaderValue;
 
 pub trait ServerRequestTrait: Send + Sync {
     fn as_any(&self) -> &dyn Any;
+    fn get_ip(&self)->String;
 }
 
 pub trait ServerResponseTrait: Send + Sync {
@@ -36,5 +37,9 @@ impl MockRequest {
 impl ServerRequestTrait for MockRequest {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn get_ip(&self) -> String {
+        String::from("127.0.0.1")
     }
 }

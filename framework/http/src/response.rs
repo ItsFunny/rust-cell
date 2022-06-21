@@ -27,7 +27,7 @@ impl HttpResponse {
 
 impl ServerResponseTrait for HttpResponse {
     fn add_header(&mut self, key: HeaderName, value: HeaderValue) {
-        todo!()
+
     }
 
     fn fire_result(&mut self, result: Response<Body>) -> CellResult<()> {
