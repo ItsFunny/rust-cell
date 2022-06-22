@@ -4,17 +4,21 @@ use std::arch;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
+use http::Response;
+use hyper::Body;
+use logsdk::common::LogLevel;
+use logsdk::module::CellModule;
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::channel::ChannelTrait;
 use crate::command::{Command, CommandContext, mock_context};
 use crate::context::{BaseBuzzContext, BuzzContextTrait, ContextWrapper};
-use crate::core::{ExecutorValueTrait, ProtocolID};
+use crate::core::{ExecutorValueTrait, ModuleEnumsStruct, ProtocolID};
 use crate::request::{ServerRequestTrait, ServerResponseTrait};
 use crate::selector::{CommandSelector, SelectorRequest};
 
 
 pub trait Dispatcher: Send + Sync {
-    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>,cmd:&Command<'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>>;
+    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>, cmd: &Command<'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>>;
 }
 
 
@@ -50,24 +54,22 @@ impl<'a> DispatchContext<'a> {
 impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
 {
     #[inline]
-    pub async fn dispatch(&self, ctx: DispatchContext<'a>) {
+    pub async fn dispatch(&self, mut ctx: DispatchContext<'a>) {
         let req_rc = Arc::new(ctx.req);
         // TODO ,resp need wrapped by rc
-        let resp = ctx.resp;
+        let mut resp = ctx.resp;
         let cmd_res = self.get_cmd_from_request(req_rc.clone());
 
-        let cmd:Command;
-        match cmd_res {
-            Err(e) => {
-                // TODO ,log
-                panic!("asd")
-            }
-            Ok(c) => {
-                cmd = c;
-            }
+        let cmd: Command;
+        if let Some(c) = cmd_res {
+            cmd = c;
+        } else {
+            cerror!(ModuleEnumsStruct::DISPATCHER,"command not exists,ip:{},protocol:{}",req_rc.get_ip(),req_rc.get_protocol());
+            resp.fire_result(Response::new(Body::from(ErrorEnumsStruct::COMMAND_NOT_EXISTS.get_msg())));
+            return;
         }
         let b_ctx: Box<dyn BuzzContextTrait + 'a>;
-        let command_ctx_res = self.dispatcher.get_info(req_rc.clone(), resp,&cmd);
+        let command_ctx_res = self.dispatcher.get_info(req_rc.clone(), resp, &cmd);
         match command_ctx_res {
             Err(e) => {
                 // TODO
@@ -81,27 +83,19 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
     }
 
 
-    pub fn get_cmd_from_request(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>) -> CellResult<Command<'a>> {
+    pub fn get_cmd_from_request(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>) -> Option<Command<'a>> {
         // TODO ,useless
         let (txx, mut rxx) = std::sync::mpsc::channel::<Command>();
         // let (tx, rx) = oneshot::channel();
         let req = SelectorRequest::new(req, txx);
-        let ret = self.command_selector.select(&req);
-        match ret {
-            None => {
-                Err(CellError::from(ErrorEnumsStruct::UNKNOWN))
-            }
-            Some(v) => {
-                Ok(v)
-            }
-        }
+        self.command_selector.select(&req)
     }
 }
 
 pub struct MockDispatcher {}
 
 impl Dispatcher for MockDispatcher {
-    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>,cmd:&Command<'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>> {
+    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>, cmd: &Command<'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>> {
         let (c, rxx, ctx) = mock_context();
         let res: Box<dyn BuzzContextTrait<'a>> = Box::new(ctx);
         Ok(res)

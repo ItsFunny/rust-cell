@@ -11,6 +11,7 @@ use crate::header::value::CellHeaderValue;
 
 pub trait ServerRequestTrait: Send + Sync {
     fn as_any(&self) -> &dyn Any;
+    fn get_protocol(&self)->ProtocolID;
     fn get_ip(&self)->String;
 }
 
@@ -29,7 +30,7 @@ pub struct MockRequest {
 
 impl MockRequest {
     pub fn new() -> Self {
-        MockRequest { protocol: "protocol" }
+        MockRequest { protocol: "protocol"}
     }
 }
 
@@ -37,6 +38,10 @@ impl MockRequest {
 impl ServerRequestTrait for MockRequest {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn get_protocol(&self) -> ProtocolID {
+        self.protocol
     }
 
     fn get_ip(&self) -> String {

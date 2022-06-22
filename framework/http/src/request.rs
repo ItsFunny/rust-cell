@@ -2,6 +2,7 @@ use std::any::Any;
 use std::net::SocketAddr;
 use cell_core::request::ServerRequestTrait;
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
+use cell_core::core::ProtocolID;
 
 pub struct HttpRequest {
   pub  request: Request<Body>,
@@ -29,6 +30,9 @@ impl ServerRequestTrait for HttpRequest {
 
     fn get_ip(&self)->String{
         self.remote_addr.clone()
+    }
+    fn get_protocol(&self)->ProtocolID{
+        self.request.uri().to_string().as_str()
     }
 }
 

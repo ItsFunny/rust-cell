@@ -52,18 +52,27 @@ pub mod core {
         String::from(p as &str)
     }
 
-
     // pub trait DynClone
     // {
     //     fn clone_box(&self) -> Box<dyn Executor<'a, T> + 'a>;
     // }
+
+    module_enums!(
+        (DISPATCHER,1,&logsdk::common::LogLevel::Info);
+    );
 }
 
 #[cfg(test)]
 mod tests {
+    use logsdk::common::LogLevel;
+
     #[test]
     fn it_works() {
         let result = 2 + 2;
         assert_eq!(result, 4);
+    }
+    #[test]
+    fn test_module_enums(){
+
     }
 }

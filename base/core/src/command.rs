@@ -111,7 +111,7 @@ impl<'a> Clone for Command<'a> {
         //     seal: false,
         // }
         Command {
-            protocol_id: self.protocol_id,
+            protocol_id: self.protocol_id.clone(),
             fun: self.fun.clone(),
             meta_data: Default::default(),
             run_type: 0,
@@ -236,7 +236,7 @@ impl<'a> CommandContext<'a> where
 
 impl<'a> Command<'a> {
     pub fn id(&self) -> ProtocolID {
-        self.protocol_id
+        self.protocol_id.clone()
     }
 
     pub fn execute(&self, ctx: &mut dyn BuzzContextTrait) {

@@ -24,8 +24,31 @@ impl CellModule {
 }
 
 
+#[macro_export]
+macro_rules! module_enums {
+    (
+       $(
+            $(#[$docs:meta])*
+             ($name:ident, $index:expr, $log_level:expr);
+        )+
+    )=>{
+        #[derive(Debug)]
+        pub struct ModuleEnumsStruct {
+        }
+        impl ModuleEnumsStruct
+        {
+            $(
+                pub const $name: &'static $crate::module::CellModule=&$crate::module::CellModule::new($index,stringify!($name),$log_level);
+            )+
+        }
+    }
+}
+
+
+
 impl Display for CellModule {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+
         write!(f, "module_name:{},index:{}", self.name, self.index)
     }
 }
