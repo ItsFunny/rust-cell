@@ -35,7 +35,7 @@ impl HttpDispatcher {
 }
 
 impl Dispatcher for HttpDispatcher {
-    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>, cmd: &Command<'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>> {
+    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>, cmd: &Command<'a>) -> Box<dyn BuzzContextTrait<'a> + 'a> {
         let (c, rxx, ctx) = mock_context();
         let ip = req.get_ip();
         let sequence_id = String::from("seq");
@@ -46,7 +46,7 @@ impl Dispatcher for HttpDispatcher {
         let l = Local::now();
         let mut ctx = BaseBuzzContext::new(l.timestamp_millis(), c_ctx);
         let res: Box<dyn BuzzContextTrait<'a>> = Box::new(ctx);
-        Ok(res)
+        res
     }
 }
 

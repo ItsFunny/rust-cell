@@ -18,7 +18,7 @@ use crate::selector::{CommandSelector, SelectorRequest};
 
 
 pub trait Dispatcher: Send + Sync {
-    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>, cmd: &Command<'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>>;
+    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>, cmd: &Command<'a>) -> Box<dyn BuzzContextTrait<'a> + 'a>;
 }
 
 
@@ -64,21 +64,11 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
         if let Some(c) = cmd_res {
             cmd = c;
         } else {
-            cerror!(ModuleEnumsStruct::DISPATCHER,"command not exists,ip:{},protocol:{}",req_rc.get_ip(),req_rc.get_protocol());
+            cerror!(ModuleEnumsStruct::DISPATCHER,"command not exists,ip:{},protocol:{}",req_rc.get_ip(),req_rc.get_string_protocol());
             resp.fire_result(Response::new(Body::from(ErrorEnumsStruct::COMMAND_NOT_EXISTS.get_msg())));
             return;
         }
-        let b_ctx: Box<dyn BuzzContextTrait + 'a>;
-        let command_ctx_res = self.dispatcher.get_info(req_rc.clone(), resp, &cmd);
-        match command_ctx_res {
-            Err(e) => {
-                // TODO
-                panic!("as")
-            }
-            Ok(v) => {
-                b_ctx = v;
-            }
-        }
+        let b_ctx: Box<dyn BuzzContextTrait + 'a>= self.dispatcher.get_info(req_rc.clone(), resp, &cmd);
         self.channel.read_command(ContextWrapper::new(b_ctx, Arc::new(cmd))).await
     }
 
@@ -95,10 +85,10 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
 pub struct MockDispatcher {}
 
 impl Dispatcher for MockDispatcher {
-    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>, cmd: &Command<'a>) -> CellResult<Box<dyn BuzzContextTrait<'a> + 'a>> {
+    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>, cmd: &Command<'a>) -> Box<dyn BuzzContextTrait<'a> + 'a>{
         let (c, rxx, ctx) = mock_context();
         let res: Box<dyn BuzzContextTrait<'a>> = Box::new(ctx);
-        Ok(res)
+        res
     }
 }
 

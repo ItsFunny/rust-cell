@@ -144,6 +144,8 @@ error_enums!(
     (RESPONSE_FAILED,4,"response failed");
     (COMMAND_NOT_EXISTS,5,"command not exists");
     (CHANNEL_SEND_FAILED,6,"channel send failed");
+    (INTERNAL_SERVER_ERROR,7,"internal server error");
+
 );
 
 

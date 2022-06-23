@@ -31,8 +31,8 @@ impl ServerRequestTrait for HttpRequest {
     fn get_ip(&self)->String{
         self.remote_addr.clone()
     }
-    fn get_protocol(&self)->ProtocolID{
-        self.request.uri().to_string().as_str()
+    fn get_string_protocol(&self)->String{
+        self.request.uri().to_string()
     }
 }
 
