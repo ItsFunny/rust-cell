@@ -14,7 +14,7 @@ use crate::command::{Command, CommandContext, mock_context};
 use crate::context::{BaseBuzzContext, BuzzContextTrait, ContextWrapper};
 use crate::core::{ExecutorValueTrait, ModuleEnumsStruct, ProtocolID};
 use crate::request::{ServerRequestTrait, ServerResponseTrait};
-use crate::selector::{CommandSelector, SelectorRequest};
+use crate::selector::{CommandSelector, SelectorRequest, SelectorStrategy};
 
 
 pub trait Dispatcher: Send + Sync {
@@ -25,13 +25,13 @@ pub trait Dispatcher: Send + Sync {
 pub struct DefaultDispatcher<'e: 'a, 'a>
 {
     channel: Box<dyn ChannelTrait<'e, 'a> + 'e>,
-    command_selector: Box<dyn CommandSelector<'a> + 'e>,
+    command_selector: SelectorStrategy<'e>,
     dispatcher: Box<dyn Dispatcher + 'e>,
 }
 
 impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a> where
 {
-    pub fn new(channel: Box<dyn ChannelTrait<'e, 'a>>, command_selector: Box<dyn CommandSelector<'a>>, dis: Box<dyn Dispatcher + 'e>) -> Self {
+    pub fn new(channel: Box<dyn ChannelTrait<'e, 'a>>, command_selector: SelectorStrategy<'e>, dis: Box<dyn Dispatcher + 'e>) -> Self {
         Self { channel, command_selector, dispatcher: dis }
     }
 }
@@ -68,7 +68,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
             resp.fire_result(Response::new(Body::from(ErrorEnumsStruct::COMMAND_NOT_EXISTS.get_msg())));
             return;
         }
-        let b_ctx: Box<dyn BuzzContextTrait + 'a>= self.dispatcher.get_info(req_rc.clone(), resp, &cmd);
+        let b_ctx: Box<dyn BuzzContextTrait + 'a> = self.dispatcher.get_info(req_rc.clone(), resp, &cmd);
         self.channel.read_command(ContextWrapper::new(b_ctx, Arc::new(cmd))).await
     }
 
@@ -85,7 +85,7 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
 pub struct MockDispatcher {}
 
 impl Dispatcher for MockDispatcher {
-    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>, cmd: &Command<'a>) -> Box<dyn BuzzContextTrait<'a> + 'a>{
+    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>, cmd: &Command<'a>) -> Box<dyn BuzzContextTrait<'a> + 'a> {
         let (c, rxx, ctx) = mock_context();
         let res: Box<dyn BuzzContextTrait<'a>> = Box::new(ctx);
         res
@@ -114,7 +114,7 @@ mod tests {
     use crate::dispatcher::{DefaultDispatcher, DispatchContext, MockDispatcher};
     use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
     use crate::response::MockResponse;
-    use crate::selector::MockDefaultPureSelector;
+    use crate::selector::{CommandSelector, MockDefaultPureSelector, SelectorStrategy};
     use crate::summary::{Summary, SummaryTrait};
     use crate::wrapper::ContextResponseWrapper;
 
@@ -136,7 +136,9 @@ mod tests {
         let channel = mock_channel();
         let selector = MockDefaultPureSelector::new();
         let mock_dispatcher = MockDispatcher {};
-        let mut dispatcher = DefaultDispatcher::new(Box::new(channel), Box::new(selector), Box::new(mock_dispatcher));
+        let vec_executors: Vec<Box<dyn CommandSelector>> = vec![Box::new(selector)];
+        let selector = SelectorStrategy::new(vec_executors);
+        let mut dispatcher = DefaultDispatcher::new(Box::new(channel), selector, Box::new(mock_dispatcher));
         let req = Box::new(MockRequest::new());
         let resp = Box::new(MockResponse::new(txx));
         let ctx = DispatchContext::new(req, resp);

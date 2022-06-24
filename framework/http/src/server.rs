@@ -130,9 +130,11 @@ pub async fn async_hyper_service_fn(mut server: Arc<HttpServer>, req: Request<Bo
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use cell_core::command::mock_command;
     use cell_core::dispatcher::DefaultDispatcher;
-    use cell_core::selector::CommandSelector;
+    use cell_core::selector::{CommandSelector, SelectorRequest, SelectorStrategy};
+    use pipeline2::pipeline2::{ClosureExecutor, DefaultReactorExecutor, PipelineBuilder};
     use crate::channel::HttpChannel;
     use crate::dispatcher::HttpDispatcher;
     use crate::selector::HttpSelector;
@@ -147,13 +149,19 @@ mod tests {
     #[test]
     fn test_http_server() {
         let mut selector = HttpSelector::default();
+        let vec_executors: Vec<Box<dyn CommandSelector>> = vec![Box::new(selector)];
+        let mut selector_strategy = SelectorStrategy::new(vec_executors);
+        // SelectorStrategy::new()
+        // builder.add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(|req:&mut SelectorRequest|{
+        //
+        // })))));
         let cmd = mock_command();
-        selector.on_register_cmd(cmd);
+        selector_strategy.on_register_cmd(cmd);
         let channel = HttpChannel::default();
         let http_dispatch = HttpDispatcher::new();
         let default_dispatcher = DefaultDispatcher::new(
             Box::new(channel),
-            Box::new(selector),
+            selector_strategy,
             Box::new(http_dispatch));
         let s = HttpServer::new(default_dispatcher);
         let body = async {

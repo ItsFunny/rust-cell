@@ -32,6 +32,10 @@ impl<'a> SelectorRequest<'a> {
     }
 }
 
+unsafe impl<'a> Send for SelectorRequest<'a> {}
+
+unsafe impl<'a> Sync for SelectorRequest<'a> {}
+
 impl<'a> Debug for SelectorRequest<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result { Ok(()) }
 }
@@ -89,12 +93,11 @@ impl<'a> CommandSelector<'a> for MockDefaultPureSelector<'a> {
 }
 ////////
 
-pub struct SelectorStrategy<'e: 'a, 'a> {
+pub struct SelectorStrategy<'a> {
     // selector: DefaultChainExecutor<'e, 'a, SelectorRequest>,
-    selector: DefaultPipelineV2<'a, SelectorRequest<'a>>,
+    // selector: DefaultPipelineV2<'a, SelectorRequest<'a>>,
+    selectors: Vec<Box<dyn CommandSelector<'a> + 'a>>,
     // register: DefaultChainExecutor<'e, 'a, SelectorRequest>,
-    _marker_e: PhantomData<&'e ()>,
-    _marker_a: PhantomData<&'a ()>,
 }
 
 // impl<'e: 'a, 'a> From<Vec<Box<dyn CommandSelector>>> for SelectorStrategy<'e, 'a> {
@@ -121,19 +124,28 @@ pub struct SelectorStrategy<'e: 'a, 'a> {
 //     }
 // }
 
-impl<'e: 'a, 'a> SelectorStrategy<'e, 'a> {
-    pub fn new(executor: DefaultPipelineV2<'a, SelectorRequest<'a>>) -> Self {
-        SelectorStrategy { selector: executor, _marker_e: Default::default(), _marker_a: Default::default() }
+impl<'a> SelectorStrategy<'a> {
+    pub fn new(executor: Vec<Box<dyn CommandSelector<'a> + 'a>>) -> Self {
+        SelectorStrategy { selectors: executor }
     }
 }
 
-// impl CommandSelector for SelectorStrategy {
-//     fn select(&self, req: &SelectorRequest) -> Option<&'static dyn CommandTrait> {}
-//
-//     fn on_register_cmd(&mut self, cmd: &'static dyn CommandTrait) {
-//         todo!()
-//     }
-// }
+impl<'a> CommandSelector<'a> for SelectorStrategy<'a> {
+    fn select(&self, req: &SelectorRequest) -> Option<Command<'a>> {
+        for s in &self.selectors {
+            if let Some(v) = s.select(req) {
+                return Some(v);
+            }
+        }
+        None
+    }
+
+    fn on_register_cmd(&mut self, cmd: Command<'a>) {
+        for s in &mut self.selectors {
+            s.on_register_cmd(cmd.clone())
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -171,7 +183,7 @@ mod tests {
     //     let mut c = mock_command();
     //
     //     let e1 = MockDefaultPureSelector::new();
-    //     let pip = PipelineBuilder::default().add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Rc::new(move |req: &SelectorRequest| {
+    //     let pip = PipelineBuilder::default().add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(move |req: &mut SelectorRequest| {
     //         let ret = e1.select(req);
     //         match ret {
     //             Some(v) => {
@@ -185,7 +197,7 @@ mod tests {
     //     let mut strategy = SelectorStrategy::new(pip);
     //     let mock_request = MockRequest::new();
     //     let (txx, mut rxx) = std::sync::mpsc::channel::<Command>();
-    //     let mut request = SelectorRequest { request: Rc::new(Box::new(mock_request)), tx: (txx), done: RefCell::new(false) };
+    //     let mut request = SelectorRequest { request: Arc::new(Box::new(mock_request)), tx: (txx), done: RefCell::new(false) };
     //     futures::executor::block_on(strategy.selector.execute(&mut request));
     //     let re = rxx.try_recv();
     //     match re {
