@@ -7,6 +7,7 @@ mod context;
 mod response;
 mod request;
 mod selector;
+pub mod extension;
 
 
 #[cfg(test)]

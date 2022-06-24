@@ -6,6 +6,11 @@ use logsdk::common::LogLevel;
 use logsdk::module::CellModule;
 use crate::cerror::CellResult;
 
+
+module_enums!(
+        (EXTENSION,1,&logsdk::common::LogLevel::Info);
+    );
+
 pub trait ExtensionManagerTrait: Interface {}
 
 #[derive(Component)]
@@ -17,9 +22,12 @@ impl ExtensionManagerTrait for ExtensionManager {}
 
 pub struct NodeContext {}
 
-module_enums!(
-        (EXTENSION,1,&logsdk::common::LogLevel::Info);
-    );
+impl Default for NodeContext {
+    fn default() -> Self {
+        NodeContext {}
+    }
+}
+
 
 pub trait NodeExtension {
     fn module(&self) -> CellModule;
@@ -95,13 +103,14 @@ mod tests {
     use std::sync::Arc;
     use std::{thread, time};
     use stopwatch::Stopwatch;
-    use crate::extension::{DemoExtension, ExtensionProxy, NodeExtension};
+    use crate::extension::{DemoExtension, ExtensionProxy, NodeContext, NodeExtension};
 
 
     #[test]
     fn test_extension() {
         let demo = DemoExtension {};
-        let proxy = ExtensionProxy::new(Arc::new(RefCell::new(demo)));
-        println!("{}", proxy.module())
+        let mut proxy = ExtensionProxy::new(Arc::new(RefCell::new(demo)));
+        println!("{}", proxy.module());
+        proxy.start(Arc::new(NodeContext::default()));
     }
 }

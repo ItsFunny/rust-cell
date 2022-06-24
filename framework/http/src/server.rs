@@ -16,10 +16,17 @@ use cell_core::channel::ChannelTrait;
 use cell_core::dispatcher::{DefaultDispatcher, DispatchContext};
 use cell_core::request::MockRequest;
 use logsdk::{cerror, cinfo, module_enums};
+use logsdk::common::LogLevel;
 use crate::channel::HttpChannel;
 use crate::dispatcher::HttpDispatcher;
 use crate::request::HttpRequest;
 use crate::response::HttpResponse;
+
+
+
+module_enums!(
+        (HTTP_SERVER,1,&logsdk::common::LogLevel::Info);
+    );
 
 pub struct HttpServer {
     dispatcher: DefaultDispatcher<'static, 'static>,
@@ -31,9 +38,6 @@ impl Debug for HttpServer {
     }
 }
 
-module_enums!(
-        (HTTP_SERVER,1,&logsdk::common::LogLevel::Info);
-    );
 
 unsafe impl Send for HttpServer {}
 
@@ -104,7 +108,7 @@ pub async fn async_hyper_service_fn(mut server: Arc<HttpServer>, req: Request<Bo
                 ret = ChannelWrapper { Err: Some(e), Ret: None };
             }
         }
-        tx.send(ret).unwrap();
+        tx.send(ret);
     });
     let ret = rx.await.map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e));
     match ret {
