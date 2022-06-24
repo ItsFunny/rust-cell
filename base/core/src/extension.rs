@@ -2,6 +2,7 @@ use core::cell::RefCell;
 use std::sync::Arc;
 use shaku::{module, Component, Interface, HasComponent};
 use stopwatch::Stopwatch;
+use tokio::runtime::Runtime;
 use logsdk::common::LogLevel;
 use logsdk::module::CellModule;
 use crate::cerror::CellResult;
@@ -20,11 +21,17 @@ pub struct ExtensionManager {}
 impl ExtensionManagerTrait for ExtensionManager {}
 
 
-pub struct NodeContext {}
+pub struct NodeContext {
+    pub tokio_runtime: Runtime,
+}
 
 impl Default for NodeContext {
     fn default() -> Self {
-        NodeContext {}
+        NodeContext {
+            tokio_runtime: tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build().expect("failed")
+        }
     }
 }
 

@@ -76,7 +76,6 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
     pub fn get_cmd_from_request(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>) -> Option<Command<'a>> {
         // TODO ,useless
         let (txx, mut rxx) = std::sync::mpsc::channel::<Command>();
-        // let (tx, rx) = oneshot::channel();
         let req = SelectorRequest::new(req, txx);
         self.command_selector.select(&req)
     }

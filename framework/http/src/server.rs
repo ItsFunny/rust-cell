@@ -131,6 +131,9 @@ pub async fn async_hyper_service_fn(mut server: Arc<HttpServer>, req: Request<Bo
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+    use std::thread;
+    use std::thread::Thread;
+    use std::time::Duration;
     use cell_core::command::mock_command;
     use cell_core::dispatcher::DefaultDispatcher;
     use cell_core::selector::{CommandSelector, SelectorRequest, SelectorStrategy};
@@ -151,10 +154,6 @@ mod tests {
         let mut selector = HttpSelector::default();
         let vec_executors: Vec<Box<dyn CommandSelector>> = vec![Box::new(selector)];
         let mut selector_strategy = SelectorStrategy::new(vec_executors);
-        // SelectorStrategy::new()
-        // builder.add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(|req:&mut SelectorRequest|{
-        //
-        // })))));
         let cmd = mock_command();
         selector_strategy.on_register_cmd(cmd);
         let channel = HttpChannel::default();
@@ -167,7 +166,7 @@ mod tests {
         let body = async {
             s.start().await
         };
-        // futures::executor::block_on();
+
 
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
