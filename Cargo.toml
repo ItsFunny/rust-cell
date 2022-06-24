@@ -10,6 +10,7 @@ members=[
     "base/core",
     "useless/hyper",
     "useless/demo",
-    "useless/tests"
+    "useless/tests",
+    "useless/shaku"
 ]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

@@ -21,6 +21,9 @@ impl CellModule {
             log_level: log_level,
         }
     }
+    pub fn get_name(&self)->&'static str{
+        return self.name
+    }
 }
 
 
@@ -48,7 +51,6 @@ macro_rules! module_enums {
 
 impl Display for CellModule {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-
         write!(f, "module_name:{},index:{}", self.name, self.index)
     }
 }

@@ -21,6 +21,7 @@ pub mod constants;
 pub mod suit;
 pub mod dispatcher;
 pub mod selector;
+pub mod extension;
 
 use std::fmt::Debug;
 

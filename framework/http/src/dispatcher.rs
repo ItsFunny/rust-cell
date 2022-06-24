@@ -25,13 +25,6 @@ impl HttpDispatcher {
     pub fn new() -> Self {
         Self { m: DispatchModule }
     }
-    //
-    // pub fn dispatch(&mut self, req: HttpRequest, resp: HttpResponse) {
-    //     let q: Box<dyn ServerRequestTrait + 'a> = Box::new(req);
-    //     let b: Box<dyn ServerResponseTrait + 'a> = Box::new(resp);
-    //     let ctx = DispatchContext::new(q, b);
-    //     self.dispatcher.dispatch(ctx);
-    // }
 }
 
 impl Dispatcher for HttpDispatcher {
