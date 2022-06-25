@@ -15,12 +15,14 @@ use cell_core::cerror::{CellError, CellResult, ErrorEnums, ErrorEnumsStruct};
 use cell_core::channel::ChannelTrait;
 use cell_core::dispatcher::{DefaultDispatcher, DispatchContext};
 use cell_core::request::MockRequest;
+use cell_core::selector::{CommandSelector, SelectorStrategy};
 use logsdk::{cerror, cinfo, module_enums};
 use logsdk::common::LogLevel;
 use crate::channel::HttpChannel;
 use crate::dispatcher::HttpDispatcher;
 use crate::request::HttpRequest;
 use crate::response::HttpResponse;
+use crate::selector::HttpSelector;
 
 
 
@@ -30,6 +32,21 @@ module_enums!(
 
 pub struct HttpServer {
     dispatcher: DefaultDispatcher<'static, 'static>,
+}
+
+impl Default for HttpServer {
+    fn default() -> Self {
+        let mut selector = HttpSelector::default();
+        let vec_executors: Vec<Box<dyn CommandSelector>> = vec![Box::new(selector)];
+        let mut selector_strategy = SelectorStrategy::new(vec_executors);
+        let channel = HttpChannel::default();
+        let http_dispatch = HttpDispatcher::new();
+        let default_dispatcher = DefaultDispatcher::new(
+            Box::new(channel),
+            selector_strategy,
+            Box::new(http_dispatch));
+        HttpServer::new(default_dispatcher)
+    }
 }
 
 impl Debug for HttpServer {
@@ -45,7 +62,7 @@ unsafe impl Sync for HttpServer {}
 
 
 impl HttpServer {
-    pub async fn start(mut self) -> CellResult<()> {
+    pub async fn start(self) -> CellResult<()> {
         let addr = ([127, 0, 0, 1], 3000).into();
         let s1 = Arc::new(self);
         let service = make_service_fn(|_conn: &AddrStream| {

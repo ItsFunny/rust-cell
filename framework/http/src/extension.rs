@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::mem;
 use std::sync::Arc;
 use cell_core::cerror::CellResult;
 use cell_core::dispatcher::DefaultDispatcher;
@@ -12,6 +14,13 @@ use crate::server::HttpServer;
 
 pub struct HttpExtensionBuilder {
     selector: Option<Box<dyn CommandSelector<'static>>>,
+}
+
+impl HttpExtensionBuilder {
+    pub fn with_selector(mut self, se: Box<dyn CommandSelector<'static>>) -> Self {
+        self.selector = Some(se);
+        self
+    }
 }
 
 impl Default for HttpExtensionBuilder {
@@ -38,16 +47,16 @@ impl HttpExtensionBuilder {
             selector_strategy,
             Box::new(http_dispatch));
         let server = HttpServer::new(default_dispatcher);
-        HttpExtension::new(server)
+        HttpExtension::new(Arc::new(RefCell::new(server)))
     }
 }
 
 pub struct HttpExtension {
-    server: HttpServer,
+    server: Arc<RefCell<HttpServer>>,
 }
 
 impl HttpExtension {
-    pub fn new(server: HttpServer) -> Self {
+    pub fn new(server: Arc<RefCell<HttpServer>>) -> Self {
         Self { server }
     }
 }
@@ -61,8 +70,8 @@ impl NodeExtension for HttpExtension {
         HttpModule
     }
     fn on_start(&mut self, ctx: Arc<NodeContext>) -> CellResult<()> {
-        // TODO
-        ctx.tokio_runtime.spawn(self.server.start());
+        let s = self.server.take();
+        ctx.tokio_runtime.spawn(s.start());
         Ok(())
     }
 }
@@ -73,13 +82,19 @@ mod tests {
     use std::thread;
     use std::time::Duration;
     use cell_core::extension::{NodeContext, NodeExtension};
+    use cell_core::selector::MockDefaultPureSelector;
     use crate::extension::{HttpExtension, HttpExtensionBuilder};
 
     #[test]
     fn test_extension() {
-        let mut ex = HttpExtensionBuilder::default().build();
+        let mock_select1 = MockDefaultPureSelector::new();
+        let mut ex = HttpExtensionBuilder::default().with_selector(Box::new(mock_select1)).build();
         let ctx = NodeContext::default();
-        ex.start(Arc::new(ctx)).unwrap();
-        thread::sleep(Duration::from_secs(1000000))
+        let arcc = Arc::new(ctx);
+        ex.start(arcc.clone()).unwrap();
+        let a = async {
+            thread::sleep(Duration::from_secs(1000000))
+        };
+        arcc.clone().tokio_runtime.block_on(a);
     }
 }
