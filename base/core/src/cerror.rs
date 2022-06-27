@@ -145,7 +145,7 @@ error_enums!(
     (COMMAND_NOT_EXISTS,5,"command not exists");
     (CHANNEL_SEND_FAILED,6,"channel send failed");
     (INTERNAL_SERVER_ERROR,7,"internal server error");
-
+    (DUPLICATE_OPTION,7,"DUPLICATE_OPTION");
 );
 
 
