@@ -45,8 +45,7 @@ impl ExtensionManager {
     pub fn add_extension(&mut self, e: Arc<RefCell<dyn NodeExtension>>) {
         self.extension.push(e);
     }
-    pub fn init_command_line(&mut self) -> CellResult<()> {
-        let mut ops = Vec::<Arg>::default();
+    pub fn init_command_line(&mut self, args: Vec<String>) -> CellResult<()> {
         let mut i = 0;
         let mut app = App::new("rust-cell").author("itsfunny");
         while i != self.extension.len() {
@@ -56,14 +55,26 @@ impl ExtensionManager {
                     if self.has_arg(o.clone()) {
                         return Err(CellError::from(ErrorEnumsStruct::DUPLICATE_OPTION));
                     }
-                    let key = String::from(o.clone().get_name());
-                    // ops.push(o.clone());
+                    let long = o.clone().get_long();
+                    match long {
+                        Some(v) => {
+                            self.long_ops.insert(String::from(v));
+                        }
+                        None => {}
+                    }
+                    let short = o.clone().get_short();
+                    match short {
+                        Some(v) => {
+                            self.short_ops.insert(String::from(v));
+                        }
+                        None => {}
+                    }
                     app = app.arg(o.clone());
                 }
             }
             i += 1;
         }
-        self.ctx.clone().borrow_mut().set_matchers(app.get_matches());
+        self.ctx.clone().borrow_mut().set_matchers(app.get_matches_from(args));
         Ok(())
     }
     fn has_arg(&self, arg: Arg) -> bool {
@@ -238,6 +249,7 @@ mod tests {
         let mut m = ExtensionManager::default();
         let demo = DemoExtension {};
         m.add_extension(Arc::new(RefCell::new(demo)));
-        m.init_command_line();
+        let mut args = Vec::<String>::new();
+        m.init_command_line(args);
     }
 }
