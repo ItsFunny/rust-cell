@@ -38,7 +38,7 @@ unsafe impl Send for ExtensionManager {}
 unsafe impl Sync for ExtensionManager {}
 
 pub struct ExtensionManagerBuilder {
-    tokio_runtime: Option<Runtime>,
+    tokio_runtime: Option<Arc<Runtime>>,
     close_notifyc: Option<tokio::sync::mpsc::Receiver<u8>>,
     extensions: Vec<Arc<RefCell<dyn NodeExtension>>>,
 }
@@ -54,7 +54,7 @@ impl Default for ExtensionManagerBuilder {
 }
 
 impl ExtensionManagerBuilder {
-    pub fn with_tokio(mut self, r: Runtime) -> Self {
+    pub fn with_tokio(mut self, r: Arc<Runtime>) -> Self {
         self.tokio_runtime = Some(r);
         self
     }
@@ -130,18 +130,22 @@ impl ExtensionManager {
     }
 
     pub fn start(mut self) {
-        // self.ctx.clone().borrow().tokio_runtime.spawn(self.async_start());
-        self.ctx.clone().borrow().tokio_runtime.spawn(async move {
+        self.ctx.clone().borrow().tokio_runtime.clone().spawn(async move {
             self.async_start().await
         });
+    }
+    pub fn get_ctx(&self) -> Arc<RefCell<NodeContext>> {
+        self.ctx.clone()
     }
     async fn async_start(&mut self) {
         cinfo!(ModuleEnumsStruct::EXTENSION,"extension start");
         loop {
             tokio::select! {
-                _=self.close_notify.recv()=>{
+                msg=self.close_notify.recv()=>{
+                    println!("{:?}",msg);
                     cinfo!(ModuleEnumsStruct::EXTENSION,"extension received exit signal,closing extensions");
                     self.on_close();
+                    break;
                 },
             }
         }
@@ -252,7 +256,7 @@ impl ExtensionManager {
 fn async_start_manager(m: ExtensionManager) {}
 
 pub struct NodeContext {
-    pub tokio_runtime: Runtime,
+    pub tokio_runtime: Arc<Runtime>,
     pub matchers: ArgMatches,
 }
 
@@ -261,7 +265,7 @@ impl NodeContext {
         self.matchers = m
     }
 
-    pub fn set_tokio(&mut self, m: Runtime) {
+    pub fn set_tokio(&mut self, m: Arc<Runtime>) {
         self.tokio_runtime = m
     }
 
@@ -276,9 +280,9 @@ impl NodeContext {
 impl Default for NodeContext {
     fn default() -> Self {
         NodeContext {
-            tokio_runtime: tokio::runtime::Builder::new_multi_thread()
+            tokio_runtime: Arc::new(tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
-                .build().expect("failed"),
+                .build().expect("failed")),
             matchers: Default::default(),
         }
     }
@@ -394,16 +398,36 @@ mod tests {
     #[test]
     fn test_start() {
         let demo = DemoExtension {};
-        let mut m = ExtensionManagerBuilder::default()
-            .with_extension(Arc::new(RefCell::new(demo)))
-            .build();
-        let am = Arc::new(RefCell::new(m));
-        // let b = am.clone();
-        // let inner = b.into_inner();
-        // let a = async {
-        //     thread::sleep(Duration::from_secs(1000));
-        // };
+        let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
 
-        // m.ctx.clone().borrow().tokio_runtime.block_on(a);
+        let m = ExtensionManagerBuilder::default()
+            .with_extension(Arc::new(RefCell::new(demo)))
+            .with_tokio(runtime.clone())
+            .build();
+        let am = RefCell::new(m);
+        am.into_inner().start();
+        let a = async {
+            thread::sleep(Duration::from_secs(1000));
+        };
+        runtime.clone().block_on(a);
+    }
+
+    #[test]
+    fn test_mpsc() {
+        let (_, mut rx) = tokio::sync::mpsc::channel::<u8>(1);
+        let v = futures::executor::block_on(rx.recv());
+        thread::spawn(move ||{
+            loop {
+
+            }
+        });
+        match v {
+            Some(vv) => {
+                println!("asdd:{}", vv);
+            }
+            None => {
+                println!("none");
+            }
+        }
     }
 }
