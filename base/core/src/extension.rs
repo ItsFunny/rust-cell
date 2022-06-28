@@ -1,12 +1,15 @@
 use core::cell::RefCell;
+use core::future::Future;
 use core::iter::Map;
-use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
+use std::mem;
 use std::sync::Arc;
 use clap::{App, Arg, arg, ArgMatches};
 use shaku::{module, Component, Interface, HasComponent};
 use stopwatch::Stopwatch;
 use tokio::runtime::Runtime;
+use tokio::select;
+use tokio::task::JoinHandle;
 use logsdk::common::LogLevel;
 use logsdk::module::CellModule;
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
@@ -26,15 +29,58 @@ pub struct ExtensionManager {
 
     short_ops: HashSet<String>,
     long_ops: HashSet<String>,
+
+    close_notify: tokio::sync::mpsc::Receiver<u8>,
 }
 
-impl Default for ExtensionManager {
+unsafe impl Send for ExtensionManager {}
+
+unsafe impl Sync for ExtensionManager {}
+
+pub struct ExtensionManagerBuilder {
+    tokio_runtime: Option<Runtime>,
+    close_notifyc: Option<tokio::sync::mpsc::Receiver<u8>>,
+    extensions: Vec<Arc<RefCell<dyn NodeExtension>>>,
+}
+
+impl Default for ExtensionManagerBuilder {
     fn default() -> Self {
+        ExtensionManagerBuilder {
+            tokio_runtime: None,
+            close_notifyc: None,
+            extensions: Vec::new(),
+        }
+    }
+}
+
+impl ExtensionManagerBuilder {
+    pub fn with_tokio(mut self, r: Runtime) -> Self {
+        self.tokio_runtime = Some(r);
+        self
+    }
+    pub fn with_extension(mut self, e: Arc<RefCell<dyn NodeExtension>>) -> Self {
+        self.extensions.push(e);
+        self
+    }
+    pub fn with_close_notifyc(mut self, c: tokio::sync::mpsc::Receiver<u8>) -> Self {
+        self.close_notifyc = Some(c);
+        self
+    }
+    pub fn build(self) -> ExtensionManager {
+        let mut ctx = NodeContext::default();
+        if let Some(v) = self.tokio_runtime {
+            ctx.set_tokio(v);
+        }
+        let (_, mut rx) = tokio::sync::mpsc::channel(1);
+        if let Some(v) = self.close_notifyc {
+            rx = v;
+        }
         ExtensionManager {
-            extension: vec![],
-            ctx: Arc::new(RefCell::new(NodeContext::default())),
+            extension: self.extensions,
+            ctx: Arc::new(RefCell::new(ctx)),
             short_ops: Default::default(),
             long_ops: Default::default(),
+            close_notify: rx,
         }
     }
 }
@@ -42,8 +88,8 @@ impl Default for ExtensionManager {
 // impl ExtensionManagerTrait for ExtensionManager {}
 
 impl ExtensionManager {
-    pub fn add_extension(&mut self, e: Arc<RefCell<dyn NodeExtension>>) {
-        self.extension.push(e);
+    pub fn set_close_notify(&mut self, c: tokio::sync::mpsc::Receiver<u8>) {
+        mem::replace(&mut self.close_notify, c);
     }
     pub fn init_command_line(&mut self, args: Vec<String>) -> CellResult<()> {
         let mut i = 0;
@@ -74,17 +120,63 @@ impl ExtensionManager {
             }
             i += 1;
         }
-        self.ctx.clone().borrow_mut().set_matchers(app.get_matches_from(args));
+        let matchers = app.get_matches_from(args);
+        self.ctx.clone().borrow_mut().set_matchers(matchers);
         Ok(())
     }
+
     fn has_arg(&self, arg: Arg) -> bool {
         self.short_ops.contains(&String::from(arg.get_name())) || self.long_ops.contains(&String::from(arg.get_name()))
     }
+
+    pub fn start(mut self) {
+        // self.ctx.clone().borrow().tokio_runtime.spawn(self.async_start());
+        self.ctx.clone().borrow().tokio_runtime.spawn(async move {
+            self.async_start().await
+        });
+    }
+    async fn async_start(&mut self) {
+        cinfo!(ModuleEnumsStruct::EXTENSION,"extension start");
+        loop {
+            tokio::select! {
+                _=self.close_notify.recv()=>{
+                    cinfo!(ModuleEnumsStruct::EXTENSION,"extension received exit signal,closing extensions");
+                    self.on_close();
+                },
+            }
+        }
+    }
+
+    // async fn async_start(mut e: ExtensionManager) {
+    //     cinfo!(ModuleEnumsStruct::EXTENSION,"extension start");
+    //     loop {
+    //         tokio::select! {
+    //             _=e.close_notify.recv()=>{
+    //                 cinfo!(ModuleEnumsStruct::EXTENSION,"extension received exit signal,closing extensions");
+    //                 e.on_close();
+    //             },
+    //         }
+    //     }
+    // }
+
     pub fn on_init(&mut self) -> CellResult<()> {
         let mut i = 0;
         while i != self.extension.len() {
             let e = self.extension.get_mut(i).unwrap();
-            e.clone().borrow_mut().init(self.ctx.clone())?;
+            let wh = Stopwatch::start_new();
+            let res = e.clone().borrow_mut().init(self.ctx.clone());
+            match res {
+                Err(err) => {
+                    if e.clone().borrow_mut().required() {
+                        panic!("{}", err.get_msg())
+                    }
+                    cerror!(ModuleEnumsStruct::EXTENSION,"init extension [{}] failed ,err:{}"
+                ,e.clone().borrow_mut().module().get_name(),err.get_msg());
+                }
+                Ok(..) => {}
+            }
+            cinfo!(ModuleEnumsStruct::EXTENSION,"init extension [{}] successfully ,cost:{}"
+                ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
             i += 1;
         }
         Ok(())
@@ -92,8 +184,21 @@ impl ExtensionManager {
     pub fn on_start(&mut self) -> CellResult<()> {
         let mut i = 0;
         while i != self.extension.len() {
+            let wh = Stopwatch::start_new();
             let e = self.extension.get_mut(i).unwrap();
-            e.clone().borrow_mut().start(self.ctx.clone())?;
+            let res = e.clone().borrow_mut().start(self.ctx.clone());
+            match res {
+                Err(err) => {
+                    if e.clone().borrow_mut().required() {
+                        panic!("{}", err.get_msg())
+                    }
+                    cerror!(ModuleEnumsStruct::EXTENSION,"start extension [{}] failed ,err:{}"
+                ,e.clone().borrow_mut().module().get_name(),err.get_msg());
+                }
+                Ok(..) => {}
+            }
+            cinfo!(ModuleEnumsStruct::EXTENSION,"start extension [{}] successfully ,cost:{}"
+                ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
             i += 1;
         }
         Ok(())
@@ -101,8 +206,21 @@ impl ExtensionManager {
     pub fn on_ready(&mut self) -> CellResult<()> {
         let mut i = 0;
         while i != self.extension.len() {
+            let wh = Stopwatch::start_new();
             let e = self.extension.get_mut(i).unwrap();
-            e.clone().borrow_mut().ready(self.ctx.clone())?;
+            let res = e.clone().borrow_mut().ready(self.ctx.clone());
+            match res {
+                Err(err) => {
+                    if e.clone().borrow_mut().required() {
+                        panic!("{}", err.get_msg())
+                    }
+                    cerror!(ModuleEnumsStruct::EXTENSION,"ready extension [{}] failed ,err:{}"
+                ,e.clone().borrow_mut().module().get_name(),err.get_msg());
+                }
+                Ok(..) => {}
+            }
+            cinfo!(ModuleEnumsStruct::EXTENSION,"ready extension [{}] successfully ,cost:{}"
+                ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
             i += 1;
         }
         Ok(())
@@ -110,14 +228,28 @@ impl ExtensionManager {
     pub fn on_close(&mut self) -> CellResult<()> {
         let mut i = 0;
         while i != self.extension.len() {
+            let wh = Stopwatch::start_new();
             let e = self.extension.get_mut(i).unwrap();
-            e.clone().borrow_mut().close(self.ctx.clone())?;
+            let res = e.clone().borrow_mut().close(self.ctx.clone());
+            match res {
+                Err(err) => {
+                    if e.clone().borrow_mut().required() {
+                        panic!("{}", err.get_msg())
+                    }
+                    cerror!(ModuleEnumsStruct::EXTENSION,"close extension [{}] failed ,err:{}"
+                ,e.clone().borrow_mut().module().get_name(),err.get_msg());
+                }
+                Ok(..) => {}
+            }
+            cinfo!(ModuleEnumsStruct::EXTENSION,"close extension [{}] successfully ,cost:{}"
+                ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
             i += 1;
         }
         Ok(())
     }
 }
 
+fn async_start_manager(m: ExtensionManager) {}
 
 pub struct NodeContext {
     pub tokio_runtime: Runtime,
@@ -128,6 +260,17 @@ impl NodeContext {
     pub fn set_matchers(&mut self, m: ArgMatches) {
         self.matchers = m
     }
+
+    pub fn set_tokio(&mut self, m: Runtime) {
+        self.tokio_runtime = m
+    }
+
+    // pub fn spawn_task(&self, future: F) -> JoinHandle<F::Output>
+    //     where
+    //         F: Future + Send + 'static,
+    //         F::Output: Send + 'static {
+    //     self.tokio_runtime.spawn(future)
+    // }
 }
 
 impl Default for NodeContext {
@@ -144,41 +287,33 @@ impl Default for NodeContext {
 
 pub trait NodeExtension {
     fn module(&self) -> CellModule;
+    fn required(&self) -> bool {
+        true
+    }
+
     fn get_options<'a>(&self) -> Option<Vec<Arg<'a>>> {
         None
     }
     fn init(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
-        let wh = Stopwatch::start_new();
-        self.on_init(ctx.clone())?;
-        cinfo!(ModuleEnumsStruct::EXTENSION,"{} init end,cost:{}s",self.module().get_name(),wh.elapsed().as_secs());
-        Ok(())
+        self.on_init(ctx.clone())
     }
     fn on_init(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
         Ok(())
     }
     fn start(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
-        let wh = Stopwatch::start_new();
-        self.on_start(ctx.clone())?;
-        cinfo!(ModuleEnumsStruct::EXTENSION,"{} start end,cost:{}s",self.module().get_name(),wh.elapsed().as_secs());
-        Ok(())
+        self.on_start(ctx.clone())
     }
     fn on_start(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
         Ok(())
     }
     fn ready(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
-        let wh = Stopwatch::start_new();
-        self.on_ready(ctx.clone())?;
-        cinfo!(ModuleEnumsStruct::EXTENSION,"{} ready end,cost:{}s",self.module().get_name(),wh.elapsed().as_secs());
-        Ok(())
+        self.on_ready(ctx.clone())
     }
     fn on_ready(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
         Ok(())
     }
     fn close(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
-        let wh = Stopwatch::start_new();
-        self.on_close(ctx.clone())?;
-        cinfo!(ModuleEnumsStruct::EXTENSION,"{} close end,cost:{}s",self.module().get_name(),wh.elapsed().as_secs());
-        Ok(())
+        self.on_close(ctx.clone())
     }
     fn on_close(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
         Ok(())
@@ -224,8 +359,9 @@ mod tests {
     use std::rc::Rc;
     use std::sync::Arc;
     use std::{thread, time};
+    use std::time::Duration;
     use stopwatch::Stopwatch;
-    use crate::extension::{DemoExtension, ExtensionManager, NodeContext, NodeExtension};
+    use crate::extension::{DemoExtension, ExtensionManager, ExtensionManagerBuilder, NodeContext, NodeExtension};
 
 
     #[test]
@@ -238,18 +374,36 @@ mod tests {
 
     #[test]
     fn test_extension_manager() {
-        let mut m = ExtensionManager::default();
         let demo = DemoExtension {};
-        m.add_extension(Arc::new(RefCell::new(demo)));
+        let mut m = ExtensionManagerBuilder::default()
+            .with_extension(Arc::new(RefCell::new(demo)))
+            .build();
         m.on_init();
     }
 
     #[test]
     fn test_init_command_line() {
-        let mut m = ExtensionManager::default();
         let demo = DemoExtension {};
-        m.add_extension(Arc::new(RefCell::new(demo)));
+        let mut m = ExtensionManagerBuilder::default()
+            .with_extension(Arc::new(RefCell::new(demo)))
+            .build();
         let mut args = Vec::<String>::new();
         m.init_command_line(args);
+    }
+
+    #[test]
+    fn test_start() {
+        let demo = DemoExtension {};
+        let mut m = ExtensionManagerBuilder::default()
+            .with_extension(Arc::new(RefCell::new(demo)))
+            .build();
+        let am = Arc::new(RefCell::new(m));
+        // let b = am.clone();
+        // let inner = b.into_inner();
+        // let a = async {
+        //     thread::sleep(Duration::from_secs(1000));
+        // };
+
+        // m.ctx.clone().borrow().tokio_runtime.block_on(a);
     }
 }

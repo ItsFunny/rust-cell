@@ -69,15 +69,16 @@ impl NodeExtension for HttpExtension {
     fn module(&self) -> CellModule {
         HttpModule
     }
-    fn on_start(&mut self, ctx: Arc<NodeContext>) -> CellResult<()> {
+    fn on_start(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
         let s = self.server.take();
-        ctx.tokio_runtime.spawn(s.start());
+        ctx.borrow().tokio_runtime.spawn(s.start());
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
@@ -90,11 +91,11 @@ mod tests {
         let mock_select1 = MockDefaultPureSelector::new();
         let mut ex = HttpExtensionBuilder::default().with_selector(Box::new(mock_select1)).build();
         let ctx = NodeContext::default();
-        let arcc = Arc::new(ctx);
+        let arcc = Arc::new(RefCell::new(ctx));
         ex.start(arcc.clone()).unwrap();
         let a = async {
             thread::sleep(Duration::from_secs(1000000))
         };
-        arcc.clone().tokio_runtime.block_on(a);
+        arcc.clone().borrow().tokio_runtime.block_on(a);
     }
 }
