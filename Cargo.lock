@@ -461,6 +461,7 @@ dependencies = [
  "bytes",
  "chrono",
  "clap",
+ "flo_stream",
  "futures",
  "futures-channel",
  "http 0.2.7",
@@ -774,6 +775,17 @@ dependencies = [
  "crc32fast",
  "libc",
  "miniz_oxide",
+]
+
+[[package]]
+name = "flo_stream"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a7246db09b6a924fb11fedc1e33c34e6d5d0ba3c95a87cd2994f9581cf5a470"
+dependencies = [
+ "futures",
+ "lazy_static",
+ "smallvec",
 ]
 
 [[package]]

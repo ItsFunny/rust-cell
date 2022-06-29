@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::sync::Arc;
 use clap::{App, Arg, arg, ArgMatches};
+use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use shaku::{module, Component, Interface, HasComponent};
 use stopwatch::Stopwatch;
 use tokio::runtime::Runtime;
@@ -13,6 +14,7 @@ use tokio::task::JoinHandle;
 use logsdk::common::LogLevel;
 use logsdk::module::CellModule;
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
+use crate::event::Event;
 
 
 module_enums!(
@@ -31,6 +33,7 @@ pub struct ExtensionManager {
     long_ops: HashSet<String>,
 
     close_notify: tokio::sync::mpsc::Receiver<u8>,
+    subscriber: Subscriber<Arc<dyn Event>>,
 }
 
 unsafe impl Send for ExtensionManager {}
@@ -41,6 +44,7 @@ pub struct ExtensionManagerBuilder {
     tokio_runtime: Option<Arc<Runtime>>,
     close_notifyc: Option<tokio::sync::mpsc::Receiver<u8>>,
     extensions: Vec<Arc<RefCell<dyn NodeExtension>>>,
+    publisher: Option<Arc<RefCell<Publisher<Arc<dyn Event>>>>>,
 }
 
 impl Default for ExtensionManagerBuilder {
@@ -49,6 +53,7 @@ impl Default for ExtensionManagerBuilder {
             tokio_runtime: None,
             close_notifyc: None,
             extensions: Vec::new(),
+            publisher: None,
         }
     }
 }
@@ -66,6 +71,10 @@ impl ExtensionManagerBuilder {
         self.close_notifyc = Some(c);
         self
     }
+    pub fn with_subscriber(mut self, sub: Arc<RefCell<Publisher<Arc<dyn Event>>>>) -> Self {
+        self.publisher = Some(sub);
+        self
+    }
     pub fn build(self) -> ExtensionManager {
         let mut ctx = NodeContext::default();
         if let Some(v) = self.tokio_runtime {
@@ -78,12 +87,15 @@ impl ExtensionManagerBuilder {
             _ => {}
         }
         let rx = self.close_notifyc.unwrap();
+        let mut publisher = self.publisher.unwrap();
+        let sub=publisher.clone().borrow_mut().subscribe();
         ExtensionManager {
             extension: self.extensions,
             ctx: Arc::new(RefCell::new(ctx)),
             short_ops: Default::default(),
             long_ops: Default::default(),
             close_notify: rx,
+            subscriber: sub,
         }
     }
 }
@@ -260,6 +272,7 @@ fn async_start_manager(m: ExtensionManager) {}
 pub struct NodeContext {
     pub tokio_runtime: Arc<Runtime>,
     pub matchers: ArgMatches,
+    // TODO ,node context need pubsub component
 }
 
 impl NodeContext {
@@ -366,8 +379,12 @@ mod tests {
     use std::sync::Arc;
     use std::{thread, time};
     use std::time::Duration;
+    use flo_stream::{Publisher, Subscriber};
     use stopwatch::Stopwatch;
+    use tokio::runtime::Runtime;
     use tokio::sync::mpsc;
+    use tokio::sync::mpsc::Sender;
+    use crate::event::Event;
     use crate::extension::{DemoExtension, ExtensionManager, ExtensionManagerBuilder, NodeContext, NodeExtension};
 
 
@@ -379,42 +396,41 @@ mod tests {
         // proxy.start(Arc::new(NodeContext::default()));
     }
 
+    fn create_builder() -> (ExtensionManager, Arc<RefCell<Publisher<Arc<dyn Event>>>>, Arc<Runtime>,Sender<u8>) {
+        let demo = DemoExtension {};
+        let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
+        let (tx, rx) = mpsc::channel::<u8>(1);
+        let mut publ = Publisher::<Arc<dyn Event>>::new(10);
+        let arc_pub = Arc::new(RefCell::new(Publisher::new(10)));
+        (ExtensionManagerBuilder::default()
+             .with_extension(Arc::new(RefCell::new(demo)))
+             .with_tokio(runtime.clone())
+             .with_close_notifyc(rx)
+             .with_subscriber(arc_pub.clone())
+             .build(), arc_pub.clone(), runtime.clone(),tx)
+    }
+
     #[test]
     fn test_extension_manager() {
-        let demo = DemoExtension {};
-        let mut m = ExtensionManagerBuilder::default()
-            .with_extension(Arc::new(RefCell::new(demo)))
-            .build();
-        m.on_init();
+        let mut m = create_builder();
+        m.0.on_init();
     }
 
     #[test]
     fn test_init_command_line() {
-        let demo = DemoExtension {};
-        let (tx, rx) = mpsc::channel::<u8>(1);
-        let mut m = ExtensionManagerBuilder::default()
-            .with_extension(Arc::new(RefCell::new(demo)))
-            .with_close_notifyc(rx)
-            .build();
+        let mut m = create_builder();
         let mut args = Vec::<String>::new();
-        m.init_command_line(args);
+        m.0.init_command_line(args);
     }
 
     #[test]
     fn test_start() {
-        let demo = DemoExtension {};
-        let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
-        let (tx, rx) = mpsc::channel::<u8>(1);
-        let m = ExtensionManagerBuilder::default()
-            .with_extension(Arc::new(RefCell::new(demo)))
-            .with_tokio(runtime.clone())
-            .with_close_notifyc(rx)
-            .build();
-        let am = RefCell::new(m);
+        let mut m = create_builder();
+        let am = RefCell::new(m.0);
         am.into_inner().start();
         let a = async {
             thread::sleep(Duration::from_secs(1000));
         };
-        runtime.clone().block_on(a);
+        m.2.clone().block_on(a);
     }
 }

@@ -24,3 +24,4 @@ pipeline2={ version = "0.1.0", path = "../../sdk/pipeline2" }
 shaku = "0.6.1"
 stopwatch = "0.0.7"
 clap = "3.2.6"
+flo_stream = "0.7"
