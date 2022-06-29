@@ -71,10 +71,13 @@ impl ExtensionManagerBuilder {
         if let Some(v) = self.tokio_runtime {
             ctx.set_tokio(v);
         }
-        let (_, mut rx) = tokio::sync::mpsc::channel(1);
-        if let Some(v) = self.close_notifyc {
-            rx = v;
+        match self.close_notifyc {
+            None => {
+                panic!("close notify cant be null")
+            }
+            _ => {}
         }
+        let rx = self.close_notifyc.unwrap();
         ExtensionManager {
             extension: self.extensions,
             ctx: Arc::new(RefCell::new(ctx)),
@@ -141,11 +144,10 @@ impl ExtensionManager {
         cinfo!(ModuleEnumsStruct::EXTENSION,"extension start");
         loop {
             tokio::select! {
-                msg=self.close_notify.recv()=>{
-                    println!("{:?}",msg);
+                _=self.close_notify.recv()=>{
                     cinfo!(ModuleEnumsStruct::EXTENSION,"extension received exit signal,closing extensions");
                     self.on_close();
-                    break;
+                    break
                 },
             }
         }
@@ -365,6 +367,7 @@ mod tests {
     use std::{thread, time};
     use std::time::Duration;
     use stopwatch::Stopwatch;
+    use tokio::sync::mpsc;
     use crate::extension::{DemoExtension, ExtensionManager, ExtensionManagerBuilder, NodeContext, NodeExtension};
 
 
@@ -388,8 +391,10 @@ mod tests {
     #[test]
     fn test_init_command_line() {
         let demo = DemoExtension {};
+        let (tx, rx) = mpsc::channel::<u8>(1);
         let mut m = ExtensionManagerBuilder::default()
             .with_extension(Arc::new(RefCell::new(demo)))
+            .with_close_notifyc(rx)
             .build();
         let mut args = Vec::<String>::new();
         m.init_command_line(args);
@@ -399,10 +404,11 @@ mod tests {
     fn test_start() {
         let demo = DemoExtension {};
         let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
-
+        let (tx, rx) = mpsc::channel::<u8>(1);
         let m = ExtensionManagerBuilder::default()
             .with_extension(Arc::new(RefCell::new(demo)))
             .with_tokio(runtime.clone())
+            .with_close_notifyc(rx)
             .build();
         let am = RefCell::new(m);
         am.into_inner().start();
@@ -410,24 +416,5 @@ mod tests {
             thread::sleep(Duration::from_secs(1000));
         };
         runtime.clone().block_on(a);
-    }
-
-    #[test]
-    fn test_mpsc() {
-        let (_, mut rx) = tokio::sync::mpsc::channel::<u8>(1);
-        let v = futures::executor::block_on(rx.recv());
-        thread::spawn(move ||{
-            loop {
-
-            }
-        });
-        match v {
-            Some(vv) => {
-                println!("asdd:{}", vv);
-            }
-            None => {
-                println!("none");
-            }
-        }
     }
 }
