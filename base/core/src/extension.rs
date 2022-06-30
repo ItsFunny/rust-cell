@@ -29,7 +29,7 @@ pub const step_0: u8 = 1 << 0;
 pub const step_1: u8 = 1 << 1;
 pub const step_2: u8 = 1 << 2;
 pub const step_3: u8 = 1 << 3;
-pub const step_4: u8 = 1 << 3;
+pub const step_4: u8 = 1 << 4;
 // pub trait ExtensionManagerTrait: Interface {}
 
 // #[derive(Component)]
@@ -125,7 +125,7 @@ impl ExtensionManager {
             if let Some(opt) = v.clone().borrow_mut().get_options() {
                 for o in opt {
                     if self.has_arg(o.clone()) {
-                        return Err(CellError::from(ErrorEnumsStruct::DUPLICATE_STEP));
+                        return Err(CellError::from(ErrorEnumsStruct::DUPLICATE_OPTION));
                     }
                     let long = o.clone().get_long();
                     match long {
