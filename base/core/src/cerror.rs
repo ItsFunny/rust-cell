@@ -54,7 +54,7 @@ impl From<&str> for CellError {
 // TODO , bad codes here
 impl Display for CellError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let mut msg = format!("failed ,code={},msg={}", self.code, self.msg);
+        let mut msg = format!("code={},msg={}", self.code, self.msg);
         match &self.err {
             Some(e) => {
                 msg.push_str(",err=");
@@ -139,6 +139,7 @@ macro_rules! error_enums {
             $(
                 pub const $name:&'static $crate::cerror::ErrorEnums=&$crate::cerror::Kind($code,$msg);
             )+
+            // TODO ,register errors
         }
     }
 }

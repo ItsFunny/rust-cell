@@ -239,6 +239,7 @@ impl ExtensionManager {
                 None => {}
             }
         }
+
         res
     }
 
@@ -476,7 +477,7 @@ mod tests {
     use std::cell::{Cell, RefCell};
     use std::rc::Rc;
     use std::sync::Arc;
-    use std::{thread, time};
+    use std::{env, thread, time};
     use std::time::Duration;
     use flo_stream::{MessagePublisher, Publisher, Subscriber};
     use futures::StreamExt;
@@ -484,7 +485,7 @@ mod tests {
     use tokio::runtime::Runtime;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
-    use crate::event::{ApplicationReadyEvent, Event};
+    use crate::event::{ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event};
     use crate::extension::{DemoExtension, ExtensionManager, ExtensionManagerBuilder, NodeContext, NodeExtension};
 
 
@@ -528,13 +529,46 @@ mod tests {
         let mut m = create_builder();
         let am = RefCell::new(m.0);
         am.into_inner().start();
-        let a = async {
-            thread::sleep(Duration::from_secs(1000));
-        };
         m.2.clone().block_on(async move {
             thread::sleep(Duration::from_secs(3));
             let msg = ApplicationReadyEvent::new();
             m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+            thread::sleep(Duration::from_secs(10000));
+        });
+    }
+
+
+    #[test]
+    fn test_extension_procedure() {
+        let mut m = create_builder();
+        let am = RefCell::new(m.0);
+        am.into_inner().start();
+        m.2.clone().block_on(async move {
+            {
+                thread::sleep(Duration::from_secs(3));
+                let msg = ApplicationEnvironmentPreparedEvent::new(vec![]);
+                m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+            }
+
+            {
+                thread::sleep(Duration::from_secs(2));
+                let msg = ApplicationInitEvent::new();
+                m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+            }
+
+            {
+                thread::sleep(Duration::from_secs(1));
+                let msg = ApplicationStartedEvent::new();
+                m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+            }
+
+            {
+                thread::sleep(Duration::from_secs(1));
+                let msg = ApplicationReadyEvent::new();
+                m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+            }
+
+
             thread::sleep(Duration::from_secs(10000));
         });
     }

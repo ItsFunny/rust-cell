@@ -9,6 +9,12 @@ pub struct ApplicationEnvironmentPreparedEvent {
     pub args: Vec<String>,
 }
 
+impl ApplicationEnvironmentPreparedEvent {
+    pub fn new(args: Vec<String>) -> Self {
+        Self { args }
+    }
+}
+
 impl Display for ApplicationEnvironmentPreparedEvent {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut s = String::from("");
@@ -29,6 +35,12 @@ impl Event for ApplicationEnvironmentPreparedEvent {
 /////////
 pub struct ApplicationInitEvent {}
 
+impl ApplicationInitEvent {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
 impl Display for ApplicationInitEvent {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "ApplicationInitEvent msg")
@@ -43,6 +55,12 @@ impl Event for ApplicationInitEvent {
 
 //////////////
 pub struct ApplicationStartedEvent {}
+
+impl ApplicationStartedEvent {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
 impl Display for ApplicationStartedEvent {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -79,6 +97,12 @@ impl Event for ApplicationReadyEvent {
 
 ////////
 pub struct ApplicationCloseEvent {}
+
+impl ApplicationCloseEvent {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
 impl Display for ApplicationCloseEvent {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
