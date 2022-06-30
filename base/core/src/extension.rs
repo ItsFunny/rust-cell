@@ -310,6 +310,7 @@ impl ExtensionManager {
         cinfo!(ModuleEnumsStruct::EXTENSION,"{}",BLESS);
         while i != self.extension.len() {
             let wh = Stopwatch::start_new();
+            // TODO ,async
             let e = self.extension.get_mut(i).unwrap();
             let res = e.clone().borrow_mut().ready(self.ctx.clone());
             match res {
@@ -317,12 +318,12 @@ impl ExtensionManager {
                     if e.clone().borrow_mut().required() {
                         panic!("{}", err.get_msg())
                     }
-                    cerror!(ModuleEnumsStruct::EXTENSION,"ready extension [{}] failed ,err:{}"
+                    cerror!(ModuleEnumsStruct::EXTENSION,"load extension [{}] failed ,err:{}"
                 ,e.clone().borrow_mut().module().get_name(),err.get_msg());
                 }
                 Ok(..) => {}
             }
-            cinfo!(ModuleEnumsStruct::EXTENSION,"ready extension [{}] successfully ,cost:{}"
+            cinfo!(ModuleEnumsStruct::EXTENSION,"load extension [{}] successfully ,cost:{}"
                 ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
             i += 1;
         }
