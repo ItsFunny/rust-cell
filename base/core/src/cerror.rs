@@ -15,8 +15,9 @@ pub struct CellError {
     wrapped_error: Option<Box<CellError>>,
 }
 
-unsafe  impl Send for CellError{}
-unsafe  impl Sync for CellError{}
+unsafe impl Send for CellError {}
+
+unsafe impl Sync for CellError {}
 
 impl CellError {
     pub fn get_code(&self) -> usize {
@@ -41,6 +42,12 @@ impl CellError {
 impl From<&ErrorEnums> for CellError {
     fn from(s: &ErrorEnums) -> Self {
         CellError::new(s.get_code(), s.get_msg().to_string())
+    }
+}
+
+impl From<&str> for CellError {
+    fn from(msg: &str) -> Self {
+        CellError::new(0, msg.to_string())
     }
 }
 
@@ -109,8 +116,8 @@ impl ErrorEnums {
             }
         }
     }
-    pub fn is_success(&self)->bool{
-        self.get_code()==0
+    pub fn is_success(&self) -> bool {
+        self.get_code() == 0
     }
 }
 
@@ -146,6 +153,8 @@ error_enums!(
     (CHANNEL_SEND_FAILED,6,"channel send failed");
     (INTERNAL_SERVER_ERROR,7,"internal server error");
     (DUPLICATE_OPTION,7,"DUPLICATE_OPTION");
+    (ILLEGAL_STEP,8,"ILLEGAL_STEP");
+    (DUPLICATE_STEP,9,"DUPLICATE_STEP");
 );
 
 

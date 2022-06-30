@@ -6,6 +6,8 @@ use std::mem;
 use std::sync::Arc;
 use clap::{App, Arg, arg, ArgMatches};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
+use futures::future::ok;
+use futures::StreamExt;
 use shaku::{module, Component, Interface, HasComponent};
 use stopwatch::Stopwatch;
 use tokio::runtime::Runtime;
@@ -13,14 +15,21 @@ use tokio::select;
 use tokio::task::JoinHandle;
 use logsdk::common::LogLevel;
 use logsdk::module::CellModule;
+use crate::banner::{BLESS, INIT, START};
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
-use crate::event::Event;
+use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event};
 
 
 module_enums!(
         (EXTENSION,1,&logsdk::common::LogLevel::Info);
     );
 
+
+pub const step_0: u8 = 1 << 0;
+pub const step_1: u8 = 1 << 1;
+pub const step_2: u8 = 1 << 2;
+pub const step_3: u8 = 1 << 3;
+pub const step_4: u8 = 1 << 3;
 // pub trait ExtensionManagerTrait: Interface {}
 
 // #[derive(Component)]
@@ -34,6 +43,7 @@ pub struct ExtensionManager {
 
     close_notify: tokio::sync::mpsc::Receiver<u8>,
     subscriber: Subscriber<Arc<dyn Event>>,
+    step: u8,
 }
 
 unsafe impl Send for ExtensionManager {}
@@ -88,7 +98,7 @@ impl ExtensionManagerBuilder {
         }
         let rx = self.close_notifyc.unwrap();
         let mut publisher = self.publisher.unwrap();
-        let sub=publisher.clone().borrow_mut().subscribe();
+        let sub = publisher.clone().borrow_mut().subscribe();
         ExtensionManager {
             extension: self.extensions,
             ctx: Arc::new(RefCell::new(ctx)),
@@ -96,6 +106,7 @@ impl ExtensionManagerBuilder {
             long_ops: Default::default(),
             close_notify: rx,
             subscriber: sub,
+            step: 0,
         }
     }
 }
@@ -114,7 +125,7 @@ impl ExtensionManager {
             if let Some(opt) = v.clone().borrow_mut().get_options() {
                 for o in opt {
                     if self.has_arg(o.clone()) {
-                        return Err(CellError::from(ErrorEnumsStruct::DUPLICATE_OPTION));
+                        return Err(CellError::from(ErrorEnumsStruct::DUPLICATE_STEP));
                     }
                     let long = o.clone().get_long();
                     match long {
@@ -154,6 +165,7 @@ impl ExtensionManager {
     }
     async fn async_start(&mut self) {
         cinfo!(ModuleEnumsStruct::EXTENSION,"extension start");
+
         loop {
             tokio::select! {
                 _=self.close_notify.recv()=>{
@@ -161,23 +173,86 @@ impl ExtensionManager {
                     self.on_close();
                     break
                 },
+                msg=self.subscriber.next()=>{
+                    let res=self.handle_msg(msg.unwrap());
+                    match res {
+                        Err(e)=>{
+                            cerror!(ModuleEnumsStruct::EXTENSION,"handle msg failed:{}",e);
+                        },
+                        _=>{}
+                    }
+                },
             }
         }
     }
+    fn handle_msg(&mut self, msg: Arc<dyn Event>) -> CellResult<()> {
+        cinfo!(ModuleEnumsStruct::EXTENSION,"receive msg:{}",msg);
+        let any = msg.as_any();
+        let mut res = Err(CellError::from("unknown event"));
+        {
+            let actual = any.downcast_ref::<ApplicationEnvironmentPreparedEvent>();
+            match actual {
+                Some(v) => {
+                    res = self.on_prepare(v.args.clone());
+                }
+                None => {}
+            }
+        }
 
-    // async fn async_start(mut e: ExtensionManager) {
-    //     cinfo!(ModuleEnumsStruct::EXTENSION,"extension start");
-    //     loop {
-    //         tokio::select! {
-    //             _=e.close_notify.recv()=>{
-    //                 cinfo!(ModuleEnumsStruct::EXTENSION,"extension received exit signal,closing extensions");
-    //                 e.on_close();
-    //             },
-    //         }
-    //     }
-    // }
+        {
+            let actual = any.downcast_ref::<ApplicationInitEvent>();
+            match actual {
+                Some(v) => {
+                    res = self.on_init();
+                }
+                None => {}
+            }
+        }
+
+        {
+            let actual = any.downcast_ref::<ApplicationStartedEvent>();
+            match actual {
+                Some(v) => {
+                    res = self.on_start();
+                }
+                None => {}
+            }
+        }
+
+
+        {
+            let actual = any.downcast_ref::<ApplicationReadyEvent>();
+            match actual {
+                Some(v) => {
+                    res = self.on_ready();
+                }
+                None => {}
+            }
+        }
+
+        {
+            let actual = any.downcast_ref::<ApplicationCloseEvent>();
+            match actual {
+                Some(v) => {
+                    res = self.on_close();
+                }
+                None => {}
+            }
+        }
+        res
+    }
+
+    pub fn on_prepare(&mut self, args: Vec<String>) -> CellResult<()> {
+        self.verify_step(step_0)?;
+        self.init_command_line(args)?;
+        self.step = step_0;
+        Ok(())
+    }
 
     pub fn on_init(&mut self) -> CellResult<()> {
+        self.verify_step(step_1)?;
+
+        cinfo!(ModuleEnumsStruct::EXTENSION,"{}",INIT);
         let mut i = 0;
         while i != self.extension.len() {
             let e = self.extension.get_mut(i).unwrap();
@@ -197,10 +272,14 @@ impl ExtensionManager {
                 ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
             i += 1;
         }
+        self.step = step_1;
         Ok(())
     }
+
     pub fn on_start(&mut self) -> CellResult<()> {
+        self.verify_step(step_2)?;
         let mut i = 0;
+        cinfo!(ModuleEnumsStruct::EXTENSION,"{}",START);
         while i != self.extension.len() {
             let wh = Stopwatch::start_new();
             let e = self.extension.get_mut(i).unwrap();
@@ -219,10 +298,15 @@ impl ExtensionManager {
                 ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
             i += 1;
         }
+        self.step = step_2;
         Ok(())
     }
+
     pub fn on_ready(&mut self) -> CellResult<()> {
+        self.verify_step(step_3)?;
+
         let mut i = 0;
+        cinfo!(ModuleEnumsStruct::EXTENSION,"{}",BLESS);
         while i != self.extension.len() {
             let wh = Stopwatch::start_new();
             let e = self.extension.get_mut(i).unwrap();
@@ -241,9 +325,13 @@ impl ExtensionManager {
                 ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
             i += 1;
         }
+        self.step = step_3;
         Ok(())
     }
+
     pub fn on_close(&mut self) -> CellResult<()> {
+        self.verify_step(step_4)?;
+
         let mut i = 0;
         while i != self.extension.len() {
             let wh = Stopwatch::start_new();
@@ -263,6 +351,24 @@ impl ExtensionManager {
                 ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
             i += 1;
         }
+        self.step = step_4;
+        Ok(())
+    }
+
+    pub fn verify_step(&mut self, to_verify: u8) -> CellResult<()> {
+        if self.step == to_verify {
+            return Err(CellError::from(ErrorEnumsStruct::DUPLICATE_STEP));
+        } else if self.step > to_verify {
+            return Err(CellError::from(ErrorEnumsStruct::ILLEGAL_STEP));
+        }
+
+        if to_verify != step_0 {
+            let last_step = to_verify >> 1;
+            if self.step != last_step {
+                return Err(CellError::from(ErrorEnumsStruct::ILLEGAL_STEP));
+            }
+        }
+
         Ok(())
     }
 }
@@ -283,13 +389,6 @@ impl NodeContext {
     pub fn set_tokio(&mut self, m: Arc<Runtime>) {
         self.tokio_runtime = m
     }
-
-    // pub fn spawn_task(&self, future: F) -> JoinHandle<F::Output>
-    //     where
-    //         F: Future + Send + 'static,
-    //         F::Output: Send + 'static {
-    //     self.tokio_runtime.spawn(future)
-    // }
 }
 
 impl Default for NodeContext {
@@ -379,12 +478,13 @@ mod tests {
     use std::sync::Arc;
     use std::{thread, time};
     use std::time::Duration;
-    use flo_stream::{Publisher, Subscriber};
+    use flo_stream::{MessagePublisher, Publisher, Subscriber};
+    use futures::StreamExt;
     use stopwatch::Stopwatch;
     use tokio::runtime::Runtime;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
-    use crate::event::Event;
+    use crate::event::{ApplicationReadyEvent, Event};
     use crate::extension::{DemoExtension, ExtensionManager, ExtensionManagerBuilder, NodeContext, NodeExtension};
 
 
@@ -396,7 +496,7 @@ mod tests {
         // proxy.start(Arc::new(NodeContext::default()));
     }
 
-    fn create_builder() -> (ExtensionManager, Arc<RefCell<Publisher<Arc<dyn Event>>>>, Arc<Runtime>,Sender<u8>) {
+    fn create_builder() -> (ExtensionManager, Arc<RefCell<Publisher<Arc<dyn Event>>>>, Arc<Runtime>, Sender<u8>) {
         let demo = DemoExtension {};
         let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
         let (tx, rx) = mpsc::channel::<u8>(1);
@@ -407,7 +507,7 @@ mod tests {
              .with_tokio(runtime.clone())
              .with_close_notifyc(rx)
              .with_subscriber(arc_pub.clone())
-             .build(), arc_pub.clone(), runtime.clone(),tx)
+             .build(), arc_pub.clone(), runtime.clone(), tx)
     }
 
     #[test]
@@ -431,6 +531,11 @@ mod tests {
         let a = async {
             thread::sleep(Duration::from_secs(1000));
         };
-        m.2.clone().block_on(a);
+        m.2.clone().block_on(async move {
+            thread::sleep(Duration::from_secs(3));
+            let msg = ApplicationReadyEvent::new();
+            m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+            thread::sleep(Duration::from_secs(10000));
+        });
     }
 }
