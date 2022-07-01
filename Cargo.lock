@@ -2081,8 +2081,11 @@ dependencies = [
 name = "shaku"
 version = "0.1.0"
 dependencies = [
+ "cell-core",
  "ctrlc",
  "futures",
+ "logsdk",
+ "pipeline2",
  "shaku 0.6.1",
  "tokio 1.19.2",
 ]

@@ -15,13 +15,14 @@ use tokio::select;
 use tokio::task::JoinHandle;
 use logsdk::common::LogLevel;
 use logsdk::module::CellModule;
-use crate::banner::{BLESS, INIT, START};
+use crate::banner::{BLESS, CLOSE, INIT, START};
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event};
 
 
 module_enums!(
         (EXTENSION,1,&logsdk::common::LogLevel::Info);
+        (INTERNAL_TOKIO,1,&logsdk::common::LogLevel::Info);
     );
 
 
@@ -30,7 +31,10 @@ pub const step_1: u8 = 1 << 1;
 pub const step_2: u8 = 1 << 2;
 pub const step_3: u8 = 1 << 3;
 pub const step_4: u8 = 1 << 4;
-// pub trait ExtensionManagerTrait: Interface {}
+
+pub const default_orderer: i32 = 0;
+pub const min_orderer: i32 = i32::MIN;
+
 
 // #[derive(Component)]
 // #[shaku(interface = ExtensionManagerTrait)]
@@ -333,7 +337,7 @@ impl ExtensionManager {
 
     pub fn on_close(&mut self) -> CellResult<()> {
         self.verify_step(step_4)?;
-
+        cinfo!(ModuleEnumsStruct::EXTENSION,"{}",CLOSE);
         let mut i = 0;
         while i != self.extension.len() {
             let wh = Stopwatch::start_new();
@@ -387,7 +391,9 @@ impl NodeContext {
     pub fn set_matchers(&mut self, m: ArgMatches) {
         self.matchers = m
     }
-
+    pub fn get_matchers(&self) -> ArgMatches {
+        self.matchers.clone()
+    }
     pub fn set_tokio(&mut self, m: Arc<Runtime>) {
         self.tokio_runtime = m
     }
@@ -404,6 +410,9 @@ impl Default for NodeContext {
     }
 }
 
+pub trait ExtensionBuilder {
+    fn build_extension(&self) -> Arc<RefCell<dyn NodeExtension>>;
+}
 
 pub trait NodeExtension {
     fn module(&self) -> CellModule;
@@ -438,6 +447,9 @@ pub trait NodeExtension {
     fn on_close(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
         Ok(())
     }
+    fn get_orderer(&mut self) -> i32 {
+        default_orderer
+    }
 }
 
 // pub struct ExtensionProxy {
@@ -458,6 +470,28 @@ pub trait NodeExtension {
 //         e.module()
 //     }
 // }
+
+pub const INTERNAL_TOKIO: CellModule = CellModule::new(1, "INTERNAL_TOKIO", &LogLevel::Info);
+
+////////////// internal
+pub struct InternalTokioExtension {}
+
+impl NodeExtension for InternalTokioExtension {
+    fn module(&self) -> CellModule {
+        INTERNAL_TOKIO
+    }
+    fn on_init(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
+        let mut ctx_mut = ctx.borrow_mut();
+        let matchers = ctx_mut.get_matchers();
+        let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
+        ctx_mut.set_tokio(runtime);
+        Ok(())
+    }
+    fn get_orderer(&mut self) -> i32 {
+        min_orderer
+    }
+}
+/////////
 
 //////
 pub struct DemoExtension {}
@@ -486,7 +520,7 @@ mod tests {
     use tokio::runtime::Runtime;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
-    use crate::event::{ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event};
+    use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event};
     use crate::extension::{DemoExtension, ExtensionManager, ExtensionManagerBuilder, NodeContext, NodeExtension};
 
 
@@ -570,7 +604,13 @@ mod tests {
             }
 
 
-            thread::sleep(Duration::from_secs(10000));
+            {
+                thread::sleep(Duration::from_secs(1));
+                let msg = ApplicationCloseEvent::new();
+                m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+            }
+
+            thread::sleep(Duration::from_secs(3));
         });
     }
 }

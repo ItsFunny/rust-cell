@@ -24,6 +24,7 @@ pub mod selector;
 pub mod extension;
 pub mod event;
 mod banner;
+pub mod application;
 
 use std::fmt::Debug;
 
