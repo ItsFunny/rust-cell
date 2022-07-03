@@ -2,12 +2,13 @@ extern crate core;
 
 pub mod server;
 pub mod dispatcher;
+pub mod module;
+pub mod extension;
 mod channel;
 mod context;
 mod response;
 mod request;
 mod selector;
-pub mod extension;
 
 
 #[cfg(test)]

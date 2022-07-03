@@ -1026,6 +1026,7 @@ dependencies = [
  "rocket 0.5.0-rc.2",
  "serde",
  "serde_json",
+ "shaku 0.6.1",
  "tokio 1.19.2",
  "uncased",
 ]

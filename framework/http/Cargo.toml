@@ -23,3 +23,4 @@ async-trait = "0.1.53"
 logsdk = { version = "0.1.0", path = "../../sdk/logsdk" }
 cell-core = { version = "0.1.0", path = "../../base/core" }
 pipeline2={ version = "0.1.0", path = "../../sdk/pipeline2" }
+shaku = "0.6.1"

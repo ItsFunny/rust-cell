@@ -4,11 +4,12 @@ use flo_stream::Publisher;
 use rocket::build;
 use tokio::sync::mpsc;
 use crate::event::Event;
-use crate::extension::{ExtensionBuilder, ExtensionManagerBuilder};
+use crate::extension::{ExtensionBuilder, ExtensionManager, ExtensionManagerBuilder};
 
 pub struct CellApplication {
     publisher: Arc<RefCell<Publisher<Arc<dyn Event>>>>,
     tx: mpsc::Sender<u8>,
+    manager: ExtensionManager,
 }
 
 
@@ -35,13 +36,15 @@ impl CellApplicationBuilder {
         }
         let (txx, rxx) = mpsc::channel::<u8>(1);
         let arc_pub = Arc::new(RefCell::new(Publisher::new(10)));
-        manage_builder = manage_builder.with_subscriber(arc_pub.clone())
+        manage_builder = manage_builder
+            .with_subscriber(arc_pub.clone())
             .with_close_notifyc(rxx);
-
+        let extension_manager = manage_builder.build();
 
         CellApplication {
             publisher: arc_pub.clone(),
             tx: txx,
+            manager: extension_manager,
         }
     }
 }

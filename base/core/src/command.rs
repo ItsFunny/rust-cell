@@ -48,10 +48,10 @@ impl<'a> ClosureFunc<'a> {
     }
 }
 
-// pub trait CommandTrait {
-//     fn id(&self) -> ProtocolID;
-//     fn execute(&self, ctx: &mut dyn BuzzContextTrait);
-// }
+pub trait CommandTrait:Clone {
+    fn id(&self) -> ProtocolID;
+    fn execute(&self, ctx: &mut dyn BuzzContextTrait);
+}
 
 pub struct Command<'a>
 {
@@ -248,17 +248,17 @@ impl<'a> Command<'a> {
     }
 }
 //
-// impl CommandTrait for Command {
-//     fn id(&self) -> ProtocolID {
-//         self.protocol_id
-//     }
-//
-//     fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
-//         // TODO input archive
-//         // TODO NOE
-//         (self.fun).unwrap()(ctx, None)
-//     }
-// }
+impl<'a> CommandTrait for Command<'a> {
+     fn id(&self) -> ProtocolID {
+        self.protocol_id
+    }
+
+    fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
+        // TODO input archive
+        // TODO NOE
+        self.fun.as_ref().unwrap().handle(ctx, None)
+    }
+}
 
 
 pub fn mock_context<'a>() -> (Command<'a>, std::sync::mpsc::Receiver<Response<Body>>, BaseBuzzContext<'a>) {

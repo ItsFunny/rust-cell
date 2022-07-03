@@ -2,7 +2,7 @@ use core::cell::RefCell;
 use core::future::Future;
 use core::iter::Map;
 use std::collections::{HashMap, HashSet};
-use std::mem;
+use std::{mem, thread};
 use std::sync::Arc;
 use clap::{App, Arg, arg, ArgMatches};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
@@ -33,7 +33,7 @@ pub const step_3: u8 = 1 << 3;
 pub const step_4: u8 = 1 << 4;
 
 pub const default_orderer: i32 = 0;
-pub const min_orderer: i32 = i32::MIN;
+pub const max_orderer: i32 = i32::MIN;
 
 
 // #[derive(Component)]
@@ -89,7 +89,7 @@ impl ExtensionManagerBuilder {
         self.publisher = Some(sub);
         self
     }
-    pub fn build(self) -> ExtensionManager {
+    pub fn build(mut self) -> ExtensionManager {
         let mut ctx = NodeContext::default();
         if let Some(v) = self.tokio_runtime {
             ctx.set_tokio(v);
@@ -103,6 +103,10 @@ impl ExtensionManagerBuilder {
         let rx = self.close_notifyc.unwrap();
         let mut publisher = self.publisher.unwrap();
         let sub = publisher.clone().borrow_mut().subscribe();
+        // internal
+        let mut inter_tokio = InternalTokioExtension::new();
+        self.extensions.push(Arc::new(RefCell::new(inter_tokio)));
+
         ExtensionManager {
             extension: self.extensions,
             ctx: Arc::new(RefCell::new(ctx)),
@@ -160,6 +164,9 @@ impl ExtensionManager {
     }
 
     pub fn start(mut self) {
+        // thread::spawn(move || {
+        //     futures::executor::block_on(self.async_start())
+        // });
         self.ctx.clone().borrow().tokio_runtime.clone().spawn(async move {
             self.async_start().await
         });
@@ -476,19 +483,26 @@ pub const INTERNAL_TOKIO: CellModule = CellModule::new(1, "INTERNAL_TOKIO", &Log
 ////////////// internal
 pub struct InternalTokioExtension {}
 
+impl InternalTokioExtension {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
 impl NodeExtension for InternalTokioExtension {
     fn module(&self) -> CellModule {
         INTERNAL_TOKIO
     }
     fn on_init(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
-        let mut ctx_mut = ctx.borrow_mut();
-        let matchers = ctx_mut.get_matchers();
-        let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
-        ctx_mut.set_tokio(runtime);
+        // TODO
+        // let mut ctx_mut = ctx.borrow_mut();
+        // let matchers = ctx_mut.get_matchers();
+        // let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
+        // ctx_mut.set_tokio(runtime);
         Ok(())
     }
     fn get_orderer(&mut self) -> i32 {
-        min_orderer
+        max_orderer
     }
 }
 /////////
