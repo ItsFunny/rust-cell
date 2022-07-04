@@ -48,9 +48,10 @@ impl<'a> ClosureFunc<'a> {
     }
 }
 
-pub trait CommandTrait:Clone {
-    fn id(&self) -> ProtocolID;
-    fn execute(&self, ctx: &mut dyn BuzzContextTrait);
+pub trait CommandTrait: Clone {
+    // fn id(&self) -> ProtocolID;
+    // fn execute(&self, ctx: &mut dyn BuzzContextTrait);
+    fn to_command<'a>(&self) -> Command<'a>;
 }
 
 pub struct Command<'a>
@@ -63,17 +64,6 @@ pub struct Command<'a>
     seal: bool,
 }
 
-// pub fn mock_command() -> Command {
-//     let mut c = Command::default();
-//     c = c.with_protocol_id("protocol").with_executor(&move |ctx, v| {
-//         println!("execute");
-//         let mut ret = ContextResponseWrapper::default();
-//         ret = ret.with_status(ProtocolStatus::SUCCESS);
-//         ret = ret.with_body(Bytes::from("123"));
-//         futures::executor::block_on(ctx.response(ret));
-//     });
-//     return c;
-// }
 pub fn mock_command<'a>() -> Command<'a> {
     let mut c = Command::default();
     let f = ClosureFunc::new(Arc::new(move |mut ctx, v| {
@@ -103,18 +93,11 @@ pub fn mock_command2<'a>() -> Command<'a> {
 
 impl<'a> Clone for Command<'a> {
     fn clone(&self) -> Self {
-        // Command {
-        //     protocol_id: self.protocol_id,
-        //     fun: self.fun,
-        //     meta_data: Default::default(),
-        //     run_type: 0,
-        //     seal: false,
-        // }
         Command {
             protocol_id: self.protocol_id.clone(),
             fun: self.fun.clone(),
             meta_data: Default::default(),
-            run_type: 0,
+            run_type: self.run_type,
             seal: false,
         }
     }
@@ -247,19 +230,6 @@ impl<'a> Command<'a> {
         self.fun.as_ref().unwrap().handle(ctx, None)
     }
 }
-//
-impl<'a> CommandTrait for Command<'a> {
-     fn id(&self) -> ProtocolID {
-        self.protocol_id
-    }
-
-    fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
-        // TODO input archive
-        // TODO NOE
-        self.fun.as_ref().unwrap().handle(ctx, None)
-    }
-}
-
 
 pub fn mock_context<'a>() -> (Command<'a>, std::sync::mpsc::Receiver<Response<Body>>, BaseBuzzContext<'a>) {
     let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
