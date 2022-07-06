@@ -34,6 +34,40 @@ pub struct HttpServer {
     dispatcher: DefaultDispatcher<'static, 'static>,
 }
 
+pub struct HttpServerBuilder {
+    selector: Option<Box<dyn CommandSelector<'static>>>,
+}
+
+impl Default for HttpServerBuilder {
+    fn default() -> Self {
+        HttpServerBuilder { selector: None }
+    }
+}
+
+impl HttpServerBuilder {
+    pub fn with_selector(mut self, se: Box<dyn CommandSelector<'static>>) -> Self {
+        self.selector = Some(se);
+        self
+    }
+    pub fn build(self) -> HttpServer {
+        let mut default_http_selector = Box::new(HttpSelector::default());
+        let mut executors: Vec<Box<dyn CommandSelector>> = Vec::new();
+        if let Some(v) = self.selector {
+            executors.push(v);
+        }
+        executors.push(default_http_selector);
+
+        let mut selector_strategy = SelectorStrategy::new(executors);
+        let channel = HttpChannel::default();
+        let http_dispatch = HttpDispatcher::new();
+        let default_dispatcher = DefaultDispatcher::new(
+            Box::new(channel),
+            selector_strategy,
+            Box::new(http_dispatch));
+        HttpServer { dispatcher: default_dispatcher }
+    }
+}
+
 impl Default for HttpServer {
     fn default() -> Self {
         let mut selector = HttpSelector::default();

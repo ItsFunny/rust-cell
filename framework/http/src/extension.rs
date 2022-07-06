@@ -11,15 +11,15 @@ use shaku::{module, Component, Interface, HasComponent};
 use crate::channel::HttpChannel;
 use crate::dispatcher::HttpDispatcher;
 use crate::selector::HttpSelector;
-use crate::server::HttpServer;
+use crate::server::{HttpServer, HttpServerBuilder};
 
 pub struct HttpExtensionBuilder {
-    selector: Option<Box<dyn CommandSelector<'static>>>,
+    server_builder: HttpServerBuilder,
 }
 
 impl HttpExtensionBuilder {
     pub fn with_selector(mut self, se: Box<dyn CommandSelector<'static>>) -> Self {
-        self.selector = Some(se);
+        self.server_builder = self.server_builder.with_selector(se);
         self
     }
 }
@@ -27,27 +27,14 @@ impl HttpExtensionBuilder {
 impl Default for HttpExtensionBuilder {
     fn default() -> Self {
         HttpExtensionBuilder {
-            selector: None
+            server_builder: Default::default()
         }
     }
 }
 
 impl HttpExtensionBuilder {
     pub fn build(self) -> HttpExtension {
-        let mut default_http_selector = Box::new(HttpSelector::default());
-        let mut executors: Vec<Box<dyn CommandSelector>> = Vec::new();
-        if let Some(v) = self.selector {
-            executors.push(v);
-        }
-        executors.push(default_http_selector);
-        let mut selector_strategy = SelectorStrategy::new(executors);
-        let channel = HttpChannel::default();
-        let http_dispatch = HttpDispatcher::new();
-        let default_dispatcher = DefaultDispatcher::new(
-            Box::new(channel),
-            selector_strategy,
-            Box::new(http_dispatch));
-        let server = HttpServer::new(default_dispatcher);
+        let server = self.server_builder.build();
         HttpExtension::new(Arc::new(Mutex::new(RefCell::new(server))))
     }
 }
