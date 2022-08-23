@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use cell_core::command::Command;
+use cell_core::command::{Command, CommandTrait};
 use cell_core::core::conv_protocol_to_string;
 use cell_core::selector::{CommandSelector, SelectorRequest};
 use crate::request::HttpRequest;

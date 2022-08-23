@@ -217,12 +217,13 @@ impl<'a> CommandContext<'a> where
 
 ////////////
 
-impl<'a> Command<'a> {
-    pub fn id(&self) -> ProtocolID {
+impl<'a> CommandTrait for Command<'a> {
+    // impl<'a> Command<'a> {
+    fn id(&self) -> ProtocolID {
         self.protocol_id.clone()
     }
 
-    pub fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
+    fn execute(&self, ctx: &mut dyn BuzzContextTrait) {
         // TODO input archive
         // TODO NOE
         // (self.fun).unwrap()(ctx, None)
@@ -259,7 +260,7 @@ mod tests {
     use logsdk::module;
     use logsdk::module::CellModule;
     use pipeline2::pipeline2::is_send;
-    use crate::command::{Command, CommandContext, mock_context};
+    use crate::command::{Command, CommandContext, CommandTrait, mock_context};
     use crate::constants::ProtocolStatus;
     use crate::context::BaseBuzzContext;
     use crate::core::ProtocolID;

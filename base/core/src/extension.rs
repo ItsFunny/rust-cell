@@ -1,10 +1,11 @@
+use core::any::Any;
 use core::cell::RefCell;
 use core::future::Future;
 use core::iter::Map;
 use std::collections::{HashMap, HashSet};
 use std::{mem, thread};
 use std::sync::Arc;
-use clap::{App, Arg, arg, ArgMatches};
+use clap::{App, Arg, arg, ArgMatches, command};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use futures::future::ok;
 use futures::StreamExt;
@@ -17,6 +18,7 @@ use logsdk::common::LogLevel;
 use logsdk::module::CellModule;
 use crate::banner::{BLESS, CLOSE, INIT, START};
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
+use crate::command::Command;
 use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event};
 
 
@@ -48,6 +50,8 @@ pub struct ExtensionManager {
     close_notify: tokio::sync::mpsc::Receiver<u8>,
     subscriber: Subscriber<Arc<dyn Event>>,
     step: u8,
+
+    components: Vec<Arc<Box<dyn Any>>>,
 }
 
 unsafe impl Send for ExtensionManager {}
@@ -133,6 +137,7 @@ impl ExtensionManager {
             if let Some(opt) = v.clone().borrow_mut().get_options() {
                 for o in opt {
                     if self.has_arg(o.clone()) {
+                        cerror!(ModuleEnumsStruct::EXTENSION,"duplicate option:{}",o.clone());
                         return Err(CellError::from(ErrorEnumsStruct::DUPLICATE_OPTION));
                     }
                     let long = o.clone().get_long();
@@ -157,6 +162,19 @@ impl ExtensionManager {
         let matchers = app.get_matches_from(args);
         self.ctx.clone().borrow_mut().set_matchers(matchers);
         Ok(())
+    }
+
+    fn collect_components(&mut self) {
+        for i in 0..self.extension.len() {
+            let ext = self.extension.get_mut(i).unwrap();
+            let components = ext.clone().borrow_mut().components();
+            if components.len() > 0 {
+                let iter = components.iter();
+                for com in iter {
+                    self.components.push(com.clone());
+                }
+            }
+        }
     }
 
     fn has_arg(&self, arg: Arg) -> bool {
@@ -256,6 +274,7 @@ impl ExtensionManager {
 
     pub fn on_prepare(&mut self, args: Vec<String>) -> CellResult<()> {
         self.verify_step(step_0)?;
+
         self.init_command_line(args)?;
         self.step = step_0;
         Ok(())
@@ -392,6 +411,8 @@ pub struct NodeContext {
     pub tokio_runtime: Arc<Runtime>,
     pub matchers: ArgMatches,
     // TODO ,node context need pubsub component
+    pub commands: HashMap<String, Command<'static>>,
+
 }
 
 impl NodeContext {
@@ -413,6 +434,7 @@ impl Default for NodeContext {
                 .enable_all()
                 .build().expect("failed")),
             matchers: Default::default(),
+            commands: HashMap::<String, Command<'static>>::new(),
         }
     }
 }
@@ -456,6 +478,11 @@ pub trait NodeExtension {
     }
     fn get_orderer(&mut self) -> i32 {
         default_orderer
+    }
+
+    // TODO ,maybe it should wrapped by refcell
+    fn components(&mut self) -> Vec<Arc<Box<dyn Any>>> {
+        Vec::new()
     }
 }
 
