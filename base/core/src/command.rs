@@ -49,9 +49,9 @@ impl<'a> ClosureFunc<'a> {
 }
 
 pub trait CommandTrait: Clone {
-    // fn id(&self) -> ProtocolID;
-    // fn execute(&self, ctx: &mut dyn BuzzContextTrait);
-    fn to_command<'a>(&self) -> Command<'a>;
+    fn id(&self) -> ProtocolID;
+    fn execute(&self, ctx: &mut dyn BuzzContextTrait);
+    // fn to_command<'a>(&self) -> Command<'a>;
 }
 
 pub struct Command<'a>

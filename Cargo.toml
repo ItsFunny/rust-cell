@@ -12,6 +12,6 @@ members=[
     "useless/demo",
     "useless/tests",
     "useless/shaku",
-    "useless/clapdemo"
+    "useless/clapdemo",
 ]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

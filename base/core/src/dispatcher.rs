@@ -32,7 +32,11 @@ pub struct DefaultDispatcher<'e: 'a, 'a>
 impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a> where
 {
     pub fn new(channel: Box<dyn ChannelTrait<'e, 'a>>, command_selector: SelectorStrategy<'e>, dis: Box<dyn Dispatcher + 'e>) -> Self {
-        Self { channel, command_selector, dispatcher: dis }
+        let ret = DefaultDispatcher { channel, command_selector, dispatcher: dis };
+
+        // TODO ,config commands
+
+        ret
     }
 }
 

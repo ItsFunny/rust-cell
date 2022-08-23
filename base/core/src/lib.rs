@@ -26,6 +26,9 @@ pub mod event;
 mod banner;
 pub mod application;
 pub mod module;
+pub mod collector;
+pub mod cell_macro;
+pub mod di;
 
 use std::fmt::Debug;
 
