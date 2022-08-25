@@ -4,7 +4,7 @@ use core::future::Future;
 use core::iter::Map;
 use std::collections::{HashMap, HashSet};
 use std::{mem, thread};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use clap::{App, Arg, arg, ArgMatches, command};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use futures::future::ok;
@@ -19,6 +19,7 @@ use logsdk::module::CellModule;
 use crate::banner::{BLESS, CLOSE, INIT, START};
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::command::Command;
+use crate::core::conv_protocol_to_string;
 use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event};
 
 
@@ -38,6 +39,8 @@ pub const default_orderer: i32 = 0;
 pub const max_orderer: i32 = i32::MIN;
 
 
+// pub trait  Component: Any + Clone{}
+
 // #[derive(Component)]
 // #[shaku(interface = ExtensionManagerTrait)]
 pub struct ExtensionManager {
@@ -52,6 +55,18 @@ pub struct ExtensionManager {
     step: u8,
 
     components: Vec<Arc<Box<dyn Any>>>,
+    commands: Vec<Command<'static>>,
+}
+
+pub trait ExtensionFactory {
+    fn build_extension(&self, compoents: Vec<Arc<Box<dyn Any>>>) -> Arc<RefCell<dyn NodeExtension>>;
+    // TODO ,maybe it should wrapped by refcell
+    fn components(&mut self) -> Option<Vec<Arc<Box<dyn Any>>>> {
+        None
+    }
+    fn commands(&mut self) -> Option<Vec<Command<'static>>> {
+        None
+    }
 }
 
 unsafe impl Send for ExtensionManager {}
@@ -63,6 +78,9 @@ pub struct ExtensionManagerBuilder {
     close_notifyc: Option<tokio::sync::mpsc::Receiver<u8>>,
     extensions: Vec<Arc<RefCell<dyn NodeExtension>>>,
     publisher: Option<Arc<RefCell<Publisher<Arc<dyn Event>>>>>,
+
+    components: Option<Vec<Arc<Box<dyn Any>>>>,
+    commands: Option<Vec<Command<'static>>>,
 }
 
 impl Default for ExtensionManagerBuilder {
@@ -72,6 +90,8 @@ impl Default for ExtensionManagerBuilder {
             close_notifyc: None,
             extensions: Vec::new(),
             publisher: None,
+            components: None,
+            commands: None,
         }
     }
 }
@@ -93,6 +113,15 @@ impl ExtensionManagerBuilder {
         self.publisher = Some(sub);
         self
     }
+    pub fn with_commands(mut self, value: Vec<Command<'static>>) -> Self {
+        self.commands = Some(value);
+        self
+    }
+    pub fn with_components(mut self, value: Vec<Arc<Box<dyn Any>>>) -> Self {
+        self.components = Some(value);
+        self
+    }
+
     pub fn build(mut self) -> ExtensionManager {
         let mut ctx = NodeContext::default();
         if let Some(v) = self.tokio_runtime {
@@ -119,6 +148,8 @@ impl ExtensionManagerBuilder {
             close_notify: rx,
             subscriber: sub,
             step: 0,
+            components: vec![],
+            commands: vec![],
         }
     }
 }
@@ -164,18 +195,14 @@ impl ExtensionManager {
         Ok(())
     }
 
-    fn collect_components(&mut self) {
-        for i in 0..self.extension.len() {
-            let ext = self.extension.get_mut(i).unwrap();
-            let components = ext.clone().borrow_mut().components();
-            if components.len() > 0 {
-                let iter = components.iter();
-                for com in iter {
-                    self.components.push(com.clone());
-                }
-            }
-        }
-    }
+    // fn fill_ctx(&mut self) {
+    //     let mut cmds = Vec::new();
+    //     for c in &self.commands {
+    //         cmds.push(c.clone());
+    //     }
+    //     self.ctx.clone().borrow_mut().set_commands(cmds);
+    // }
+
 
     fn has_arg(&self, arg: Arg) -> bool {
         self.short_ops.contains(&String::from(arg.get_name())) || self.long_ops.contains(&String::from(arg.get_name()))
@@ -274,8 +301,10 @@ impl ExtensionManager {
 
     pub fn on_prepare(&mut self, args: Vec<String>) -> CellResult<()> {
         self.verify_step(step_0)?;
-
         self.init_command_line(args)?;
+        // self.collect_components();
+        // self.collect_commands();
+        // self.resolve();
         self.step = step_0;
         Ok(())
     }
@@ -425,6 +454,12 @@ impl NodeContext {
     pub fn set_tokio(&mut self, m: Arc<Runtime>) {
         self.tokio_runtime = m
     }
+    pub fn set_commands(&mut self, cmds: Vec<Command<'static>>) {
+        for cmd in cmds {
+            let id = conv_protocol_to_string(cmd.protocol_id);
+            self.commands.insert(id, cmd.clone());
+        }
+    }
 }
 
 impl Default for NodeContext {
@@ -439,9 +474,6 @@ impl Default for NodeContext {
     }
 }
 
-pub trait ExtensionBuilder {
-    fn build_extension(&self) -> Arc<RefCell<dyn NodeExtension>>;
-}
 
 pub trait NodeExtension {
     fn module(&self) -> CellModule;
@@ -481,9 +513,13 @@ pub trait NodeExtension {
     }
 
     // TODO ,maybe it should wrapped by refcell
-    fn components(&mut self) -> Vec<Arc<Box<dyn Any>>> {
-        Vec::new()
-    }
+    // fn components(&mut self) -> Option<Vec<Arc<Box<dyn Any>>>> {
+    //     None
+    // }
+    // fn commands(&mut self) -> Option<Vec<Command<'static>>> {
+    //     None
+    // }
+    // fn resolve(&mut self, any: Arc<Box<dyn Any>>) {}
 }
 
 // pub struct ExtensionProxy {
@@ -535,7 +571,43 @@ impl NodeExtension for InternalTokioExtension {
 /////////
 
 //////
-pub struct DemoExtension {}
+pub struct DemoExtensionFactory {}
+
+impl ExtensionFactory for DemoExtensionFactory {
+    fn build_extension(&self, components: Vec<Arc<Box<dyn Any>>>) -> Arc<RefCell<dyn NodeExtension>> {
+        let mut compo1: Option<DemoComponent1> = None;
+        for com in components {
+            if let Some(v) = com.downcast_ref::<DemoComponent1>() {
+                compo1 = Some(v.clone());
+            }
+        }
+        // panic
+        let ret = DemoExtension { com1: compo1.unwrap() };
+
+        Arc::new(RefCell::new(ret))
+    }
+
+    fn components(&mut self) -> Option<Vec<Arc<Box<dyn Any>>>> {
+        None
+    }
+
+    fn commands(&mut self) -> Option<Vec<Command<'static>>> {
+        todo!()
+    }
+}
+
+pub struct DemoExtension {
+    // pub com1:,
+    pub com1: DemoComponent1,
+}
+
+pub struct DemoComponent1 {}
+
+impl Clone for DemoComponent1 {
+    fn clone(&self) -> Self {
+        DemoComponent1 {}
+    }
+}
 
 impl NodeExtension for DemoExtension {
     fn module(&self) -> CellModule {
@@ -545,6 +617,26 @@ impl NodeExtension for DemoExtension {
         Some(vec![Arg::default().name("demo").long("long").required(false),
                   Arg::default().name("demo2").long("long2").required(false)])
     }
+    //
+    // fn components(&mut self) -> Option<Vec<Arc<Box<dyn Any>>>> {
+    //     let mut ret: Vec<Arc<Box<dyn Any>>> = Vec::new();
+    //     let com1 = DemoComponent1 {};
+    //     let a = TypeId::of::<DemoComponent1>();
+    //     let b = TypeId::of::<Box<DemoComponent1>>();
+    //     cinfo!(ModuleEnumsStruct::EXTENSION,"{:?},{:?},{:?}", a, b,Box::new(DemoComponent1{}).type_id());
+    //     ret.push(Arc::new(Box::new(com1)));
+    //     Some(ret)
+    // }
+    //
+    // fn resolve(&mut self, any: Arc<Box<dyn Any>>) {
+    //     let v = any.clone();
+    //     match v.downcast_ref::<DemoComponent1>() {
+    //         Some(v) => {
+    //             println!("1")
+    //         }
+    //         None => {}
+    //     }
+    // }
 }
 
 
@@ -574,13 +666,14 @@ mod tests {
     }
 
     fn create_builder() -> (ExtensionManager, Arc<RefCell<Publisher<Arc<dyn Event>>>>, Arc<Runtime>, Sender<u8>) {
-        let demo = DemoExtension {};
+
+        // let demo = DemoExtension {};
         let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
         let (tx, rx) = mpsc::channel::<u8>(1);
         let mut publ = Publisher::<Arc<dyn Event>>::new(10);
         let arc_pub = Arc::new(RefCell::new(Publisher::new(10)));
         (ExtensionManagerBuilder::default()
-             .with_extension(Arc::new(RefCell::new(demo)))
+             // .with_extension(Arc::new(RefCell::new(demo)))
              .with_tokio(runtime.clone())
              .with_close_notifyc(rx)
              .with_subscriber(arc_pub.clone())
