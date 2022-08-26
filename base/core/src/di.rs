@@ -2,7 +2,6 @@
 
 use shaku::Module;
 use crate::command::Command;
-use crate::extension::ExtensionBuilder;
 
 pub struct ModuleWrapper<T> {
     pub commands: Option<Vec<Command<'static>>>,
