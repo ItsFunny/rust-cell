@@ -21,12 +21,7 @@ use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::command::Command;
 use crate::core::conv_protocol_to_string;
 use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event};
-
-
-module_enums!(
-        (EXTENSION,1,&logsdk::common::LogLevel::Info);
-        (INTERNAL_TOKIO,1,&logsdk::common::LogLevel::Info);
-    );
+use crate::module::ModuleEnumsStruct;
 
 
 pub const step_0: u8 = 1 << 0;
@@ -59,7 +54,9 @@ pub struct ExtensionManager {
 }
 
 pub trait ExtensionFactory {
-    fn build_extension(&self, compoents: Vec<Arc<Box<dyn Any>>>) -> Arc<RefCell<dyn NodeExtension>>;
+    fn build_extension(&self, compoents: Vec<Arc<Box<dyn Any>>>) -> Option<Arc<RefCell<dyn NodeExtension>>> {
+        None
+    }
     // TODO ,maybe it should wrapped by refcell
     fn components(&self) -> Option<Vec<Arc<Box<dyn Any>>>> {
         None

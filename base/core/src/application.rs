@@ -11,6 +11,7 @@ use logsdk::module::CellModule;
 use crate::command::Command;
 use crate::event::Event;
 use crate::extension::{ExtensionFactory, ExtensionManager, ExtensionManagerBuilder};
+use crate::module::ModuleEnumsStruct;
 
 pub struct CellApplication {
     publisher: Arc<RefCell<Publisher<Arc<dyn Event>>>>,
@@ -18,11 +19,6 @@ pub struct CellApplication {
     pubsub: Arc<RefCell<Publisher<Arc<dyn Event>>>>,
     manager: ExtensionManager,
 }
-
-module_enums!(
-        (CELL_APPLICATION,1,&logsdk::common::LogLevel::Info);
-    );
-
 
 
 impl CellApplication {
@@ -58,8 +54,9 @@ impl CellApplication {
 
         while i != builders.len() {
             let builder = builders.remove(i);
-            let extension = builder.build_extension(components.clone());
-            manage_builder = manage_builder.with_extension(extension);
+            if let Some(extension) = builder.build_extension(components.clone()) {
+                manage_builder = manage_builder.with_extension(extension);
+            }
             i += 1;
         }
         let (txx, rxx) = mpsc::channel::<u8>(1);
@@ -137,7 +134,7 @@ mod tests {
     pub struct DemoExtensionFactory {}
 
     impl ExtensionFactory for DemoExtensionFactory {
-        fn build_extension(&self, components: Vec<Arc<Box<dyn Any>>>) -> Arc<RefCell<dyn NodeExtension>> {
+        fn build_extension(&self, components: Vec<Arc<Box<dyn Any>>>) -> Option<Arc<RefCell<dyn NodeExtension>>> {
             let mut compo1: Option<DemoComponent1> = None;
             for com in components {
                 if let Some(v) = com.downcast_ref::<DemoComponent1>() {
@@ -147,15 +144,7 @@ mod tests {
             // panic
             let ret = DemoExtension { com1: compo1.unwrap() };
 
-            Arc::new(RefCell::new(ret))
-        }
-
-        fn components(&self) -> Option<Vec<Arc<Box<dyn Any>>>> {
-            None
-        }
-
-        fn commands(&self) -> Option<Vec<Command<'static>>> {
-            todo!()
+            Some(Arc::new(RefCell::new(ret)))
         }
     }
 
@@ -183,11 +172,21 @@ mod tests {
         }
     }
 
+    pub struct ExtensionFactory2 {}
+
+    impl ExtensionFactory for ExtensionFactory2 {
+        fn components(&self) -> Option<Vec<Arc<Box<dyn Any>>>> {
+            let mut ret: Vec<Arc<Box<dyn Any>>> = Vec::new();
+            ret.push(Arc::new(Box::new(DemoComponent1 {})));
+            Some(ret)
+        }
+    }
 
     #[test]
     fn test_application() {
         let mut factories: Vec<Box<dyn ExtensionFactory>> = Vec::new();
         factories.push(Box::new(DemoExtensionFactory {}));
+        factories.push(Box::new(ExtensionFactory2 {}));
         let app = CellApplication::new(factories);
     }
 }

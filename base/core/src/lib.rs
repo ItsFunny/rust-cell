@@ -65,9 +65,6 @@ pub mod core {
     //     fn clone_box(&self) -> Box<dyn Executor<'a, T> + 'a>;
     // }
 
-    module_enums!(
-        (DISPATCHER,1,&logsdk::common::LogLevel::Info);
-    );
 }
 
 #[cfg(test)]

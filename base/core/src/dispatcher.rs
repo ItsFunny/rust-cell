@@ -12,7 +12,8 @@ use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::channel::ChannelTrait;
 use crate::command::{Command, CommandContext, mock_context};
 use crate::context::{BaseBuzzContext, BuzzContextTrait, ContextWrapper};
-use crate::core::{ExecutorValueTrait, ModuleEnumsStruct, ProtocolID};
+use crate::core::{ExecutorValueTrait, ProtocolID};
+use crate::module::ModuleEnumsStruct;
 use crate::request::{ServerRequestTrait, ServerResponseTrait};
 use crate::selector::{CommandSelector, SelectorRequest, SelectorStrategy};
 
