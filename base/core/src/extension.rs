@@ -61,10 +61,10 @@ pub struct ExtensionManager {
 pub trait ExtensionFactory {
     fn build_extension(&self, compoents: Vec<Arc<Box<dyn Any>>>) -> Arc<RefCell<dyn NodeExtension>>;
     // TODO ,maybe it should wrapped by refcell
-    fn components(&mut self) -> Option<Vec<Arc<Box<dyn Any>>>> {
+    fn components(&self) -> Option<Vec<Arc<Box<dyn Any>>>> {
         None
     }
-    fn commands(&mut self) -> Option<Vec<Command<'static>>> {
+    fn commands(&self) -> Option<Vec<Command<'static>>> {
         None
     }
 }
@@ -570,75 +570,6 @@ impl NodeExtension for InternalTokioExtension {
 }
 /////////
 
-//////
-pub struct DemoExtensionFactory {}
-
-impl ExtensionFactory for DemoExtensionFactory {
-    fn build_extension(&self, components: Vec<Arc<Box<dyn Any>>>) -> Arc<RefCell<dyn NodeExtension>> {
-        let mut compo1: Option<DemoComponent1> = None;
-        for com in components {
-            if let Some(v) = com.downcast_ref::<DemoComponent1>() {
-                compo1 = Some(v.clone());
-            }
-        }
-        // panic
-        let ret = DemoExtension { com1: compo1.unwrap() };
-
-        Arc::new(RefCell::new(ret))
-    }
-
-    fn components(&mut self) -> Option<Vec<Arc<Box<dyn Any>>>> {
-        None
-    }
-
-    fn commands(&mut self) -> Option<Vec<Command<'static>>> {
-        todo!()
-    }
-}
-
-pub struct DemoExtension {
-    // pub com1:,
-    pub com1: DemoComponent1,
-}
-
-pub struct DemoComponent1 {}
-
-impl Clone for DemoComponent1 {
-    fn clone(&self) -> Self {
-        DemoComponent1 {}
-    }
-}
-
-impl NodeExtension for DemoExtension {
-    fn module(&self) -> CellModule {
-        CellModule::new(1, "asd", &LogLevel::Info)
-    }
-    fn get_options<'a>(&self) -> Option<Vec<Arg<'a>>> {
-        Some(vec![Arg::default().name("demo").long("long").required(false),
-                  Arg::default().name("demo2").long("long2").required(false)])
-    }
-    //
-    // fn components(&mut self) -> Option<Vec<Arc<Box<dyn Any>>>> {
-    //     let mut ret: Vec<Arc<Box<dyn Any>>> = Vec::new();
-    //     let com1 = DemoComponent1 {};
-    //     let a = TypeId::of::<DemoComponent1>();
-    //     let b = TypeId::of::<Box<DemoComponent1>>();
-    //     cinfo!(ModuleEnumsStruct::EXTENSION,"{:?},{:?},{:?}", a, b,Box::new(DemoComponent1{}).type_id());
-    //     ret.push(Arc::new(Box::new(com1)));
-    //     Some(ret)
-    // }
-    //
-    // fn resolve(&mut self, any: Arc<Box<dyn Any>>) {
-    //     let v = any.clone();
-    //     match v.downcast_ref::<DemoComponent1>() {
-    //         Some(v) => {
-    //             println!("1")
-    //         }
-    //         None => {}
-    //     }
-    // }
-}
-
 
 #[cfg(test)]
 mod tests {
@@ -654,7 +585,7 @@ mod tests {
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
     use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event};
-    use crate::extension::{DemoExtension, ExtensionManager, ExtensionManagerBuilder, NodeContext, NodeExtension};
+    use crate::extension::{ExtensionManager, ExtensionManagerBuilder, NodeContext, NodeExtension};
 
 
     #[test]
