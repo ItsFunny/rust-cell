@@ -1,10 +1,16 @@
 use core::any::Any;
+use core::future::Future;
 use std::fmt::{Display, Formatter, write};
+use std::sync::{Arc, mpsc, Mutex};
+use std_core::cell::RefCell;
+use flo_stream::{MessagePublisher, Publisher};
+use tokio::runtime::Runtime;
 
 pub trait Event: Send + Sync + Display {
     fn as_any(&self) -> &dyn Any;
 }
 
+#[derive(Clone)]
 pub struct ApplicationEnvironmentPreparedEvent {
     pub args: Vec<String>,
 }
@@ -33,11 +39,13 @@ impl Event for ApplicationEnvironmentPreparedEvent {
 
 
 /////////
-pub struct ApplicationInitEvent {}
+pub struct ApplicationInitEvent {
+    pub cb: Box<dyn Fn() + Send + Sync + 'static>,
+}
 
 impl ApplicationInitEvent {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(cb: Box<dyn Fn() + Send + Sync + 'static>) -> Self {
+        Self { cb: cb }
     }
 }
 
@@ -54,11 +62,13 @@ impl Event for ApplicationInitEvent {
 }
 
 //////////////
-pub struct ApplicationStartedEvent {}
+pub struct ApplicationStartedEvent {
+    pub cb: Box<dyn Fn() + Send + Sync + 'static>,
+}
 
 impl ApplicationStartedEvent {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(cb: Box<dyn Fn() + Send + Sync + 'static>) -> Self {
+        Self { cb: cb }
     }
 }
 
@@ -75,11 +85,13 @@ impl Event for ApplicationStartedEvent {
 }
 
 ///////
-pub struct ApplicationReadyEvent {}
+pub struct ApplicationReadyEvent {
+    pub cb: Box<dyn Fn() + Send + Sync + 'static>,
+}
 
 impl ApplicationReadyEvent {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(cb: Box<dyn Fn() + Send + Sync + 'static>) -> Self {
+        Self { cb: cb }
     }
 }
 
@@ -96,11 +108,13 @@ impl Event for ApplicationReadyEvent {
 }
 
 ////////
-pub struct ApplicationCloseEvent {}
+pub struct ApplicationCloseEvent {
+    pub cb: Box<dyn Fn() + Send + Sync + 'static>,
+}
 
 impl ApplicationCloseEvent {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(cb: Box<dyn Fn() + Send + Sync + 'static>) -> Self {
+        Self { cb: cb }
     }
 }
 
@@ -115,3 +129,55 @@ impl Event for ApplicationCloseEvent {
         self
     }
 }
+
+
+///////////
+pub struct NextStepEvent {
+    pub current: u8,
+}
+
+impl NextStepEvent {
+    pub fn new(current: u8) -> Self {
+        Self { current }
+    }
+}
+
+impl Display for NextStepEvent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "next step msg")
+    }
+}
+
+impl Event for NextStepEvent {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+type Callback = Box<dyn Fn() + Send + Sync>;
+
+pub struct CallBackEvent {
+    pub cb: Callback,
+}
+
+impl CallBackEvent {
+    pub fn new(cb: Callback) -> Self {
+        Self { cb }
+    }
+}
+
+impl Display for CallBackEvent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "call back event")
+    }
+}
+
+impl Event for CallBackEvent {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+unsafe impl Send for CallBackEvent {}
+
+unsafe impl Sync for CallBackEvent {}

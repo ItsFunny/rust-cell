@@ -4,8 +4,12 @@ use core::future::Future;
 use core::iter::Map;
 use std::collections::{HashMap, HashSet};
 use std::{mem, thread};
+
+use derive_builder::Builder;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use clap::{App, Arg, arg, ArgMatches, command};
+use crossbeam::channel::{bounded, Receiver, Select, Sender};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use futures::future::ok;
 use futures::StreamExt;
@@ -20,7 +24,7 @@ use crate::banner::{BLESS, CLOSE, INIT, START};
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::command::Command;
 use crate::core::conv_protocol_to_string;
-use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event};
+use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, CallBackEvent, Event, NextStepEvent};
 use crate::module::ModuleEnumsStruct;
 
 
@@ -46,7 +50,8 @@ pub struct ExtensionManager {
     long_ops: HashSet<String>,
 
     close_notify: tokio::sync::mpsc::Receiver<u8>,
-    subscriber: Subscriber<Arc<dyn Event>>,
+    subscriber: Rc<Receiver<Arc<dyn Event>>>,
+    publisher: Rc<Sender<Arc<dyn Event>>>,
     step: u8,
 
     components: Vec<Arc<Box<dyn Any>>>,
@@ -74,7 +79,8 @@ pub struct ExtensionManagerBuilder {
     tokio_runtime: Option<Arc<Runtime>>,
     close_notifyc: Option<tokio::sync::mpsc::Receiver<u8>>,
     extensions: Vec<Arc<RefCell<dyn NodeExtension>>>,
-    publisher: Option<Arc<RefCell<Publisher<Arc<dyn Event>>>>>,
+    publisher: Option<Sender<Arc<dyn Event>>>,
+    subscriber: Option<Receiver<Arc<dyn Event>>>,
 
     components: Option<Vec<Arc<Box<dyn Any>>>>,
     commands: Option<Vec<Command<'static>>>,
@@ -87,6 +93,7 @@ impl Default for ExtensionManagerBuilder {
             close_notifyc: None,
             extensions: Vec::new(),
             publisher: None,
+            subscriber: None,
             components: None,
             commands: None,
         }
@@ -106,10 +113,10 @@ impl ExtensionManagerBuilder {
         self.close_notifyc = Some(c);
         self
     }
-    pub fn with_subscriber(mut self, sub: Arc<RefCell<Publisher<Arc<dyn Event>>>>) -> Self {
-        self.publisher = Some(sub);
-        self
-    }
+    // pub fn with_subscriber(mut self, sub: Arc<Publisher<Arc<dyn Event>>>) -> Self {
+    //     self.publisher = Some(sub);
+    //     self
+    // }
     pub fn with_commands(mut self, value: Vec<Command<'static>>) -> Self {
         self.commands = Some(value);
         self
@@ -118,12 +125,21 @@ impl ExtensionManagerBuilder {
         self.components = Some(value);
         self
     }
+    pub fn with_publisher(mut self, publisher: Sender<Arc<dyn Event>>) -> Self {
+        self.publisher = Some(publisher);
+        self
+    }
+    pub fn with_subscriber(mut self, sub: Receiver<Arc<dyn Event>>) -> Self {
+        self.subscriber = Some(sub);
+        self
+    }
 
     pub fn build(mut self) -> ExtensionManager {
         let mut ctx = NodeContext::default();
         if let Some(v) = self.tokio_runtime {
             ctx.set_tokio(v);
         }
+
         match self.close_notifyc {
             None => {
                 panic!("close notify cant be null")
@@ -131,8 +147,12 @@ impl ExtensionManagerBuilder {
             _ => {}
         }
         let rx = self.close_notifyc.unwrap();
-        let mut publisher = self.publisher.unwrap();
-        let sub = publisher.clone().borrow_mut().subscribe();
+        let publisher = self.publisher.unwrap();
+        let sub = self.subscriber.unwrap();
+
+        ctx.set_publisher(publisher.clone());
+        ctx.set_subscriber(sub.clone());
+
         // internal
         let mut inter_tokio = InternalTokioExtension::new();
         self.extensions.push(Arc::new(RefCell::new(inter_tokio)));
@@ -143,10 +163,11 @@ impl ExtensionManagerBuilder {
             short_ops: Default::default(),
             long_ops: Default::default(),
             close_notify: rx,
-            subscriber: sub,
+            subscriber: Rc::new(sub.clone()),
             step: 0,
             components: vec![],
             commands: vec![],
+            publisher: Rc::new(publisher.clone()),
         }
     }
 }
@@ -154,6 +175,9 @@ impl ExtensionManagerBuilder {
 // impl ExtensionManagerTrait for ExtensionManager {}
 
 impl ExtensionManager {
+    // pub fn get_publisher(&self) -> Arc<Publisher<Arc<dyn Event>>> {
+    //     self.publisher.clone()
+    // }
     pub fn set_close_notify(&mut self, c: tokio::sync::mpsc::Receiver<u8>) {
         mem::replace(&mut self.close_notify, c);
     }
@@ -219,38 +243,68 @@ impl ExtensionManager {
     async fn async_start(&mut self) {
         cinfo!(ModuleEnumsStruct::EXTENSION,"extension start");
 
+
+        let mut sel = Select::new();
+        let clone_sub = self.subscriber.clone();
+        sel.recv(&clone_sub);
+
         loop {
-            tokio::select! {
-                _=self.close_notify.recv()=>{
-                    cinfo!(ModuleEnumsStruct::EXTENSION,"extension received exit signal,closing extensions");
-                    self.on_close();
-                    break
-                },
-                msg=self.subscriber.next()=>{
-                    let res=self.handle_msg(msg.unwrap());
-                    match res {
-                        Err(e)=>{
-                            cerror!(ModuleEnumsStruct::EXTENSION,"handle msg failed:{}",e);
-                        },
-                        _=>{}
-                    }
-                },
+            let index = sel.ready();
+            let res = clone_sub.try_recv();
+            // If the operation turns out not to be ready, retry.
+            if let Err(e) = res {
+                if e.is_empty() {
+                    continue;
+                }
+            }
+            let v = res.unwrap();
+            if let Err(v) = self.handle_msg(v) {
+                cerror!(ModuleEnumsStruct::EXTENSION,"handle msg failed:{}",v);
             }
         }
+        // tokio::select! {
+        //     _=self.close_notify.recv()=>{
+        //         cinfo!(ModuleEnumsStruct::EXTENSION,"extension received exit signal,closing extensions");
+        //         self.on_close();
+        //         break
+        //     },
+        //     msg=self.subscriber.next()=>{
+        //         let res=self.handle_msg(msg.unwrap());
+        //         match res {
+        //             Err(e)=>{
+        //                 cerror!(ModuleEnumsStruct::EXTENSION,"handle msg failed:{}",e);
+        //             },
+        //             _=>{}
+        //         }
+        //     },
+        // }
     }
+
     fn handle_msg(&mut self, msg: Arc<dyn Event>) -> CellResult<()> {
         cinfo!(ModuleEnumsStruct::EXTENSION,"receive msg:{}",msg);
         let any = msg.as_any();
         let mut res = Err(CellError::from("unknown event"));
         {
-            let actual = any.downcast_ref::<ApplicationEnvironmentPreparedEvent>();
+            let mut actual = any.downcast_ref::<ApplicationEnvironmentPreparedEvent>();
             match actual {
                 Some(v) => {
                     res = self.on_prepare(v.args.clone());
+                    // notify
                 }
                 None => {}
             }
         }
+
+        {
+            let actual = any.downcast_ref::<CallBackEvent>();
+            match actual {
+                Some(v) => {
+                    (v.cb)();
+                }
+                None => {}
+            }
+        }
+
 
         {
             let actual = any.downcast_ref::<ApplicationInitEvent>();
@@ -299,9 +353,6 @@ impl ExtensionManager {
     pub fn on_prepare(&mut self, args: Vec<String>) -> CellResult<()> {
         self.verify_step(step_0)?;
         self.init_command_line(args)?;
-        // self.collect_components();
-        // self.collect_commands();
-        // self.resolve();
         self.step = step_0;
         Ok(())
     }
@@ -439,6 +490,9 @@ pub struct NodeContext {
     // TODO ,node context need pubsub component
     pub commands: HashMap<String, Command<'static>>,
 
+    pub publisher: Sender<Arc<dyn Event>>,
+    pub subscriber: Receiver<Arc<dyn Event>>,
+
 }
 
 impl NodeContext {
@@ -451,6 +505,14 @@ impl NodeContext {
     pub fn set_tokio(&mut self, m: Arc<Runtime>) {
         self.tokio_runtime = m
     }
+
+    pub fn set_publisher(&mut self, value: Sender<Arc<dyn Event>>) {
+        self.publisher = value
+    }
+    pub fn set_subscriber(&mut self, value: Receiver<Arc<dyn Event>>) {
+        self.subscriber = value
+    }
+
     pub fn set_commands(&mut self, cmds: Vec<Command<'static>>) {
         for cmd in cmds {
             let id = conv_protocol_to_string(cmd.protocol_id);
@@ -461,12 +523,13 @@ impl NodeContext {
 
 impl Default for NodeContext {
     fn default() -> Self {
+        let (s, r) = bounded::<Arc<dyn Event>>(1);
         NodeContext {
-            tokio_runtime: Arc::new(tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build().expect("failed")),
+            tokio_runtime: Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap()),
             matchers: Default::default(),
-            commands: HashMap::<String, Command<'static>>::new(),
+            commands: Default::default(),
+            publisher: s,
+            subscriber: r,
         }
     }
 }
@@ -519,24 +582,6 @@ pub trait NodeExtension {
     // fn resolve(&mut self, any: Arc<Box<dyn Any>>) {}
 }
 
-// pub struct ExtensionProxy {
-//     extension: Arc<RefCell<dyn NodeExtension>>,
-// }
-//
-// impl ExtensionProxy {
-//     pub fn new(extension: Arc<RefCell<dyn NodeExtension>>) -> Self {
-//         Self { extension }
-//     }
-// }
-//
-//
-// impl NodeExtension for ExtensionProxy {
-//     fn module(&self) -> CellModule {
-//         // let e: &RefCell<dyn NodeExtension> = self.extension.borrow();
-//         let e = self.extension.into_inner().borrow();
-//         e.module()
-//     }
-// }
 
 pub const INTERNAL_TOKIO: CellModule = CellModule::new(1, "INTERNAL_TOKIO", &LogLevel::Info);
 
@@ -572,40 +617,43 @@ impl NodeExtension for InternalTokioExtension {
 mod tests {
     use std::cell::{Cell, RefCell};
     use std::rc::Rc;
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::{env, thread, time};
+    use std::borrow::Borrow;
     use std::time::Duration;
+    use crossbeam::channel::bounded;
     use flo_stream::{MessagePublisher, Publisher, Subscriber};
     use futures::StreamExt;
     use stopwatch::Stopwatch;
     use tokio::runtime::Runtime;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
-    use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event};
+    use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, CallBackEvent, Event};
     use crate::extension::{ExtensionManager, ExtensionManagerBuilder, NodeContext, NodeExtension};
+    use crate::module::ModuleEnumsStruct;
+    use logsdk::common::LogLevel;
+    use logsdk::module::CellModule;
 
 
     #[test]
-    fn test_extension() {
-        // let demo = DemoExtension {};
-        // let mut proxy = ExtensionProxy::new(Arc::new(RefCell::new(demo)));
-        // println!("{}", proxy.module());
-        // proxy.start(Arc::new(NodeContext::default()));
-    }
+    fn test_extension() {}
 
-    fn create_builder() -> (ExtensionManager, Arc<RefCell<Publisher<Arc<dyn Event>>>>, Arc<Runtime>, Sender<u8>) {
+    fn create_builder() -> (ExtensionManager, Arc<Runtime>, Sender<u8>) {
 
         // let demo = DemoExtension {};
         let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
         let (tx, rx) = mpsc::channel::<u8>(1);
-        let mut publ = Publisher::<Arc<dyn Event>>::new(10);
-        let arc_pub = Arc::new(RefCell::new(Publisher::new(10)));
+
+        let (sender, receiver) = bounded(10);
+        // let arc_pub = Arc::new(publisher);
+
         (ExtensionManagerBuilder::default()
              // .with_extension(Arc::new(RefCell::new(demo)))
              .with_tokio(runtime.clone())
              .with_close_notifyc(rx)
-             .with_subscriber(arc_pub.clone())
-             .build(), arc_pub.clone(), runtime.clone(), tx)
+             .with_publisher(sender.clone())
+             .with_subscriber(receiver.clone())
+             .build(), runtime.clone(), tx)
     }
 
     #[test]
@@ -620,59 +668,91 @@ mod tests {
         let mut args = Vec::<String>::new();
         m.0.init_command_line(args);
     }
-
-    #[test]
-    fn test_start() {
-        let mut m = create_builder();
-        let am = RefCell::new(m.0);
-        am.into_inner().start();
-        m.2.clone().block_on(async move {
-            thread::sleep(Duration::from_secs(3));
-            let msg = ApplicationReadyEvent::new();
-            m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
-            thread::sleep(Duration::from_secs(10000));
-        });
-    }
+    //
+    // #[test]
+    // fn test_start() {
+    //     let mut m = create_builder();
+    //     let am = RefCell::new(m.0);
+    //     am.into_inner().start();
+    //     m.2.clone().block_on(async move {
+    //         thread::sleep(Duration::from_secs(3));
+    //         let msg = ApplicationReadyEvent::new();
+    //         m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+    //         thread::sleep(Duration::from_secs(10000));
+    //     });
+    // }
 
 
     #[test]
     fn test_extension_procedure() {
         let mut m = create_builder();
+        let ctx = m.0.ctx.clone();
         let am = RefCell::new(m.0);
+
+
+        let publisher = Arc::new(ctx.clone().borrow_mut().publisher.clone());
+        let mut subscriber = Arc::new(ctx.clone().borrow_mut().subscriber.clone());
+
+        let run = m.1.clone();
         am.into_inner().start();
-        m.2.clone().block_on(async move {
+
+
+        let f = async move {
+            // let vvv = &lock_sub.clone();
+            // let c = vvv.lock().unwrap();
+            // let msg = c.clone().next();
+            // println!("asddd");
+
+            // loop {
+            //     tokio::select! {
+            //     msg=sub.next()=>{
+            //             cinfo!(ModuleEnumsStruct::CELL_APPLICATION,"receive msg:{}",msg.unwrap());
+            //             println!("Asdd")
+            //     },
+            // }
+            // }
+        };
+        run.clone().spawn(f);
+
+        run.clone().block_on(async move {
             {
                 thread::sleep(Duration::from_secs(3));
-                let msg = ApplicationEnvironmentPreparedEvent::new(vec![]);
-                m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+                let msg = CallBackEvent::new(Box::new(move || {
+                    let msg2 = CallBackEvent::new(Box::new(move || {
+                        let msg3 = CallBackEvent::new(Box::new(move || {}));
+                    }));
+                    // publisher.send(Arc::new(msg2)).unwrap();
+                }));
+                // let msg = ApplicationEnvironmentPreparedEvent::new(vec![]);
+                publisher.clone().send(Arc::new(msg)).unwrap();
             }
 
-            {
-                thread::sleep(Duration::from_secs(2));
-                let msg = ApplicationInitEvent::new();
-                m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
-            }
+            // {
+            //     thread::sleep(Duration::from_secs(2));
+            //     let msg = ApplicationInitEvent::new();
+            //     m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+            // }
+            //
+            // {
+            //     thread::sleep(Duration::from_secs(1));
+            //     let msg = ApplicationStartedEvent::new();
+            //     m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+            // }
+            //
+            // {
+            //     thread::sleep(Duration::from_secs(1));
+            //     let msg = ApplicationReadyEvent::new();
+            //     m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+            // }
+            //
+            //
+            // {
+            //     thread::sleep(Duration::from_secs(1));
+            //     let msg = ApplicationCloseEvent::new();
+            //     m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
+            // }
 
-            {
-                thread::sleep(Duration::from_secs(1));
-                let msg = ApplicationStartedEvent::new();
-                m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
-            }
-
-            {
-                thread::sleep(Duration::from_secs(1));
-                let msg = ApplicationReadyEvent::new();
-                m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
-            }
-
-
-            {
-                thread::sleep(Duration::from_secs(1));
-                let msg = ApplicationCloseEvent::new();
-                m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
-            }
-
-            thread::sleep(Duration::from_secs(3));
+            thread::sleep(Duration::from_secs(1000));
         });
     }
 }

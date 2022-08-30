@@ -2,6 +2,7 @@ use core::any::Any;
 use core::cell::RefCell;
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
+use crossbeam::channel::{bounded, Sender};
 use flo_stream::Publisher;
 use rocket::build;
 use tokio::signal;
@@ -14,9 +15,9 @@ use crate::extension::{ExtensionFactory, ExtensionManager, ExtensionManagerBuild
 use crate::module::ModuleEnumsStruct;
 
 pub struct CellApplication {
-    publisher: Arc<RefCell<Publisher<Arc<dyn Event>>>>,
+    // publisher: Arc<Publisher<Arc<dyn Event>>>,
+    publisher: Sender<Arc<dyn Event>>,
     tx: mpsc::Sender<u8>,
-    pubsub: Arc<RefCell<Publisher<Arc<dyn Event>>>>,
     manager: ExtensionManager,
 }
 
@@ -43,12 +44,12 @@ impl CellApplication {
     pub fn new(mut builders: Vec<Box<dyn ExtensionFactory>>) -> Self {
         let mut components = collect_components(&builders);
         let commands = collect_commands(&builders);
-
+        let (publisher, subscriber) = bounded(10);
         let mut manage_builder = ExtensionManagerBuilder::default();
-        let arc_pub = Arc::new(RefCell::new(Publisher::new(10)));
         manage_builder = manage_builder
             .with_components(components.clone())
-            .with_subscriber(arc_pub.clone())
+            .with_publisher(publisher.clone())
+            .with_subscriber(subscriber.clone())
             .with_commands(commands);
         let mut i = 0;
 
@@ -60,16 +61,14 @@ impl CellApplication {
             i += 1;
         }
         let (txx, rxx) = mpsc::channel::<u8>(1);
-        let arc_pub = Arc::new(RefCell::new(Publisher::new(10)));
         manage_builder = manage_builder
-            .with_subscriber(arc_pub.clone())
             .with_close_notifyc(rxx);
         let extension_manager = manage_builder.build();
 
+
         CellApplication {
-            publisher: arc_pub.clone(),
+            publisher: publisher.clone(),
             tx: txx,
-            pubsub: arc_pub.clone(),
             manager: extension_manager,
         }
     }
@@ -121,6 +120,7 @@ fn collect_commands(mut builders: &Vec<Box<dyn ExtensionFactory>>) -> Vec<Comman
 mod tests {
     use core::any::Any;
     use core::cell::RefCell;
+    use std::env;
     use std::sync::Arc;
     use clap::Arg;
     use logsdk::common::LogLevel;
@@ -188,5 +188,6 @@ mod tests {
         factories.push(Box::new(DemoExtensionFactory {}));
         factories.push(Box::new(ExtensionFactory2 {}));
         let app = CellApplication::new(factories);
+        app.run(env::args().collect())
     }
 }
