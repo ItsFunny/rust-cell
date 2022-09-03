@@ -9,6 +9,7 @@ use tokio::signal;
 use tokio::sync::mpsc;
 use logsdk::common::LogLevel;
 use logsdk::module::CellModule;
+use crate::bus::EventBus;
 use crate::command::Command;
 use crate::event::Event;
 use crate::extension::{ExtensionFactory, ExtensionManager, ExtensionManagerBuilder};
@@ -16,7 +17,7 @@ use crate::module::ModuleEnumsStruct;
 
 pub struct CellApplication {
     // publisher: Arc<Publisher<Arc<dyn Event>>>,
-    publisher: Sender<Arc<dyn Event>>,
+    bus: EventBus<Box<dyn Event>>,
     tx: mpsc::Sender<u8>,
     manager: ExtensionManager,
 }
@@ -44,13 +45,13 @@ impl CellApplication {
     pub fn new(mut builders: Vec<Box<dyn ExtensionFactory>>) -> Self {
         let mut components = collect_components(&builders);
         let commands = collect_commands(&builders);
-        let (publisher, subscriber) = bounded(10);
+        let rt = Arc::new(tokio::runtime::Runtime::new().unwrap());
+        let mut bus = EventBus::new(rt);
         let mut manage_builder = ExtensionManagerBuilder::default();
         manage_builder = manage_builder
             .with_components(components.clone())
-            .with_publisher(publisher.clone())
-            .with_subscriber(subscriber.clone())
-            .with_commands(commands);
+            .with_commands(commands)
+            .with_bus(bus.clone());
         let mut i = 0;
 
         while i != builders.len() {
@@ -67,7 +68,7 @@ impl CellApplication {
 
 
         CellApplication {
-            publisher: publisher.clone(),
+            bus: bus.clone(),
             tx: txx,
             manager: extension_manager,
         }

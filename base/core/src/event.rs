@@ -39,13 +39,11 @@ impl Event for ApplicationEnvironmentPreparedEvent {
 
 
 /////////
-pub struct ApplicationInitEvent {
-    pub cb: Box<dyn Fn() + Send + Sync + 'static>,
-}
+pub struct ApplicationInitEvent {}
 
 impl ApplicationInitEvent {
-    pub fn new(cb: Box<dyn Fn() + Send + Sync + 'static>) -> Self {
-        Self { cb: cb }
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
@@ -62,13 +60,11 @@ impl Event for ApplicationInitEvent {
 }
 
 //////////////
-pub struct ApplicationStartedEvent {
-    pub cb: Box<dyn Fn() + Send + Sync + 'static>,
-}
+pub struct ApplicationStartedEvent {}
 
 impl ApplicationStartedEvent {
-    pub fn new(cb: Box<dyn Fn() + Send + Sync + 'static>) -> Self {
-        Self { cb: cb }
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
@@ -85,13 +81,11 @@ impl Event for ApplicationStartedEvent {
 }
 
 ///////
-pub struct ApplicationReadyEvent {
-    pub cb: Box<dyn Fn() + Send + Sync + 'static>,
-}
+pub struct ApplicationReadyEvent {}
 
 impl ApplicationReadyEvent {
-    pub fn new(cb: Box<dyn Fn() + Send + Sync + 'static>) -> Self {
-        Self { cb: cb }
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
@@ -108,13 +102,11 @@ impl Event for ApplicationReadyEvent {
 }
 
 ////////
-pub struct ApplicationCloseEvent {
-    pub cb: Box<dyn Fn() + Send + Sync + 'static>,
-}
+pub struct ApplicationCloseEvent {}
 
 impl ApplicationCloseEvent {
-    pub fn new(cb: Box<dyn Fn() + Send + Sync + 'static>) -> Self {
-        Self { cb: cb }
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
@@ -134,11 +126,12 @@ impl Event for ApplicationCloseEvent {
 ///////////
 pub struct NextStepEvent {
     pub current: u8,
+    pub next: Arc<dyn Event>,
 }
 
 impl NextStepEvent {
-    pub fn new(current: u8) -> Self {
-        Self { current }
+    pub fn new(current: u8, next: Arc<dyn Event>) -> Self {
+        Self { current, next }
     }
 }
 
@@ -151,6 +144,12 @@ impl Display for NextStepEvent {
 impl Event for NextStepEvent {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+impl Clone for NextStepEvent {
+    fn clone(&self) -> Self {
+        NextStepEvent { current: self.current, next: self.next.clone() }
     }
 }
 

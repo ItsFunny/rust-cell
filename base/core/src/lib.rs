@@ -29,6 +29,7 @@ pub mod module;
 pub mod collector;
 pub mod cell_macro;
 pub mod di;
+pub mod bus;
 
 use std::fmt::Debug;
 

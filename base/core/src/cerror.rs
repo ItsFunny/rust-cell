@@ -156,6 +156,8 @@ error_enums!(
     (DUPLICATE_OPTION,7,"DUPLICATE_OPTION");
     (ILLEGAL_STEP,8,"ILLEGAL_STEP");
     (DUPLICATE_STEP,9,"DUPLICATE_STEP");
+    (EVENT_BUS_DUPLICATE_CLIENTID,10,"duplicate client id");
+    (EVENT_BUS_SUBSCRIBE_FAILED,11,"failed to subscribe");
 );
 
 
