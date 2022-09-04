@@ -1,3 +1,4 @@
+use core::panicking::panic;
 use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
@@ -11,6 +12,7 @@ use rocket::figment::map;
 use rocket::http::ext::IntoCollection;
 use tokio::runtime::Runtime;
 use crate::cerror::{CellError, CellResult, ErrorEnums, ErrorEnumsStruct};
+use crate::event::Event;
 
 type operation = i8;
 
@@ -65,8 +67,8 @@ pub struct DefaultRegexQuery {
 }
 
 impl DefaultRegexQuery {
-    pub fn new(id: &'static str, str: String, events: HashSet<String>) -> DefaultRegexQuery {
-        let reg = Regex::new(str.as_str()).map_err(|e| {
+    pub fn new(id: &'static str, regex: String, events: HashSet<String>) -> DefaultRegexQuery {
+        let reg = Regex::new(regex.as_str()).map_err(|e| {
             panic!("illegal regex");
         }).unwrap();
         let ret = DefaultRegexQuery { id: id, reg: reg, events };
@@ -130,11 +132,10 @@ impl<T> state<T> {
     }
     fn send(&mut self, data: Arc<T>, evens: &HashMap<String, Vec<String>>) {
         for (k, v) in &self.subscriptions {
-            let query = self.queries.get(k).unwrap();
+            let query = self.queries.get(*k).unwrap();
             if query.q.matches(evens) {
                 for (k2, v2) in v {
-                    // TODO, remove client
-                    // TODO,handle error
+                    // TODO,handle error & remove client
                     v2.out.send(data.clone());
                 }
             }
@@ -278,6 +279,34 @@ impl<T> EventBus<T>
                 shutdown => {}
                 _ => {}
             }
+        }
+    }
+}
+
+const extension_client: String = String::from("extension.event");
+const extension_event_regex: String = String::from("extension_event*");
+const extension_event: String = String::from("extension_event_publish");
+const base_event: String = String::from("base_extension_event");
+
+pub fn publish_application_events(bus: Arc<EventBus<Box<dyn Event>>>, data: Box<dyn Event>) {
+    let mut events = HashMap::<String, Vec<String>>::new();
+    let mut event_details = Vec::<String>::new();
+    event_details.push(base_event);
+    events.insert(extension_event, event_details);
+    bus.publish(data, events);
+}
+
+pub fn subscribe_application_events(mut bus: EventBus<Box<dyn Event>>, id: &'static str, es: Option<Vec<String>>) -> Arc<Receiver<Arc<Box<dyn Event>>>> {
+    let mut events: HashSet<String> = HashSet::new();
+    events.insert(base_event);
+    let q = DefaultRegexQuery::new(id, extension_event_regex, events);
+    let res = bus.subscribe(extension_client, 10, Box::new(q), None);
+    match res {
+        Err(e) => {
+            panic!("asd")
+        }
+        Ok(v) => {
+            return v;
         }
     }
 }
