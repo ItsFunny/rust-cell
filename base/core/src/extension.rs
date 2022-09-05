@@ -61,9 +61,9 @@ pub struct ExtensionManager {
     commands: Vec<Command<'static>>,
 }
 
-impl Clone for ExtensionManager{
+impl Clone for ExtensionManager {
     fn clone(&self) -> Self {
-        ExtensionManager{
+        ExtensionManager {
             extension: self.extension.clone(),
             ctx: self.ctx.clone(),
             short_ops: self.short_ops.clone(),
@@ -72,7 +72,7 @@ impl Clone for ExtensionManager{
             bus: self.bus.clone(),
             step: self.step,
             components: self.components.clone(),
-            commands:self.commands.clone(),
+            commands: self.commands.clone(),
         }
     }
 }
@@ -164,8 +164,18 @@ impl ExtensionManagerBuilder {
         let mut bus = self.bus.unwrap();
         let clone_bus = bus.clone();
 
+        let mut commands: Vec<Command<'static>> = Vec::new();
+        if let Some(v) = self.commands {
+            commands = v;
+        }
+
+        let mut components: Vec<Arc<Box<dyn Any>>> = Vec::new();
+        if let Some(v) = self.components {
+            components = v;
+        }
 
         ctx.set_bus(clone_bus.clone());
+        ctx.set_commands(commands.clone());
 
         let subsc = subscribe_application_events(clone_bus.clone(), extension_manager, None);
 
@@ -180,8 +190,8 @@ impl ExtensionManagerBuilder {
             long_ops: Default::default(),
             subscriber: subsc,
             step: 0,
-            components: vec![],
-            commands: vec![],
+            components: components,
+            commands: commands,
             bus: Arc::new(clone_bus.clone()),
         }
     }
@@ -190,8 +200,7 @@ impl ExtensionManagerBuilder {
 // impl ExtensionManagerTrait for ExtensionManager {}
 
 impl ExtensionManager {
-    pub fn set_close_notify(&mut self, c: tokio::sync::mpsc::Receiver<u8>) {
-    }
+    pub fn set_close_notify(&mut self, c: tokio::sync::mpsc::Receiver<u8>) {}
     pub fn init_command_line(&mut self, args: Vec<String>) -> CellResult<()> {
         let mut i = 0;
         let mut app = App::new("rust-cell").author("itsfunny");

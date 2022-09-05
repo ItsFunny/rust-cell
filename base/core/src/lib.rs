@@ -54,6 +54,8 @@ pub mod core {
 
     pub type RunType = i8;
 
+    pub const runTypeHttp: RunType = 1 as RunType;
+
 
     pub trait ExecutorValueTrait<'a>: Debug + 'a {}
 
@@ -65,7 +67,6 @@ pub mod core {
     // {
     //     fn clone_box(&self) -> Box<dyn Executor<'a, T> + 'a>;
     // }
-
 }
 
 #[cfg(test)]
@@ -77,8 +78,7 @@ mod tests {
         let result = 2 + 2;
         assert_eq!(result, 4);
     }
-    #[test]
-    fn test_module_enums(){
 
-    }
+    #[test]
+    fn test_module_enums() {}
 }

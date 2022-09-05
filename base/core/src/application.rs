@@ -101,7 +101,7 @@ impl CellApplication {
             .with_bus(bus.clone());
         let mut i = 0;
 
-        while i != builders.len() {
+        while i < builders.len() {
             let builder = builders.remove(i);
             if let Some(extension) = builder.build_extension(components.clone()) {
                 manage_builder = manage_builder.with_extension(extension);

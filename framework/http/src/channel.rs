@@ -6,6 +6,7 @@ use cell_core::context::{BuzzContextTrait, ContextWrapper};
 use cell_core::dispatcher::DefaultDispatcher;
 use pipeline2::pipeline2::{ClosureExecutor, DefaultPipelineV2, DefaultReactorExecutor, PipelineBuilder};
 use async_trait::async_trait;
+use cell_core::command::CommandTrait;
 
 pub struct HttpChannel<'e:'a, 'a>
     where

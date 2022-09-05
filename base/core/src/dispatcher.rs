@@ -13,6 +13,7 @@ use crate::channel::ChannelTrait;
 use crate::command::{Command, CommandContext, mock_context};
 use crate::context::{BaseBuzzContext, BuzzContextTrait, ContextWrapper};
 use crate::core::{ExecutorValueTrait, ProtocolID};
+use crate::extension::NodeContext;
 use crate::module::ModuleEnumsStruct;
 use crate::request::{ServerRequestTrait, ServerResponseTrait};
 use crate::selector::{CommandSelector, SelectorRequest, SelectorStrategy};
@@ -77,6 +78,12 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
         self.channel.read_command(ContextWrapper::new(b_ctx, Arc::new(cmd))).await
     }
 
+    pub fn init(&mut self, ctx: Arc<RefCell<NodeContext>>) {
+        let clone_commands = ctx.clone().borrow().commands.clone();
+        for (protocol, cmd) in clone_commands {
+            self.command_selector.on_register_cmd(cmd.clone());
+        }
+    }
 
     pub fn get_cmd_from_request(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>) -> Option<Command<'a>> {
         // TODO ,useless

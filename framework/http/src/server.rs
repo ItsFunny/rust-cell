@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::fmt::{Debug, Error, Formatter};
 use std::future::Future;
 use std::io;
@@ -14,6 +15,7 @@ use tokio::sync::oneshot::Sender;
 use cell_core::cerror::{CellError, CellResult, ErrorEnums, ErrorEnumsStruct};
 use cell_core::channel::ChannelTrait;
 use cell_core::dispatcher::{DefaultDispatcher, DispatchContext};
+use cell_core::extension::NodeContext;
 use cell_core::request::MockRequest;
 use cell_core::selector::{CommandSelector, SelectorStrategy};
 use logsdk::{cerror, cinfo, module_enums};
@@ -119,6 +121,9 @@ impl HttpServer {
         });
 
         Ok(())
+    }
+    pub fn init(&mut self, ctx: Arc<RefCell<NodeContext>>) {
+        self.dispatcher.init(ctx);
     }
 
     pub fn dispatch(mut self, req: HttpRequest, resp: HttpResponse) {
