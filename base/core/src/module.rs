@@ -16,9 +16,9 @@ pub trait ModuleTrait: Interface {
 
 
 module_enums!(
-     (EXTENSION,1,&logsdk::common::LogLevel::Info);
+        (EXTENSION,1,&logsdk::common::LogLevel::Info);
         (INTERNAL_TOKIO,2,&logsdk::common::LogLevel::Info);
         (CELL_APPLICATION,3,&logsdk::common::LogLevel::Info);
-      (DISPATCHER,4,&logsdk::common::LogLevel::Info);
+        (DISPATCHER,4,&logsdk::common::LogLevel::Info);
     );
 

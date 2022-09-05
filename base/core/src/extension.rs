@@ -55,11 +55,26 @@ pub struct ExtensionManager {
     subscriber: Arc<Receiver<Arc<Box<dyn Event>>>>,
     bus: Arc<EventBus<Box<dyn Event>>>,
 
-    close_notify: tokio::sync::mpsc::Receiver<u8>,
     step: u8,
 
     components: Vec<Arc<Box<dyn Any>>>,
     commands: Vec<Command<'static>>,
+}
+
+impl Clone for ExtensionManager{
+    fn clone(&self) -> Self {
+        ExtensionManager{
+            extension: self.extension.clone(),
+            ctx: self.ctx.clone(),
+            short_ops: self.short_ops.clone(),
+            long_ops: self.long_ops.clone(),
+            subscriber: self.subscriber.clone(),
+            bus: self.bus.clone(),
+            step: self.step,
+            components: self.components.clone(),
+            commands:self.commands.clone(),
+        }
+    }
 }
 
 pub trait ExtensionFactory {
@@ -83,8 +98,6 @@ pub struct ExtensionManagerBuilder {
     tokio_runtime: Option<Arc<Runtime>>,
     close_notifyc: Option<tokio::sync::mpsc::Receiver<u8>>,
     extensions: Vec<Arc<RefCell<dyn NodeExtension>>>,
-    // publisher: Option<Sender<Arc<dyn Event>>>,
-    // subscriber: Option<Receiver<Arc<dyn Event>>>,
     bus: Option<EventBus<Box<dyn Event>>>,
 
     components: Option<Vec<Arc<Box<dyn Any>>>>,
@@ -165,7 +178,6 @@ impl ExtensionManagerBuilder {
             ctx: Arc::new(RefCell::new(ctx)),
             short_ops: Default::default(),
             long_ops: Default::default(),
-            close_notify: rx,
             subscriber: subsc,
             step: 0,
             components: vec![],
@@ -178,11 +190,7 @@ impl ExtensionManagerBuilder {
 // impl ExtensionManagerTrait for ExtensionManager {}
 
 impl ExtensionManager {
-    // pub fn get_publisher(&self) -> Arc<Publisher<Arc<dyn Event>>> {
-    //     self.publisher.clone()
-    // }
     pub fn set_close_notify(&mut self, c: tokio::sync::mpsc::Receiver<u8>) {
-        mem::replace(&mut self.close_notify, c);
     }
     pub fn init_command_line(&mut self, args: Vec<String>) -> CellResult<()> {
         let mut i = 0;
@@ -233,9 +241,6 @@ impl ExtensionManager {
     }
 
     pub fn start(mut self) {
-        // thread::spawn(move || {
-        //     futures::executor::block_on(self.async_start())
-        // });
         self.ctx.clone().borrow().tokio_runtime.clone().spawn(async move {
             self.async_start().await
         });
@@ -680,12 +685,12 @@ mod tests {
         am.into_inner().start();
 
 
-        let clone_bus=bus.clone();
+        let clone_bus = bus.clone();
         run.clone().spawn(async move {
             let mut sel = Select::new();
             sel.recv(&test_sub);
 
-            let arc_bus=clone_bus.clone();
+            let arc_bus = clone_bus.clone();
             loop {
                 let index = sel.ready();
                 let res = test_sub.try_recv();

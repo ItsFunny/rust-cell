@@ -2,21 +2,22 @@ use core::any::Any;
 use core::cell::RefCell;
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
-use crossbeam::channel::{bounded, Sender};
+use crossbeam::channel::{bounded, Select, Sender};
 use flo_stream::Publisher;
 use rocket::build;
 use tokio::signal;
 use tokio::sync::mpsc;
 use logsdk::common::LogLevel;
 use logsdk::module::CellModule;
-use crate::bus::EventBus;
+use crate::bus::{EventBus, publish_application_events, subscribe_application_events};
 use crate::command::Command;
-use crate::event::Event;
-use crate::extension::{ExtensionFactory, ExtensionManager, ExtensionManagerBuilder};
+use crate::event::{ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event, NextStepEvent};
+use crate::extension::{ExtensionFactory, ExtensionManager, ExtensionManagerBuilder, step_0, step_1, step_2, step_3, step_4};
 use crate::module::ModuleEnumsStruct;
 
+const Application: &'static str = "application";
+
 pub struct CellApplication {
-    // publisher: Arc<Publisher<Arc<dyn Event>>>,
     bus: EventBus<Box<dyn Event>>,
     tx: mpsc::Sender<u8>,
     manager: ExtensionManager,
@@ -27,11 +28,14 @@ impl CellApplication {
     pub fn run(self, args: Vec<String>) {
         let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
         runtime.block_on(async {
-            self.async_start().await
+            self.async_start(args).await
         })
     }
-    async fn async_start(self) {
-        self.step0().await;
+    async fn async_start(self, args: Vec<String>) {
+        // start
+        self.bus.clone().start();
+        self.manager.clone().start();
+        self.step0(args).await;
 
         match signal::ctrl_c().await {
             Ok(()) => {}
@@ -40,8 +44,51 @@ impl CellApplication {
             }
         }
     }
-    async fn step0(&self) {}
-    async fn grace_exist(self) {}
+    async fn step0(&self, args: Vec<String>) {
+        let app_bus = self.bus.clone();
+        let sub = subscribe_application_events(app_bus.clone(), Application, None);
+        let arc_bus = Arc::new(app_bus.clone());
+        let mut sel = Select::new();
+        sel.recv(&sub);
+
+        // send event
+        let msg = ApplicationEnvironmentPreparedEvent::new(args);
+        publish_application_events(arc_bus.clone(), Box::new(msg), None);
+
+        loop {
+            let index = sel.ready();
+            let res = sub.try_recv();
+            if let Err(e) = res {
+                if e.is_empty() {
+                    continue;
+                }
+            }
+            let msg = res.unwrap();
+            cinfo!(ModuleEnumsStruct::CELL_APPLICATION,"收到msg:{}",msg.clone());
+
+            let any = msg.as_any();
+            {
+                let mut actual = any.downcast_ref::<NextStepEvent>();
+                match actual {
+                    Some(v) => {
+                        if v.current == step_0 {
+                            publish_application_events(arc_bus.clone(), Box::new(ApplicationInitEvent::new()), None);
+                        } else if v.current == step_1 {
+                            publish_application_events(arc_bus.clone(), Box::new(ApplicationStartedEvent::new()), None);
+                        } else if v.current == step_2 {
+                            publish_application_events(arc_bus.clone(), Box::new(ApplicationReadyEvent::new()), None);
+                        } else if v.current == step_3 {
+                            cinfo!(ModuleEnumsStruct::EXTENSION,"step:3")
+                        } else if v.current == step_4 {
+                            cinfo!(ModuleEnumsStruct::EXTENSION,"step:4")
+                        }
+                    }
+                    None => {}
+                }
+            }
+        }
+    }
+
     pub fn new(mut builders: Vec<Box<dyn ExtensionFactory>>) -> Self {
         let mut components = collect_components(&builders);
         let commands = collect_commands(&builders);
@@ -189,6 +236,6 @@ mod tests {
         factories.push(Box::new(DemoExtensionFactory {}));
         factories.push(Box::new(ExtensionFactory2 {}));
         let app = CellApplication::new(factories);
-        app.run(env::args().collect())
+        app.run(vec![])
     }
 }
