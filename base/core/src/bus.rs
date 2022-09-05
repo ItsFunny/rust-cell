@@ -1,4 +1,3 @@
-use core::panicking::panic;
 use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
@@ -193,7 +192,7 @@ impl<T> EventBus<T>
         };
         ret
     }
-    fn start(mut self) {
+    pub fn start(mut self) {
         self.runtime.clone().spawn(self.do_start());
     }
 
@@ -283,24 +282,34 @@ impl<T> EventBus<T>
     }
 }
 
-const extension_client: String = String::from("extension.event");
-const extension_event_regex: String = String::from("extension_event*");
-const extension_event: String = String::from("extension_event_publish");
-const base_event: String = String::from("base_extension_event");
+const extension_client: &'static str = "extension.event";
+const extension_event_regex: &'static str = "extension_event*";
+const extension_event: &'static str = "extension_event_publish";
+const base_event: &'static str = "base_extension_event";
 
-pub fn publish_application_events(bus: Arc<EventBus<Box<dyn Event>>>, data: Box<dyn Event>) {
+pub fn publish_application_events(bus: Arc<EventBus<Box<dyn Event>>>, data: Box<dyn Event>, es: Option<Vec<String>>) {
     let mut events = HashMap::<String, Vec<String>>::new();
     let mut event_details = Vec::<String>::new();
-    event_details.push(base_event);
-    events.insert(extension_event, event_details);
+    event_details.push(String::from(base_event));
+    if let Some(v) = es {
+        for str in v {
+            event_details.push(str);
+        }
+    }
+    events.insert(String::from(extension_event), event_details);
     bus.publish(data, events);
 }
 
 pub fn subscribe_application_events(mut bus: EventBus<Box<dyn Event>>, id: &'static str, es: Option<Vec<String>>) -> Arc<Receiver<Arc<Box<dyn Event>>>> {
     let mut events: HashSet<String> = HashSet::new();
-    events.insert(base_event);
-    let q = DefaultRegexQuery::new(id, extension_event_regex, events);
-    let res = bus.subscribe(extension_client, 10, Box::new(q), None);
+    if let Some(v) = es {
+        for str in v {
+            events.insert(str);
+        }
+    }
+    events.insert(String::from(base_event));
+    let q = DefaultRegexQuery::new(id, String::from(extension_event_regex), events);
+    let res = bus.subscribe(String::from(extension_client), 10, Box::new(q), None);
     match res {
         Err(e) => {
             panic!("asd")

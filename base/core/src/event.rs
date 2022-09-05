@@ -126,12 +126,11 @@ impl Event for ApplicationCloseEvent {
 ///////////
 pub struct NextStepEvent {
     pub current: u8,
-    pub next: Arc<dyn Event>,
 }
 
 impl NextStepEvent {
-    pub fn new(current: u8, next: Arc<dyn Event>) -> Self {
-        Self { current, next }
+    pub fn new(current: u8) -> Self {
+        Self { current }
     }
 }
 
@@ -144,12 +143,6 @@ impl Display for NextStepEvent {
 impl Event for NextStepEvent {
     fn as_any(&self) -> &dyn Any {
         self
-    }
-}
-
-impl Clone for NextStepEvent {
-    fn clone(&self) -> Self {
-        NextStepEvent { current: self.current, next: self.next.clone() }
     }
 }
 

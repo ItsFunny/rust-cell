@@ -38,7 +38,7 @@ pub const step_4: u8 = 1 << 4;
 pub const default_orderer: i32 = 0;
 pub const max_orderer: i32 = i32::MIN;
 
-const extension_manager:&'static str="extension_manager";
+const extension_manager: &'static str = "extension_manager";
 
 
 // pub trait  Component: Any + Clone{}
@@ -105,7 +105,6 @@ impl Default for ExtensionManagerBuilder {
 }
 
 
-
 impl ExtensionManagerBuilder {
     pub fn with_tokio(mut self, r: Arc<Runtime>) -> Self {
         self.tokio_runtime = Some(r);
@@ -152,9 +151,10 @@ impl ExtensionManagerBuilder {
         let mut bus = self.bus.unwrap();
         let clone_bus = bus.clone();
 
-        let subsc =subscribe_application_events(clone_bus,extension_manager,None);
 
         ctx.set_bus(clone_bus.clone());
+
+        let subsc = subscribe_application_events(clone_bus.clone(), extension_manager, None);
 
         // internal
         let mut inter_tokio = InternalTokioExtension::new();
@@ -293,8 +293,7 @@ impl ExtensionManager {
                 Some(v) => {
                     res = self.on_prepare(v.args.clone());
                     // notify
-                    publish_application_events(self.bus.clone(), Box::new(NextStepEvent::new(self.step,
-                                                                                             Arc::new(ApplicationInitEvent::new()))));
+                    publish_application_events(self.bus.clone(), Box::new(NextStepEvent::new(self.step)), None);
                 }
                 None => {}
             }
@@ -307,8 +306,7 @@ impl ExtensionManager {
                 Some(v) => {
                     res = self.on_init();
                     // notify
-                    publish_application_events(self.bus.clone(), Box::new(NextStepEvent::new(self.step,
-                                                                                             Arc::new(ApplicationStartedEvent::new()))));
+                    publish_application_events(self.bus.clone(), Box::new(NextStepEvent::new(self.step)), None);
                 }
                 None => {}
             }
@@ -320,8 +318,7 @@ impl ExtensionManager {
                 Some(v) => {
                     res = self.on_start();
                     // notify
-                    publish_application_events(self.bus.clone(), Box::new(NextStepEvent::new(self.step,
-                                                                                             Arc::new(ApplicationReadyEvent::new()))));
+                    publish_application_events(self.bus.clone(), Box::new(NextStepEvent::new(self.step)), None);
                 }
                 None => {}
             }
@@ -343,16 +340,6 @@ impl ExtensionManager {
             match actual {
                 Some(v) => {
                     res = self.on_close();
-                }
-                None => {}
-            }
-        }
-
-        {
-            let actual = any.downcast_ref::<CallBackEvent>();
-            match actual {
-                Some(v) => {
-                    (v.cb)();
                 }
                 None => {}
             }
@@ -645,24 +632,24 @@ mod tests {
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
     use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, CallBackEvent, Event, NextStepEvent};
-    use crate::extension::{ExtensionManager, ExtensionManagerBuilder, NodeContext, NodeExtension};
+    use crate::extension::{ExtensionManager, ExtensionManagerBuilder, NodeContext, NodeExtension, step_0, step_1, step_2, step_3, step_4};
     use crate::module::ModuleEnumsStruct;
     use logsdk::common::LogLevel;
     use logsdk::module::CellModule;
-    use crate::bus::{DefaultRegexQuery, EventBus, publish_application_events};
+    use crate::bus::{DefaultRegexQuery, EventBus, publish_application_events, subscribe_application_events};
 
 
     #[test]
     fn test_extension() {}
 
     fn create_builder() -> (ExtensionManager, Arc<Runtime>, Sender<u8>, EventBus<Box<dyn Event>>) {
-        // let demo = DemoExtension {};
         let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
         let (tx, rx) = mpsc::channel::<u8>(1);
 
         let bus = EventBus::<Box<dyn Event>>::new(runtime.clone());
+        bus.clone().start();
+
         (ExtensionManagerBuilder::default()
-             // .with_extension(Arc::new(RefCell::new(demo)))
              .with_tokio(runtime.clone())
              .with_close_notifyc(rx)
              .with_bus(bus.clone())
@@ -677,20 +664,6 @@ mod tests {
         m.0.init_command_line(args);
     }
 
-    //
-    // #[test]
-    // fn test_start() {
-    //     let mut m = create_builder();
-    //     let am = RefCell::new(m.0);
-    //     am.into_inner().start();
-    //     m.2.clone().block_on(async move {
-    //         thread::sleep(Duration::from_secs(3));
-    //         let msg = ApplicationReadyEvent::new();
-    //         m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
-    //         thread::sleep(Duration::from_secs(10000));
-    //     });
-    // }
-
 
     #[test]
     fn test_extension_procedure() {
@@ -701,46 +674,59 @@ mod tests {
 
         let bus = Arc::new(ctx.clone().borrow_mut().bus.clone());
         let evs = HashSet::<String>::new();
-        let sub = ctx.clone().borrow_mut().bus.clone().subscribe(String::from("tet_cli"),
-                                                                 10, Box::new(DefaultRegexQuery::new("id", String::from("events*"), evs)), None);
+        let test_sub = subscribe_application_events(ctx.clone().borrow_mut().bus.clone(), "test", None);
 
         let run = m.1.clone();
         am.into_inner().start();
 
+
+        let clone_bus=bus.clone();
+        run.clone().spawn(async move {
+            let mut sel = Select::new();
+            sel.recv(&test_sub);
+
+            let arc_bus=clone_bus.clone();
+            loop {
+                let index = sel.ready();
+                let res = test_sub.try_recv();
+                if let Err(e) = res {
+                    if e.is_empty() {
+                        continue;
+                    }
+                }
+                let msg = res.unwrap();
+                cinfo!(ModuleEnumsStruct::EXTENSION,"收到msg:{}",msg.clone());
+
+                let any = msg.as_any();
+                {
+                    let mut actual = any.downcast_ref::<NextStepEvent>();
+                    match actual {
+                        Some(v) => {
+                            if v.current == step_0 {
+                                publish_application_events(arc_bus.clone(), Box::new(ApplicationInitEvent::new()), None);
+                            } else if v.current == step_1 {
+                                publish_application_events(arc_bus.clone(), Box::new(ApplicationStartedEvent::new()), None);
+                            } else if v.current == step_2 {
+                                publish_application_events(arc_bus.clone(), Box::new(ApplicationReadyEvent::new()), None);
+                            } else if v.current == step_3 {
+                                cinfo!(ModuleEnumsStruct::EXTENSION,"step:3")
+                            } else if v.current == step_4 {
+                                cinfo!(ModuleEnumsStruct::EXTENSION,"step:4")
+                            }
+                        }
+                        None => {}
+                    }
+                }
+            }
+        });
 
         run.clone().block_on(async move {
             {
                 thread::sleep(Duration::from_secs(2));
                 let msg = ApplicationEnvironmentPreparedEvent::new(vec![]);
                 let events = HashMap::<String, Vec<String>>::new();
-                publish_application_events(bus, Box::new(msg));
+                publish_application_events(bus.clone(), Box::new(msg), None);
             }
-
-            // {
-            //     thread::sleep(Duration::from_secs(2));
-            //     let msg = ApplicationInitEvent::new();
-            //     m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
-            // }
-            //
-            // {
-            //     thread::sleep(Duration::from_secs(1));
-            //     let msg = ApplicationStartedEvent::new();
-            //     m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
-            // }
-            //
-            // {
-            //     thread::sleep(Duration::from_secs(1));
-            //     let msg = ApplicationReadyEvent::new();
-            //     m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
-            // }
-            //
-            //
-            // {
-            //     thread::sleep(Duration::from_secs(1));
-            //     let msg = ApplicationCloseEvent::new();
-            //     m.1.clone().borrow_mut().publish(Arc::new(msg)).await;
-            // }
-
             thread::sleep(Duration::from_secs(1000));
         });
     }
@@ -765,8 +751,7 @@ mod tests {
                         }
                     }
                     let msg = res.unwrap();
-                    println!("receive msg:{},index:{}", msg, index);
-                    // cinfo!(ModuleEnumsStruct::EXTENSION,"receive msg:{},index:{}", msg, index);
+                    cinfo!(ModuleEnumsStruct::EXTENSION,"receive msg:{},index:{}", msg, index);
                 }
             });
         };
