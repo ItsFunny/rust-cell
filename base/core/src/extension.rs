@@ -85,9 +85,9 @@ pub trait ExtensionFactory {
     fn components(&self) -> Option<Vec<Arc<Box<dyn Any>>>> {
         None
     }
-    fn commands(&self) -> Option<Vec<Command<'static>>> {
-        None
-    }
+    // fn commands(&self) -> Option<Vec<Command<'static>>> {
+    //     None
+    // }
 }
 
 unsafe impl Send for ExtensionManager {}
@@ -204,7 +204,7 @@ impl ExtensionManager {
     pub fn init_command_line(&mut self, args: Vec<String>) -> CellResult<()> {
         let mut i = 0;
         let mut app = App::new("rust-cell").author("itsfunny");
-        while i != self.extension.len() {
+        while i < self.extension.len() {
             let v = self.extension.get_mut(i).unwrap();
             if let Some(opt) = v.clone().borrow_mut().get_options() {
                 for o in opt {
@@ -235,6 +235,20 @@ impl ExtensionManager {
         self.ctx.clone().borrow_mut().set_matchers(matchers);
         Ok(())
     }
+    fn init_commands(&mut self) {
+        let mut i = 0;
+        let mut commands: Vec<Command> = Vec::new();
+        while i < self.extension.len() {
+            let v = self.extension.get_mut(i).unwrap();
+            if let Some(vecc) = v.clone().borrow_mut().commands() {
+                for c in vecc {
+                    commands.push(c.clone());
+                }
+            }
+            i += 1;
+        }
+        self.commands = commands;
+    }
 
     // fn fill_ctx(&mut self) {
     //     let mut cmds = Vec::new();
@@ -250,7 +264,8 @@ impl ExtensionManager {
     }
 
     pub fn start(mut self) {
-        self.ctx.clone().borrow().tokio_runtime.clone().spawn(async move {
+        let runtime = self.ctx.clone().borrow().tokio_runtime.clone();
+        runtime.clone().spawn(async move {
             self.async_start().await
         });
     }
@@ -260,6 +275,7 @@ impl ExtensionManager {
     async fn async_start(&mut self) {
         cinfo!(ModuleEnumsStruct::EXTENSION,"extension start");
 
+        self.init_commands();
 
         let mut sel = Select::new();
         let clone_sub = self.subscriber.clone();
@@ -375,7 +391,7 @@ impl ExtensionManager {
 
         cinfo!(ModuleEnumsStruct::EXTENSION,"{}",INIT);
         let mut i = 0;
-        while i != self.extension.len() {
+        while i < self.extension.len() {
             let e = self.extension.get_mut(i).unwrap();
             let wh = Stopwatch::start_new();
             let res = e.clone().borrow_mut().init(self.ctx.clone());
@@ -401,7 +417,7 @@ impl ExtensionManager {
         self.verify_step(step_2)?;
         let mut i = 0;
         cinfo!(ModuleEnumsStruct::EXTENSION,"{}",START);
-        while i != self.extension.len() {
+        while i < self.extension.len() {
             let wh = Stopwatch::start_new();
             let e = self.extension.get_mut(i).unwrap();
             let res = e.clone().borrow_mut().start(self.ctx.clone());
@@ -428,7 +444,7 @@ impl ExtensionManager {
 
         let mut i = 0;
         cinfo!(ModuleEnumsStruct::EXTENSION,"{}",BLESS);
-        while i != self.extension.len() {
+        while i < self.extension.len() {
             let wh = Stopwatch::start_new();
             // TODO ,async
             let e = self.extension.get_mut(i).unwrap();
@@ -455,7 +471,7 @@ impl ExtensionManager {
         self.verify_step(step_4)?;
         cinfo!(ModuleEnumsStruct::EXTENSION,"{}",CLOSE);
         let mut i = 0;
-        while i != self.extension.len() {
+        while i < self.extension.len() {
             let wh = Stopwatch::start_new();
             let e = self.extension.get_mut(i).unwrap();
             let res = e.clone().borrow_mut().close(self.ctx.clone());
@@ -592,9 +608,9 @@ pub trait NodeExtension {
     // fn components(&mut self) -> Option<Vec<Arc<Box<dyn Any>>>> {
     //     None
     // }
-    // fn commands(&mut self) -> Option<Vec<Command<'static>>> {
-    //     None
-    // }
+    fn commands(&mut self) -> Option<Vec<Command<'static>>> {
+        None
+    }
     // fn resolve(&mut self, any: Arc<Box<dyn Any>>) {}
 }
 

@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
-use std::mem;
+use std::{mem, thread};
 use std::sync::{Arc, Mutex};
 use cell_core::cerror::CellResult;
 use cell_core::dispatcher::DefaultDispatcher;
@@ -88,22 +88,31 @@ impl NodeExtension for HttpExtension {
     }
     fn on_start(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
         let s = self.server.clone().take();
-        ctx.borrow().tokio_runtime.spawn(s.start());
+        let rt = ctx.borrow().tokio_runtime.clone();
+        rt.clone().spawn(async move {
+            s.start().await
+        });
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::any::Any;
     use std::cell::RefCell;
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
+    use bytes::Bytes;
     use cell_core::application::CellApplication;
-    use cell_core::command::Command;
+    use cell_core::command::{ClosureFunc, Command};
+    use cell_core::constants::ProtocolStatus;
     use cell_core::core::{ProtocolID, runTypeHttp};
     use cell_core::extension::{ExtensionFactory, NodeContext, NodeExtension};
     use cell_core::selector::MockDefaultPureSelector;
+    use cell_core::wrapper::ContextResponseWrapper;
+    use logsdk::common::LogLevel;
+    use logsdk::module::CellModule;
     use crate::extension::{HttpExtension, HttpExtensionBuilder, HttpExtensionFactory};
 
     #[test]
@@ -121,15 +130,33 @@ mod tests {
 
     pub struct DemoExtensionFactory {}
 
-    impl ExtensionFactory for DemoExtensionFactory {
-        fn commands(&self) -> Option<Vec<Command<'static>>> {
-            let mut ret: Vec<Command<'static>> = Vec::new();
-            let mut c1 = Command::default();
-            c1 = c1.with_protocol_id("asd" as ProtocolID)
-                .with_run_type(runTypeHttp);
-            ret.push(c1);
+    pub struct DemoExtension {}
 
-            return Some(ret);
+    impl ExtensionFactory for DemoExtensionFactory {
+        fn build_extension(&self, compoents: Vec<Arc<Box<dyn Any>>>) -> Option<Arc<RefCell<dyn NodeExtension>>> {
+            Some(Arc::new(RefCell::new(DemoExtension {})))
+        }
+    }
+
+    impl NodeExtension for DemoExtension {
+        fn module(&self) -> CellModule {
+            CellModule::new(1, "demo", &LogLevel::Info)
+        }
+
+        fn commands(&mut self) -> Option<Vec<Command<'static>>> {
+            let mut ret: Vec<Command> = Vec::new();
+
+            let cmd = Command::default()
+                .with_run_type(runTypeHttp)
+                .with_protocol_id("/demo")
+                .with_executor(Arc::new(ClosureFunc::new(Arc::new(|ctx, v| {
+                    let resp = ContextResponseWrapper::default()
+                        .with_body(Bytes::from("asd"))
+                        .with_status(ProtocolStatus::SUCCESS);
+                    ctx.response(resp);
+                }))));
+            ret.push(cmd);
+            Some(ret)
         }
     }
 

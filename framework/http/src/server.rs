@@ -114,7 +114,7 @@ impl HttpServer {
 
         let server = Server::bind(&addr).serve(service);
 
-        println!("Listening on http://{}", addr);
+        cinfo!(ModuleEnumsStruct::HTTP_SERVER,"Listening on http://{}", addr);
 
         server.await.map_err(|e| {
             CellError::from(ErrorEnumsStruct::UNKNOWN).with_error(Box::new(e))

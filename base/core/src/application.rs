@@ -5,6 +5,7 @@ use std::thread::sleep;
 use crossbeam::channel::{bounded, Select, Sender};
 use flo_stream::Publisher;
 use rocket::build;
+use tokio::runtime::Runtime;
 use tokio::signal;
 use tokio::sync::mpsc;
 use logsdk::common::LogLevel;
@@ -21,12 +22,13 @@ pub struct CellApplication {
     bus: EventBus<Box<dyn Event>>,
     tx: mpsc::Sender<u8>,
     manager: ExtensionManager,
+    runtime: Arc<Runtime>,
 }
 
 
 impl CellApplication {
     pub fn run(self, args: Vec<String>) {
-        let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
+        let runtime = self.runtime.clone();
         runtime.block_on(async {
             self.async_start(args).await
         })
@@ -91,33 +93,34 @@ impl CellApplication {
 
     pub fn new(mut builders: Vec<Box<dyn ExtensionFactory>>) -> Self {
         let mut components = collect_components(&builders);
-        let commands = collect_commands(&builders);
         let rt = Arc::new(tokio::runtime::Runtime::new().unwrap());
         let mut bus = EventBus::new(rt);
         let mut manage_builder = ExtensionManagerBuilder::default();
         manage_builder = manage_builder
             .with_components(components.clone())
-            .with_commands(commands)
             .with_bus(bus.clone());
-        let mut i = 0;
 
-        while i < builders.len() {
-            let builder = builders.remove(i);
+        while builders.len() > 0 {
+            let builder = builders.remove(0);
             if let Some(extension) = builder.build_extension(components.clone()) {
                 manage_builder = manage_builder.with_extension(extension);
             }
-            i += 1;
         }
         let (txx, rxx) = mpsc::channel::<u8>(1);
         manage_builder = manage_builder
             .with_close_notifyc(rxx);
         let extension_manager = manage_builder.build();
+        let runtime = extension_manager.get_ctx().clone().borrow().tokio_runtime.clone();
+        runtime.spawn(async {
+            println!("1")
+        });
 
 
         CellApplication {
             bus: bus.clone(),
             tx: txx,
             manager: extension_manager,
+            runtime,
         }
     }
 }
@@ -143,25 +146,25 @@ fn collect_components(mut builders: &Vec<Box<dyn ExtensionFactory>>) -> Vec<Arc<
     ret
 }
 
-fn collect_commands(mut builders: &Vec<Box<dyn ExtensionFactory>>) -> Vec<Command<'static>> {
-    let mut ret: Vec<Command<'static>> = Vec::new();
-    for i in 0..builders.len() {
-        let ext = builders.get(i).unwrap();
-        let cmds_opt = ext.commands();
-        match cmds_opt {
-            Some(cmds) => {
-                if cmds.len() > 0 {
-                    let iter = cmds.iter();
-                    for cmd in iter {
-                        ret.push(cmd.clone());
-                    }
-                }
-            }
-            None => {}
-        }
-    }
-    return ret;
-}
+// fn collect_commands(mut builders: &Vec<Box<dyn ExtensionFactory>>) -> Vec<Command<'static>> {
+//     let mut ret: Vec<Command<'static>> = Vec::new();
+//     for i in 0..builders.len() {
+//         let ext = builders.get(i).unwrap();
+//         let cmds_opt = ext.commands();
+//         match cmds_opt {
+//             Some(cmds) => {
+//                 if cmds.len() > 0 {
+//                     let iter = cmds.iter();
+//                     for cmd in iter {
+//                         ret.push(cmd.clone());
+//                     }
+//                 }
+//             }
+//             None => {}
+//         }
+//     }
+//     return ret;
+// }
 
 
 #[cfg(test)]
