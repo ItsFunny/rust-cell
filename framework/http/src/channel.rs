@@ -25,9 +25,7 @@ impl<'e, 'a> HttpChannel<'e, 'a> where
 impl<'e:'a, 'a> Default for HttpChannel<'e, 'a> {
     fn default() -> Self {
         let pip = PipelineBuilder::default().add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(|v: &mut ContextWrapper<'a>| {
-            println!("http:111 {:?}", v)
         }))))).add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(|v: &mut ContextWrapper<'a>| {
-            println!("http:222 {:?}", v)
         })))))
             .add_last(DefaultReactorExecutor::new(Box::new(ClosureExecutor::new(Arc::new(|v: &mut ContextWrapper<'a>| {
                 // let  cc:&mut dyn BuzzContextTrait = &mut v.ctx.deref();

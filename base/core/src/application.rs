@@ -93,10 +93,11 @@ impl CellApplication {
 
     pub fn new(mut builders: Vec<Box<dyn ExtensionFactory>>) -> Self {
         let mut components = collect_components(&builders);
-        let rt = Arc::new(tokio::runtime::Runtime::new().unwrap());
-        let mut bus = EventBus::new(rt);
+        let rt = Arc::new(tokio::runtime::Builder::new_multi_thread().enable_io().build().unwrap());
+        let mut bus = EventBus::new(rt.clone());
         let mut manage_builder = ExtensionManagerBuilder::default();
         manage_builder = manage_builder
+            .with_tokio(rt.clone())
             .with_components(components.clone())
             .with_bus(bus.clone());
 

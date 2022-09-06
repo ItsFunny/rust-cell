@@ -105,6 +105,7 @@ mod tests {
     use std::time::Duration;
     use bytes::Bytes;
     use cell_core::application::CellApplication;
+    use cell_core::cerror::CellResult;
     use cell_core::command::{ClosureFunc, Command};
     use cell_core::constants::ProtocolStatus;
     use cell_core::core::{ProtocolID, runTypeHttp};
@@ -115,18 +116,6 @@ mod tests {
     use logsdk::module::CellModule;
     use crate::extension::{HttpExtension, HttpExtensionBuilder, HttpExtensionFactory};
 
-    #[test]
-    fn test_extension() {
-        let mock_select1 = MockDefaultPureSelector::new();
-        let mut ex = HttpExtensionBuilder::default().with_selector(Box::new(mock_select1)).build();
-        let ctx = NodeContext::default();
-        let arcc = Arc::new(RefCell::new(ctx));
-        ex.start(arcc.clone()).unwrap();
-        let a = async {
-            thread::sleep(Duration::from_secs(1000000))
-        };
-        arcc.clone().borrow().tokio_runtime.block_on(a);
-    }
 
     pub struct DemoExtensionFactory {}
 
@@ -142,6 +131,15 @@ mod tests {
         fn module(&self) -> CellModule {
             CellModule::new(1, "demo", &LogLevel::Info)
         }
+
+        fn on_start(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
+            let rt = ctx.clone().borrow().tokio_runtime.clone();
+            rt.spawn(async {
+                println!("{}", 1)
+            });
+            Ok(())
+        }
+
 
         fn commands(&mut self) -> Option<Vec<Command<'static>>> {
             let mut ret: Vec<Command> = Vec::new();

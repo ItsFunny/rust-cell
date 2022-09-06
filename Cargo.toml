@@ -6,6 +6,7 @@ members=[
     "demo/selfdemo",
     "demo/rocket",
     "demo/tokio",
+    "demo/cell",
     "base/cell-base-common",
     "base/core",
     "useless/hyper",

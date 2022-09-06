@@ -101,7 +101,6 @@ pub struct ExtensionManagerBuilder {
     bus: Option<EventBus<Box<dyn Event>>>,
 
     components: Option<Vec<Arc<Box<dyn Any>>>>,
-    commands: Option<Vec<Command<'static>>>,
 }
 
 impl Default for ExtensionManagerBuilder {
@@ -111,7 +110,6 @@ impl Default for ExtensionManagerBuilder {
             close_notifyc: None,
             extensions: Vec::new(),
             components: None,
-            commands: None,
             bus: None,
         }
     }
@@ -135,10 +133,10 @@ impl ExtensionManagerBuilder {
     //     self.publisher = Some(sub);
     //     self
     // }
-    pub fn with_commands(mut self, value: Vec<Command<'static>>) -> Self {
-        self.commands = Some(value);
-        self
-    }
+    // pub fn with_commands(mut self, value: Vec<Command<'static>>) -> Self {
+    //     self.commands = Some(value);
+    //     self
+    // }
     pub fn with_components(mut self, value: Vec<Arc<Box<dyn Any>>>) -> Self {
         self.components = Some(value);
         self
@@ -149,10 +147,9 @@ impl ExtensionManagerBuilder {
     }
 
     pub fn build(mut self) -> ExtensionManager {
-        let mut ctx = NodeContext::default();
-        if let Some(v) = self.tokio_runtime {
-            ctx.set_tokio(v);
-        }
+        let rt = self.tokio_runtime.unwrap();
+        let mut bus = self.bus.unwrap();
+        let mut ctx = NodeContext::new(rt, bus.clone());
 
         match self.close_notifyc {
             None => {
@@ -161,13 +158,12 @@ impl ExtensionManagerBuilder {
             _ => {}
         }
         let rx = self.close_notifyc.unwrap();
-        let mut bus = self.bus.unwrap();
         let clone_bus = bus.clone();
 
-        let mut commands: Vec<Command<'static>> = Vec::new();
-        if let Some(v) = self.commands {
-            commands = v;
-        }
+        // let mut commands: Vec<Command<'static>> = Vec::new();
+        // if let Some(v) = self.commands {
+        //     commands = v;
+        // }
 
         let mut components: Vec<Arc<Box<dyn Any>>> = Vec::new();
         if let Some(v) = self.components {
@@ -175,7 +171,7 @@ impl ExtensionManagerBuilder {
         }
 
         ctx.set_bus(clone_bus.clone());
-        ctx.set_commands(commands.clone());
+        // ctx.set_commands(commands.clone());
 
         let subsc = subscribe_application_events(clone_bus.clone(), extension_manager, None);
 
@@ -191,7 +187,7 @@ impl ExtensionManagerBuilder {
             subscriber: subsc,
             step: 0,
             components: components,
-            commands: commands,
+            commands: Default::default(),
             bus: Arc::new(clone_bus.clone()),
         }
     }
@@ -247,7 +243,8 @@ impl ExtensionManager {
             }
             i += 1;
         }
-        self.commands = commands;
+        self.commands = commands.clone();
+        self.ctx.clone().borrow_mut().set_commands(commands.clone());
     }
 
     // fn fill_ctx(&mut self) {
@@ -291,29 +288,13 @@ impl ExtensionManager {
                 }
             }
             let v = res.unwrap();
-            if let Err(v) = self.handle_msg(v) {
+            if let Err(v) = self.handle_msg(v).await {
                 cerror!(ModuleEnumsStruct::EXTENSION,"handle msg failed:{}",v);
             }
         }
-        // tokio::select! {
-        //     _=self.close_notify.recv()=>{
-        //         cinfo!(ModuleEnumsStruct::EXTENSION,"extension received exit signal,closing extensions");
-        //         self.on_close();
-        //         break
-        //     },
-        //     msg=self.subscriber.next()=>{
-        //         let res=self.handle_msg(msg.unwrap());
-        //         match res {
-        //             Err(e)=>{
-        //                 cerror!(ModuleEnumsStruct::EXTENSION,"handle msg failed:{}",e);
-        //             },
-        //             _=>{}
-        //         }
-        //     },
-        // }
     }
 
-    fn handle_msg(&mut self, msg: Arc<Box<dyn Event>>) -> CellResult<()> {
+    async fn handle_msg(&mut self, msg: Arc<Box<dyn Event>>) -> CellResult<()> {
         cinfo!(ModuleEnumsStruct::EXTENSION,"receive msg:{}",msg);
         let any = msg.as_any();
         let mut res: CellResult<()> = Ok(());
@@ -523,6 +504,10 @@ pub struct NodeContext {
 }
 
 impl NodeContext {
+    pub fn new(tokio_runtime: Arc<Runtime>, bus: EventBus<Box<dyn Event>>) -> Self {
+        Self { tokio_runtime, matchers: ArgMatches::default(), commands: HashMap::new(), bus: bus }
+    }
+
     pub fn set_matchers(&mut self, m: ArgMatches) {
         self.matchers = m
     }
@@ -553,18 +538,6 @@ impl NodeContext {
 unsafe impl Send for NodeContext {}
 
 unsafe impl Sync for NodeContext {}
-
-impl Default for NodeContext {
-    fn default() -> Self {
-        let rt = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
-        NodeContext {
-            tokio_runtime: rt.clone(),
-            matchers: Default::default(),
-            commands: Default::default(),
-            bus: EventBus::<Box<dyn Event>>::new(rt.clone()),
-        }
-    }
-}
 
 
 pub trait NodeExtension {
