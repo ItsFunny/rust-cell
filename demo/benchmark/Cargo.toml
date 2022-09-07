@@ -12,3 +12,4 @@ pipeline2={ version = "0.1.0", path = "../../sdk/pipeline2" }
 cellhttp={version="0.1.0",path= "../../framework/http"}
 bytes = "1.1.0"
 tokio="1.21.0"
+lazy_static = "1.4.0"

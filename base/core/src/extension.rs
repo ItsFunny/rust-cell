@@ -611,6 +611,12 @@ impl NodeExtension for InternalTokioExtension {
         // ctx_mut.set_tokio(runtime);
         Ok(())
     }
+
+    fn on_start(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
+        ctx.clone().borrow_mut().tokio_runtime.clone().spawn(async {});
+        Ok(())
+    }
+
     fn get_orderer(&mut self) -> i32 {
         max_orderer
     }

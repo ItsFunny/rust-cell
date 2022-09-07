@@ -173,7 +173,7 @@ mod tests {
     use crate::common::{LogLevel};
     use crate::log4rs::{DEFAULT_LOGGER, Log4rsLogger};
     use crate::log::{Logger, LoggerEntryContext, MLogger};
-    use crate::{CellLoggerConfiguration, ColorProperty, CONFIGURATION, DEFAULT_BLACK_LIST, DEFAULT_DEBUG_LEVEL_COLOR, DEFAULT_ERROR_LEVEL_COLOR, DEFAULT_INFO_LEVEL_COLOR, DEFAULT_MODULE_COLOR, DEFAULT_TRACE_LEVEL_COLOR, DEFAULT_WARN_LEVEL_COLOR, module, PaintF, set_global_level_info, setup_logger_configuration, stack_trace};
+    use crate::{CellLoggerConfiguration, ColorProperty, CONFIGURATION, DEFAULT_BLACK_LIST, DEFAULT_DEBUG_LEVEL_COLOR, DEFAULT_ERROR_LEVEL_COLOR, DEFAULT_INFO_LEVEL_COLOR, DEFAULT_MODULE_COLOR, DEFAULT_TRACE_LEVEL_COLOR, DEFAULT_WARN_LEVEL_COLOR, module, PaintF, setup_logger_configuration, stack_trace};
     use crate::module::{CellModule, Module};
     use phf::phf_map;
 

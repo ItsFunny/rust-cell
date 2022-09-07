@@ -390,6 +390,7 @@ dependencies = [
  "bytes",
  "cell-core",
  "cellhttp",
+ "lazy_static",
  "logsdk",
  "pipeline2",
  "tokio 1.21.0",

@@ -258,6 +258,13 @@ pub fn set_global_level_info() {
     }
 }
 
+pub fn set_error_global_level_info() {
+    const cc: CellLoggerConfiguration = const_set_loglevel(&LogLevel::Error);
+    unsafe {
+        setup_logger_configuration(&cc);
+    }
+}
+
 // TODO,add black
 // TODO,add module color
 // TODO,add filter & module filter

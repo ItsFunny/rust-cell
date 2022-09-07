@@ -76,7 +76,7 @@ macro_rules! log_impl {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CellModule, LogLevel, module, set_global_level_info};
+    use crate::{CellModule, LogLevel, module};
     use crate::log4rs::DEFAULT_LOGGER;
 
     #[test]
