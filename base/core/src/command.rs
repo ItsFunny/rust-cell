@@ -57,7 +57,6 @@ pub trait CommandTrait: Clone {
 pub struct Command<'a>
 {
     pub protocol_id: ProtocolID,
-    // pub fun: Option<&'static Function>,
     pub fun: Option<Arc<ClosureFunc<'a>>>,
     pub meta_data: MetaData,
     pub run_type: RunType,

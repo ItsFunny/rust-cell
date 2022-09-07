@@ -5,6 +5,7 @@ members=[
     "framework/http",
     "demo/selfdemo",
     "demo/rocket",
+    "demo/benchmark",
     "demo/tokio",
     "demo/cell",
     "base/cell-base-common",
