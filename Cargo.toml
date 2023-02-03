@@ -8,11 +8,11 @@ members=[
     "demo/benchmark",
     "demo/tokio",
     "demo/cell",
+    "demo/zk",
     "base/cell-base-common",
     "base/core",
     "useless/hyper",
     "useless/demo",
-    "useless/tests",
     "useless/shaku",
     "useless/clapdemo",
 ]
