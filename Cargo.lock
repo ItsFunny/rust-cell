@@ -4677,8 +4677,12 @@ dependencies = [
  "ark-relations",
  "ark-serialize",
  "ark-std",
+ "cell-core",
+ "cellhttp",
  "color-eyre 0.6.2",
+ "logsdk",
  "num-bigint 0.4.3",
  "num-traits",
+ "pipeline2",
  "random",
 ]

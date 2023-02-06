@@ -20,3 +20,7 @@ ark-poly = { version = "^0.3.0", default-features = false, features = ["parallel
 ark-relations = { version = "0.3.0", default-features = false }
 ark-serialize = { version = "0.3.0", default-features = false }
 color-eyre = "0.6.2"
+logsdk = { version = "0.1.0", path = "../../sdk/logsdk" }
+cell-core = { version = "0.1.0", path = "../../base/core" }
+pipeline2={ version = "0.1.0", path = "../../sdk/pipeline2" }
+cellhttp={version="0.1.0",path= "../../framework/http"}
