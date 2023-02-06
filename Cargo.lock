@@ -4677,6 +4677,7 @@ dependencies = [
  "ark-relations",
  "ark-serialize",
  "ark-std",
+ "bytes",
  "cell-core",
  "cellhttp",
  "color-eyre 0.6.2",

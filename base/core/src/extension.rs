@@ -272,8 +272,6 @@ impl ExtensionManager {
     async fn async_start(&mut self) {
         cinfo!(ModuleEnumsStruct::EXTENSION,"extension start");
 
-        self.init_commands();
-
         let mut sel = Select::new();
         let clone_sub = self.subscriber.clone();
         sel.recv(&clone_sub);
@@ -327,6 +325,7 @@ impl ExtensionManager {
             let actual = any.downcast_ref::<ApplicationStartedEvent>();
             match actual {
                 Some(v) => {
+                    self.init_commands();
                     res = self.on_start();
                     // notify
                     publish_application_events(self.bus.clone(), Box::new(NextStepEvent::new(self.step)), None);

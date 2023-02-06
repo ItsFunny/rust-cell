@@ -4,8 +4,10 @@ extern crate core;
 
 use std::any::Any;
 use std::cell::RefCell;
+use std::env;
 use color_eyre::Result;
 use std::fmt::Error;
+use bytes::Bytes;
 use std::sync::Arc;
 use ark_bn254::Bn254;
 use ark_circom::{CircomBuilder, CircomCircuit, CircomConfig};
@@ -21,8 +23,10 @@ use color_eyre::owo_colors::OwoColorize;
 use cell_core::application::CellApplication;
 use cell_core::cerror::CellResult;
 use cell_core::command::{ClosureFunc, Command};
+use cell_core::constants::ProtocolStatus;
 use cell_core::core::runTypeHttp;
 use cell_core::extension::{ExtensionFactory, NodeContext, NodeExtension};
+use cell_core::wrapper::ContextResponseWrapper;
 use cellhttp::extension::HttpExtensionFactory;
 use logsdk::{cinfo, module_enums};
 use logsdk::common::LogLevel;
@@ -38,13 +42,15 @@ fn main() {
     factories.push(Box::new(HttpExtensionFactory {}));
     factories.push(Box::new(ZKExtensionFactory {}));
     let mut app = CellApplication::new(factories);
-    app.run(vec![]);
+    let args: Vec<String> = env::args().collect();
+    app.run(args);
 }
 
 
 pub struct ZKExtension {
     zkp: Option<ZKP>,
 }
+
 
 impl NodeExtension for ZKExtension {
     fn module(&self) -> CellModule {
@@ -64,8 +70,7 @@ impl NodeExtension for ZKExtension {
 
     fn commands(&mut self) -> Option<Vec<Command<'static>>> {
         let mut ret = Vec::new();
-        let app = self.zkp.as_mut().unwrap();
-        ret.push(prove_cmd(app.clone()));
+        ret.push(prove_cmd(self.zkp.as_ref().unwrap().clone()));
         Some(ret)
     }
 }
@@ -94,7 +99,11 @@ fn setup() -> (ProvingKey<Bn254>, ThreadRng) {
 fn prove_cmd(zkp: ZKP) -> Command<'static> {
     Command::default()
         .with_executor(Arc::new(ClosureFunc::new(Arc::new(|ctx, v| {
-            cinfo!(ModuleEnumsStruct::ZK,"receive prove request")
+            cinfo!(ModuleEnumsStruct::ZK,"receive prove request");
+            let resp = ContextResponseWrapper::default()
+                .with_body(Bytes::from("aaa"))
+                .with_status(ProtocolStatus::SUCCESS);
+            ctx.response(resp);
         }))))
         .with_protocol_id("/prove")
         .with_run_type(runTypeHttp)

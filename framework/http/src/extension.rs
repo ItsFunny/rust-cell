@@ -78,16 +78,14 @@ unsafe impl Send for HttpExtension {}
 
 impl NodeExtension for HttpExtension {
     fn on_init(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
-        let mut s = self.server.clone().take();
-        s.init(ctx);
-        let v = self.server.replace(s);
         Ok(())
     }
     fn module(&self) -> CellModule {
         HttpModule
     }
     fn on_start(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
-        let s = self.server.clone().take();
+        let mut s = self.server.clone().take();
+        s.init(ctx.clone());
         let rt = ctx.borrow().tokio_runtime.clone();
         rt.clone().spawn(async move {
             s.start().await
