@@ -7,11 +7,13 @@ use std::cell::RefCell;
 use std::env;
 use color_eyre::Result;
 use std::fmt::Error;
+use std::rc::Rc;
 use bytes::Bytes;
 use std::sync::Arc;
 use ark_bn254::Bn254;
 use ark_circom::{CircomBuilder, CircomCircuit, CircomConfig};
-use ark_groth16::{generate_random_parameters, prepare_verifying_key, verify_proof, create_random_proof as prove, ProvingKey};
+use ark_ff::ToBytes;
+use ark_groth16::{generate_random_parameters, prepare_verifying_key, verify_proof, create_random_proof as prove, ProvingKey, Proof};
 use ark_relations::r1cs::{
     ConstraintSynthesizer, ConstraintSystem, OptimizationGoal,
     SynthesisError, SynthesisMode,
@@ -20,14 +22,17 @@ use ark_std::rand::rngs::ThreadRng;
 use ark_std::rand::thread_rng;
 use color_eyre::eyre::ErrReport;
 use color_eyre::owo_colors::OwoColorize;
+use num_bigint::{BigInt, ParseBigIntError};
 use cell_core::application::CellApplication;
-use cell_core::cerror::CellResult;
+use cell_core::cerror::{CellError, CellResult, ErrorEnums, ErrorEnumsStruct};
 use cell_core::command::{ClosureFunc, Command};
 use cell_core::constants::ProtocolStatus;
-use cell_core::core::runTypeHttp;
+use cell_core::core::{runTypeHttp, runTypeHttpPost};
 use cell_core::extension::{ExtensionFactory, NodeContext, NodeExtension};
 use cell_core::wrapper::ContextResponseWrapper;
 use cellhttp::extension::HttpExtensionFactory;
+use cellhttp::request::HttpRequest;
+use cellhttp::server::HttpServerBuilder;
 use logsdk::{cinfo, module_enums};
 use logsdk::common::LogLevel;
 use logsdk::module::CellModule;
@@ -48,7 +53,7 @@ fn main() {
 
 
 pub struct ZKExtension {
-    zkp: Option<ZKP>,
+    command: Command<'static>,
 }
 
 
@@ -59,7 +64,7 @@ impl NodeExtension for ZKExtension {
 
     fn on_init(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
         let zkp: ZKP = ZKP::new();
-        self.zkp = Some(zkp);
+        self.command = prove_cmd(Arc::new(zkp));
         Ok(())
     }
 
@@ -70,7 +75,7 @@ impl NodeExtension for ZKExtension {
 
     fn commands(&mut self) -> Option<Vec<Command<'static>>> {
         let mut ret = Vec::new();
-        ret.push(prove_cmd(self.zkp.as_ref().unwrap().clone()));
+        ret.push(self.command.clone());
         Some(ret)
     }
 }
@@ -79,7 +84,7 @@ pub struct ZKExtensionFactory {}
 
 impl ExtensionFactory for ZKExtensionFactory {
     fn build_extension(&self, compoents: Vec<Arc<Box<dyn Any>>>) -> Option<Arc<RefCell<dyn NodeExtension>>> {
-        Some(Arc::new(RefCell::new(ZKExtension { zkp: None })))
+        Some(Arc::new(RefCell::new(ZKExtension { command: Default::default() })))
     }
 }
 
@@ -96,17 +101,52 @@ fn setup() -> (ProvingKey<Bn254>, ThreadRng) {
     (generate_random_parameters::<Bn254, _, _>(cir, &mut rng).unwrap(), rng.clone())
 }
 
-fn prove_cmd(zkp: ZKP) -> Command<'static> {
+fn prove_cmd(zkp: Arc<ZKP>) -> Command<'static> {
     Command::default()
         .with_executor(Arc::new(ClosureFunc::new(Arc::new(|ctx, v| {
             cinfo!(ModuleEnumsStruct::ZK,"receive prove request");
-            let resp = ContextResponseWrapper::default()
+            let req = ctx.get_request();
+            let any = req.as_any();
+            let mut actual = any.downcast_ref::<HttpRequest>();
+            let mut a: BigInt = BigInt::default();
+            let mut b: BigInt = BigInt::default();
+            match actual {
+                Some(v) => {
+                    let req = &v.request;
+                    let body = req.body();
+                    match "1".parse::<BigInt>() {
+                        Ok(aa) => {
+                            a = aa;
+                        }
+                        _ => {}
+                    }
+                    match "2".parse::<BigInt>() {
+                        Ok(bb) => {
+                            b = bb;
+                        }
+                        _ => {}
+                    }
+                    cinfo!(ModuleEnumsStruct::ZK,"uri:{}",req.uri().to_string());
+                }
+                None => {}
+            }
+            // let prove_resp = generate_prove(zkp.zkp_config.clone(), a, b);
+            let mut resp = ContextResponseWrapper::default()
                 .with_body(Bytes::from("aaa"))
                 .with_status(ProtocolStatus::SUCCESS);
+            // match prove_resp {
+            //     Ok(ret) => {
+            //
+            //     }
+            //     Err(e) => {
+            //         resp = resp.with_status(ProtocolStatus::FAIL);
+            //     }
+            // }
+
             ctx.response(resp);
         }))))
         .with_protocol_id("/prove")
-        .with_run_type(runTypeHttp)
+        .with_run_type(runTypeHttpPost)
 }
 
 pub struct ZKP {
@@ -114,11 +154,33 @@ pub struct ZKP {
     pub zkp_params: ProvingKey<Bn254>,
 }
 
+
 impl Clone for ZKP {
     fn clone(&self) -> Self {
         ZKP {
             zkp_config: self.zkp_config.clone(),
             zkp_params: self.zkp_params.clone(),
+        }
+    }
+}
+
+pub fn generate_prove(zk: CircomConfig<Bn254>, a: BigInt, b: BigInt) -> CellResult<Proof<Bn254>> {
+    let mut builder = CircomBuilder::new(zk.clone());
+    builder.push_input("a", a);
+    builder.push_input("b", b);
+    let circom = builder.setup();
+    let inputs = circom.get_public_inputs().unwrap();
+    let mut rng = thread_rng();
+    let params = generate_random_parameters::<Bn254, _, _>(circom, &mut rng).unwrap();
+    let circom = builder.build().unwrap();
+    let mut rng = thread_rng();
+    let ret = prove(circom, &params, &mut rng);
+    match ret {
+        Err(e) => {
+            Err(CellError::from(ErrorEnumsStruct::IO_ERROR))
+        }
+        Ok(v) => {
+            Ok(v)
         }
     }
 }

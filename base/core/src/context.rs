@@ -35,6 +35,10 @@ pub trait Context {
     // fn unsafe_notify_done();
 }
 
+pub trait RequestTrait<'a> {
+    fn get_request(&mut self) -> Arc<Box<dyn ServerRequestTrait + 'a>>;
+}
+
 
 pub struct ContextWrapper<'a> {
     pub ctx: Box<dyn BuzzContextTrait<'a> + 'a>,
@@ -55,9 +59,9 @@ impl<'a> Debug for ContextWrapper<'a> {
     }
 }
 
-pub trait BuzzContextTrait<'a>: Context + Send + Sync {
-     fn response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()>;
-     fn on_response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()>;
+pub trait BuzzContextTrait<'a>: Context + Send + Sync + RequestTrait<'a> {
+    fn response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()>;
+    fn on_response(&mut self, resp: ContextResponseWrapper<'a>) -> CellResult<()>;
 }
 
 pub struct BaseBuzzContext<'a> {
@@ -147,6 +151,12 @@ impl<'a> BaseBuzzContext<'a> {
     }
     pub fn new(request_timestamp: i64, command_context: CommandContext<'a>) -> Self {
         BaseBuzzContext { request_timestamp, command_context }
+    }
+}
+
+impl<'a> RequestTrait<'a> for BaseBuzzContext<'a> {
+    fn get_request(&mut self) -> Arc<Box<dyn ServerRequestTrait + 'a>> {
+        self.command_context.server_request.clone()
     }
 }
 

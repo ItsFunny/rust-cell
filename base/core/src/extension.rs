@@ -4,6 +4,7 @@ use core::future::Future;
 use core::iter::Map;
 use std::collections::{HashMap, HashSet};
 use std::{mem, thread};
+use std::fmt::format;
 
 use derive_builder::Builder;
 use std::rc::Rc;
@@ -24,7 +25,7 @@ use crate::banner::{BLESS, CLOSE, INIT, START};
 use crate::bus::{DefaultRegexQuery, EventBus, publish_application_events, subscribe_application_events};
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::command::Command;
-use crate::core::conv_protocol_to_string;
+use crate::core::{conv_protocol_to_string, RunType};
 use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, CallBackEvent, Event, NextStepEvent};
 use crate::module::ModuleEnumsStruct;
 
@@ -529,8 +530,11 @@ impl NodeContext {
     pub fn set_commands(&mut self, cmds: Vec<Command<'static>>) {
         for cmd in cmds {
             let id = conv_protocol_to_string(cmd.protocol_id);
-            self.commands.insert(id, cmd.clone());
+            self.commands.insert(self.build_protocol_key(id, cmd.run_type), cmd.clone());
         }
+    }
+    pub fn build_protocol_key(&self, id: String, method: RunType) -> String {
+        return format!("{}-{}", id, method);
     }
 }
 

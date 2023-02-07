@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -106,7 +107,6 @@ pub struct MetaData {
     pub asy: bool,
     pub request_type: AliasRequestType,
     pub response_type: AliasResponseType,
-
 }
 
 impl Clone for MetaData {

@@ -1,4 +1,5 @@
-pub struct SimpleRequest {
-    pub a: String,
-    pub b: String,
+
+pub struct SimpleRequest<'a> {
+    pub a: &'a str,
+    pub b: &'a str,
 }

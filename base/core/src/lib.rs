@@ -55,6 +55,8 @@ pub mod core {
     pub type RunType = i8;
 
     pub const runTypeHttp: RunType = 1 as RunType;
+    pub const runTypeHttpPost: RunType = runTypeHttp << 1 | runTypeHttp;
+    pub const runTypeHttpGet: RunType = runTypeHttp << 2 | runTypeHttp;
 
 
     pub trait ExecutorValueTrait<'a>: Debug + 'a {}

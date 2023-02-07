@@ -1,10 +1,12 @@
+use std::sync::Arc;
 use cell_core::cerror::CellResult;
-use cell_core::context::Context;
+use cell_core::context::{Context, RequestTrait};
 use cell_core::wrapper::ContextResponseWrapper;
 use cell_core::{context::{BaseBuzzContext, BuzzContextTrait}, command::CommandContext};
 
 
 use async_trait::async_trait;
+use cell_core::request::ServerRequestTrait;
 
 pub struct HttpContext<'a> {
     ctx: BaseBuzzContext<'a>,
@@ -20,6 +22,12 @@ impl<'a> HttpContext<'a> {
 impl<'a> Context for HttpContext<'a> {
     fn done(&mut self) -> bool {
         todo!()
+    }
+}
+
+impl<'a> RequestTrait<'a> for HttpContext<'a> {
+    fn get_request(&mut self) -> Arc<Box<dyn ServerRequestTrait + 'a>> {
+        self.ctx.get_request()
     }
 }
 
