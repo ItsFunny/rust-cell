@@ -1,0 +1,42 @@
+{
+  "nodes": [
+    {
+      "nodeId": "prometheusSd",
+      "instances": [
+        {
+          "type": 1,
+          "visualPort": 8888
+        }
+      ]
+    },
+    {
+      "nodeId": "node0",
+      "instances": [
+        {
+          "type": 1
+        },
+        {
+          "type": 2,
+          "publicPort": 8011
+        }
+      ]
+    },
+    {
+      "nodeId": "cluster1node1rpc",
+      "instances": [
+        {
+          "type": 2,
+          "publicPort": 6011
+        }
+      ]
+    },
+    {
+      "nodeId": "cluster1GateWay",
+      "instances": [
+        {
+          "type": 4
+        }
+      ]
+    }
+  ]
+}

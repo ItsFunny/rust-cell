@@ -1,0 +1,25 @@
+{
+  "types": {
+    "test2": {
+      "parent": "test1"
+    },
+    "test1": {
+      "parent": "Default"
+    },
+    "Default": {
+      "parent": null
+    }
+  },
+  "defaultType": "Default",
+  "configs": [
+    {
+      "modules": {
+        "server": "public/server.json",
+        "nacos": "env/shared/nacos.json"
+      },
+      "schema": null
+    }
+  ],
+  "plugins": {
+  }
+}
