@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 pub struct Configuration {
@@ -21,20 +21,19 @@ pub struct Configuration {
     repo_root: Option<PathBuf>,
     config_type: Option<String>,
     initialized: bool,
-    manager: Manager,
 }
 
 impl Configuration {
-    pub fn new(manager: Manager) -> Self {
+    pub fn new<P: AsRef<Path>>(repo_root: P, config_type: &str) -> Self {
+        let repo_root = repo_root.as_ref().to_path_buf();
         let mut ret = Configuration {
             parser: Default::default(),
             config_module: Default::default(),
             modules: Default::default(),
             config_types: Default::default(),
-            repo_root: Some(manager.root_path.clone()),
-            config_type: Some(manager.config_type.clone()),
+            repo_root: Some(repo_root),
+            config_type: Some(String::from(config_type)),
             initialized: false,
-            manager: manager,
         };
         ret.init();
         ret
@@ -261,7 +260,6 @@ mod tests {
     use crate::manager::Manager;
     use serde::{Deserialize, Serialize};
 
-
     #[test]
     fn test_get_obj() {
         #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -270,8 +268,7 @@ mod tests {
             pub server_addr: String,
         }
 
-        let m = Manager::new("./config", "test1");
-        let mut cfg = Configuration::new(m);
+        let mut cfg = Configuration::new("./config", "test1");
         cfg.initialize().unwrap();
 
         let nacos = cfg.get_config::<Nacos>("nacos").unwrap();
