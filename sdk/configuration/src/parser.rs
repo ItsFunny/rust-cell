@@ -1,6 +1,7 @@
 use crate::enums::Schema;
 use crate::error::{ConfigurationError, ConfigurationResult};
 use crate::value::ConfigValueTrait;
+use jsonnet::JsonnetVm;
 use serde::de::DeserializeOwned;
 use std::any::Any;
 use std::cell::RefCell;
@@ -59,7 +60,8 @@ impl ConfigurationParser for JsonParser {
         module_name: String,
         file_path: PathBuf,
     ) -> ConfigurationResult<Box<dyn ConfigValueTrait<T>>> {
-        let data = std::fs::read(file_path)?;
+        let mut vm = JsonnetVm::new();
+        let data = vm.evaluate_file(file_path)?.to_string().as_bytes().to_vec();
         let key = JsonKey::new(module_name.clone());
         let info = self.json_values.get(&key);
         if info.is_some() {}

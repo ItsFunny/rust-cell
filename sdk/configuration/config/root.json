@@ -15,7 +15,8 @@
     {
       "modules": {
         "server": "public/server.json",
-        "nacos": "env/shared/nacos.json"
+        "nacos": "env/shared/nacos.json",
+        "test": "public/test.json"
       },
       "schema": null
     }

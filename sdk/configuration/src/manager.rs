@@ -55,12 +55,24 @@ mod tests {
             pub server_addr: String,
         }
 
-        let mut manager = Manager::new_with_init("./config", "test1");
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        pub struct Test {
+            pub test: String,
+        }
+
+        let manager = Manager::new_with_init("./config", "test2");
 
         let nacos = manager
             .get_configuration()
             .get_config::<Nacos>("nacos")
             .unwrap();
         println!("{:?}", nacos);
+
+        let test = manager
+            .get_configuration()
+            .get_config::<Test>("test")
+            .unwrap();
+        println!("{:?}", test);
     }
 }

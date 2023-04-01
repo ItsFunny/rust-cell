@@ -1,3 +1,4 @@
+use jsonnet::Error;
 pub use thiserror::Error;
 
 pub type ConfigurationResult<T> = Result<T, ConfigurationError>;
@@ -14,4 +15,14 @@ pub enum ConfigurationError {
 
     #[error("io error:{0}")]
     IoError(#[from] std::io::Error),
+
+    #[error("{0}")]
+    StringError(String),
+}
+
+impl<'a> From<jsonnet::Error<'a>> for ConfigurationError {
+    fn from(value: Error<'a>) -> Self {
+        let err = value.to_string();
+        ConfigurationError::StringError(err)
+    }
 }

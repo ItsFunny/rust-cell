@@ -764,6 +764,7 @@ name = "configuration"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "jsonnet-rs",
  "serde",
  "serde_json",
  "thiserror",
@@ -1990,6 +1991,26 @@ name = "json"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
+
+[[package]]
+name = "jsonnet-rs"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82b396bdfc3ae94965555c9ec3efa2214e5f3921545a943ef9fc9873ff5e4723"
+dependencies = [
+ "jsonnet-sys",
+ "libc",
+]
+
+[[package]]
+name = "jsonnet-sys"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02347cbdf34234f30f0d92f0f8f678a15883bd5e1e4b3def4ed4a14f691d9add"
+dependencies = [
+ "cc",
+ "libc",
+]
 
 [[package]]
 name = "k256"
