@@ -1,15 +1,15 @@
+use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
+use crate::request::ServerResponseTrait;
+use futures::*;
+use http::header::HeaderName;
+use http::{HeaderValue, Response};
+use hyper::Body;
+use rocket::figment::map;
+use serde::ser::Error;
 use std::any::Any;
 use std::fmt::Error as std_error;
 use std::rc::Rc;
 use std::sync::mpsc::Sender;
-use http::header::HeaderName;
-use http::{HeaderValue, Response};
-use hyper::Body;
-use futures::*;
-use rocket::figment::map;
-use serde::ser::Error;
-use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
-use crate::request::ServerResponseTrait;
 
 //////////
 // pub struct ServerResponseWrapper {
@@ -28,7 +28,6 @@ use crate::request::ServerResponseTrait;
 //         //     .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 //     }
 // }
-
 
 pub struct MockResponse {
     tx: Sender<Response<Body>>,
@@ -49,11 +48,10 @@ impl ServerResponseTrait for MockResponse {
 
     // TODO
     fn fire_result(&mut self, result: Response<Body>) -> CellResult<()> {
-        self.tx.send(result).and_then(|_| {
-            Ok(())
-        }).map_err(|e| {
-            CellError::from(ErrorEnumsStruct::RESPONSE_FAILED).with_error(Box::new(e))
-        })
+        self.tx
+            .send(result)
+            .and_then(|_| Ok(()))
+            .map_err(|e| CellError::from(ErrorEnumsStruct::RESPONSE_FAILED).with_error(Box::new(e)))
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -63,11 +61,11 @@ impl ServerResponseTrait for MockResponse {
 
 #[cfg(test)]
 mod tests {
-    use std::task::{Context, RawWaker, Waker};
-    use std::thread;
-    use futures::*;
     use futures::channel::mpsc;
     use futures::future::ok;
+    use futures::*;
+    use std::task::{Context, RawWaker, Waker};
+    use std::thread;
 
     #[test]
     fn test_future() {
@@ -78,7 +76,9 @@ mod tests {
         executor::block_on(v);
         let ret = r.blocking_recv();
         match ret {
-            Some(vv) => { println!("asdd:{}", vv) }
+            Some(vv) => {
+                println!("asdd:{}", vv)
+            }
             None => {
                 println!("none")
             }

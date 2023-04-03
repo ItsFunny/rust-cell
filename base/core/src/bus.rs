@@ -1,17 +1,17 @@
-use std::borrow::BorrowMut;
-use std::collections::{HashMap, HashSet};
-use std::error::Error;
-use std::fmt::format;
-use std::sync::{Arc, Mutex, RwLock};
-use crossbeam::channel::{Receiver, Select, Sender, unbounded};
+use crate::cerror::{CellError, CellResult, ErrorEnums, ErrorEnumsStruct};
+use crate::event::Event;
+use crossbeam::channel::{unbounded, Receiver, Select, Sender};
 use crossbeam::deque::Steal::Retry;
 use futures::stream::SelectNextSome;
 use regex::Regex;
 use rocket::figment::map;
 use rocket::http::ext::IntoCollection;
+use std::borrow::BorrowMut;
+use std::collections::{HashMap, HashSet};
+use std::error::Error;
+use std::fmt::format;
+use std::sync::{Arc, Mutex, RwLock};
 use tokio::runtime::Runtime;
-use crate::cerror::{CellError, CellResult, ErrorEnums, ErrorEnumsStruct};
-use crate::event::Event;
 
 type operation = i8;
 
@@ -20,10 +20,9 @@ const publish: operation = 2;
 const unsubscribe: operation = 3;
 const shutdown: operation = 4;
 
-
 pub struct EventBus<T>
-    where
-        T: Send + Sync + 'static
+where
+    T: Send + Sync + 'static,
 {
     runtime: Arc<tokio::runtime::Runtime>,
     cmds: Sender<cmd<T>>,
@@ -33,10 +32,9 @@ pub struct EventBus<T>
     subscriptions: HashMap<String, HashSet<&'static str>>,
 }
 
-
 impl<T> Clone for EventBus<T>
-    where
-        T: Send + Sync + 'static
+where
+    T: Send + Sync + 'static,
 {
     fn clone(&self) -> Self {
         EventBus {
@@ -67,10 +65,16 @@ pub struct DefaultRegexQuery {
 
 impl DefaultRegexQuery {
     pub fn new(id: &'static str, regex: String, events: HashSet<String>) -> DefaultRegexQuery {
-        let reg = Regex::new(regex.as_str()).map_err(|e| {
-            panic!("illegal regex");
-        }).unwrap();
-        let ret = DefaultRegexQuery { id: id, reg: reg, events };
+        let reg = Regex::new(regex.as_str())
+            .map_err(|e| {
+                panic!("illegal regex");
+            })
+            .unwrap();
+        let ret = DefaultRegexQuery {
+            id: id,
+            reg: reg,
+            events,
+        };
         return ret;
     }
 }
@@ -117,7 +121,10 @@ impl<T> state<T> {
         if !self.subscriptions.contains_key(q_str) {
             self.subscriptions.insert(q_str, HashMap::new());
         }
-        self.subscriptions.get_mut(q_str).unwrap().insert(client_id, sub);
+        self.subscriptions
+            .get_mut(q_str)
+            .unwrap()
+            .insert(client_id, sub);
 
         let query_res = self.queries.get_mut(q_str);
         match query_res {
@@ -125,7 +132,8 @@ impl<T> state<T> {
                 v.ref_count = v.ref_count + 1;
             }
             None => {
-                self.queries.insert(q_str, queryPlusRefCount { q, ref_count: 0 });
+                self.queries
+                    .insert(q_str, queryPlusRefCount { q, ref_count: 0 });
             }
         }
     }
@@ -175,10 +183,9 @@ impl<T> SubscriptionImpl<T> {
     }
 }
 
-
 impl<T> EventBus<T>
-    where
-        T: Send + Sync + 'static
+where
+    T: Send + Sync + 'static,
 {
     pub fn new(rt: Arc<Runtime>) -> EventBus<T> {
         let (sender, receiver) = unbounded::<cmd<T>>();
@@ -207,17 +214,24 @@ impl<T> EventBus<T>
             events,
         });
     }
-    pub fn subscribe(&mut self, client_id: String, cap: usize, query: Box<dyn Query>, ops: Option<Box<SubscriptionOption<T>>>) -> CellResult<Arc<Receiver<Arc<T>>>> {
+    pub fn subscribe(
+        &mut self,
+        client_id: String,
+        cap: usize,
+        query: Box<dyn Query>,
+        ops: Option<Box<SubscriptionOption<T>>>,
+    ) -> CellResult<Arc<Receiver<Arc<T>>>> {
         {
             self.mtx.read().unwrap();
             let contains = self.subscriptions.get(client_id.clone().as_str());
             if let Some(v) = contains {
                 if v.contains(query.String()) {
-                    return Err(CellError::from(ErrorEnumsStruct::EVENT_BUS_DUPLICATE_CLIENTID));
+                    return Err(CellError::from(
+                        ErrorEnumsStruct::EVENT_BUS_DUPLICATE_CLIENTID,
+                    ));
                 }
             }
         }
-
 
         let (sender, receiver) = crossbeam::channel::bounded(cap);
 
@@ -233,7 +247,10 @@ impl<T> EventBus<T>
         });
         match res {
             Err(e) => {
-                return Err(CellError::from(ErrorEnumsStruct::EVENT_BUS_SUBSCRIBE_FAILED).with_error(Box::new(e)));
+                return Err(
+                    CellError::from(ErrorEnumsStruct::EVENT_BUS_SUBSCRIBE_FAILED)
+                        .with_error(Box::new(e)),
+                );
             }
             Ok(v) => {
                 self.mtx.write().unwrap();
@@ -241,7 +258,10 @@ impl<T> EventBus<T>
                 if !contains {
                     self.subscriptions.insert(client_id.clone(), HashSet::new());
                 }
-                let v = self.subscriptions.get_mut(client_id.clone().as_str()).unwrap();
+                let v = self
+                    .subscriptions
+                    .get_mut(client_id.clone().as_str())
+                    .unwrap();
                 v.insert(q.clone().String());
             }
         }
@@ -249,7 +269,10 @@ impl<T> EventBus<T>
         Ok(Arc::new(receiver))
     }
     async fn do_start(mut self) {
-        self.do_loop(state { subscriptions: Default::default(), queries: Default::default() });
+        self.do_loop(state {
+            subscriptions: Default::default(),
+            queries: Default::default(),
+        });
     }
     fn do_loop(&mut self, mut st: state<T>) {
         let clone_sub = self.receivers.clone();
@@ -267,12 +290,12 @@ impl<T> EventBus<T>
             }
             let v = res.unwrap();
             match v.operation {
-                subscribe => {
-                    st.add(v.client_id, v.query.unwrap(), v.subscription.unwrap().clone())
-                }
-                publish => {
-                    st.send(Arc::new(v.data.unwrap()), &v.events)
-                }
+                subscribe => st.add(
+                    v.client_id,
+                    v.query.unwrap(),
+                    v.subscription.unwrap().clone(),
+                ),
+                publish => st.send(Arc::new(v.data.unwrap()), &v.events),
                 // TODO
                 unsubscribe => {}
                 shutdown => {}
@@ -287,7 +310,11 @@ const extension_event_regex: &'static str = "extension_event*";
 const extension_event: &'static str = "extension_event_publish";
 const base_event: &'static str = "base_extension_event";
 
-pub fn publish_application_events(bus: Arc<EventBus<Box<dyn Event>>>, data: Box<dyn Event>, es: Option<Vec<String>>) {
+pub fn publish_application_events(
+    bus: Arc<EventBus<Box<dyn Event>>>,
+    data: Box<dyn Event>,
+    es: Option<Vec<String>>,
+) {
     let mut events = HashMap::<String, Vec<String>>::new();
     let mut event_details = Vec::<String>::new();
     event_details.push(String::from(base_event));
@@ -300,7 +327,11 @@ pub fn publish_application_events(bus: Arc<EventBus<Box<dyn Event>>>, data: Box<
     bus.publish(data, events);
 }
 
-pub fn subscribe_application_events(mut bus: EventBus<Box<dyn Event>>, id: &'static str, es: Option<Vec<String>>) -> Arc<Receiver<Arc<Box<dyn Event>>>> {
+pub fn subscribe_application_events(
+    mut bus: EventBus<Box<dyn Event>>,
+    id: &'static str,
+    es: Option<Vec<String>>,
+) -> Arc<Receiver<Arc<Box<dyn Event>>>> {
     let mut events: HashSet<String> = HashSet::new();
     if let Some(v) = es {
         for str in v {
@@ -320,29 +351,22 @@ pub fn subscribe_application_events(mut bus: EventBus<Box<dyn Event>>, id: &'sta
     }
 }
 
-unsafe impl<T> Send for EventBus<T>
-    where
-        T: Send + Sync + 'static
-{}
+unsafe impl<T> Send for EventBus<T> where T: Send + Sync + 'static {}
 
-unsafe impl<T> Sync for EventBus<T>
-    where
-        T: Send + Sync + 'static
-{}
-
+unsafe impl<T> Sync for EventBus<T> where T: Send + Sync + 'static {}
 
 #[cfg(test)]
 mod tests {
+    use crate::bus::{DefaultRegexQuery, EventBus};
+    use crate::module::ModuleEnumsStruct;
     use core::future::Future;
+    use logsdk::common::LogLevel;
+    use logsdk::module::CellModule;
     use std::collections::{HashMap, HashSet};
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
     use tokio::sync::broadcast::Receiver;
-    use crate::module::ModuleEnumsStruct;
-    use logsdk::common::LogLevel;
-    use logsdk::module::CellModule;
-    use crate::bus::{DefaultRegexQuery, EventBus};
 
     #[test]
     fn test_bus() {
@@ -356,14 +380,25 @@ mod tests {
         let cap = 10;
         let mut set = HashSet::<String>::new();
         set.insert(String::from("event1"));
-        let q = Box::new(DefaultRegexQuery::new("test_id", String::from("client_id*"), set));
+        let q = Box::new(DefaultRegexQuery::new(
+            "test_id",
+            String::from("client_id*"),
+            set,
+        ));
         let recv_res = clone_bus.clone().subscribe(client_id.clone(), cap, q, None);
         let recv = recv_res.unwrap();
 
         let mut set2 = HashSet::<String>::new();
         set2.insert(String::from("event1"));
-        let q2 = Box::new(DefaultRegexQuery::new("test_id2", String::from("client_id*"), set2));
-        let recv2 = clone_bus.clone().subscribe(client_id.clone(), cap, q2, None).unwrap();
+        let q2 = Box::new(DefaultRegexQuery::new(
+            "test_id2",
+            String::from("client_id*"),
+            set2,
+        ));
+        let recv2 = clone_bus
+            .clone()
+            .subscribe(client_id.clone(), cap, q2, None)
+            .unwrap();
 
         let send = clone_bus.clone();
         arc_run.clone().spawn(async move {
@@ -383,7 +418,7 @@ mod tests {
                     println!("err")
                 }
                 Ok(v) => {
-                    cinfo!(ModuleEnumsStruct::EXTENSION,"msg1:{}",v);
+                    cinfo!(ModuleEnumsStruct::EXTENSION, "msg1:{}", v);
                 }
             }
         });
@@ -396,11 +431,10 @@ mod tests {
                     println!("err")
                 }
                 Ok(v) => {
-                    cinfo!(ModuleEnumsStruct::EXTENSION,"msg2:{}",v);
+                    cinfo!(ModuleEnumsStruct::EXTENSION, "msg2:{}", v);
                 }
             }
         });
-
 
         thread::sleep(Duration::from_secs(5));
     }
@@ -416,20 +450,20 @@ mod tests {
         let c1 = async move {
             let mut rrr = rec1.clone().resubscribe();
             let v = rrr.recv().await.unwrap();
-            cinfo!(ModuleEnumsStruct::EXTENSION,"msg:{}",v);
+            cinfo!(ModuleEnumsStruct::EXTENSION, "msg:{}", v);
         };
 
         let rec2 = rec.clone();
         let c2 = async move {
             let mut rrr = rec2.clone().resubscribe();
             let v = rrr.recv().await.unwrap();
-            cinfo!(ModuleEnumsStruct::EXTENSION,"msg:{}",v);
+            cinfo!(ModuleEnumsStruct::EXTENSION, "msg:{}", v);
         };
         let rec3 = rec.clone();
         let c3 = async move {
             let mut rrr = rec3.clone().resubscribe();
             let v = rrr.recv().await.unwrap();
-            cinfo!(ModuleEnumsStruct::EXTENSION,"msg:{}",v);
+            cinfo!(ModuleEnumsStruct::EXTENSION, "msg:{}", v);
         };
         let f = async move {
             thread::sleep(Duration::from_secs(2));
@@ -447,7 +481,6 @@ mod tests {
         let (sender, receiver) = flume::unbounded::<u8>();
         let run = Arc::new(tokio::runtime::Runtime::new().unwrap());
 
-
         let run_time = Arc::new(tokio::runtime::Runtime::new().unwrap());
 
         let r1 = receiver.clone();
@@ -457,30 +490,30 @@ mod tests {
         let r1_res = r1.recv();
         match r1_res {
             Err(e) => {
-                cinfo!(ModuleEnumsStruct::EXTENSION,"err");
+                cinfo!(ModuleEnumsStruct::EXTENSION, "err");
             }
             Ok(v) => {
-                cinfo!(ModuleEnumsStruct::EXTENSION,"msg:{}",v);
+                cinfo!(ModuleEnumsStruct::EXTENSION, "msg:{}", v);
             }
         }
 
         let r2_res = r2.recv();
         match r2_res {
             Err(e) => {
-                cinfo!(ModuleEnumsStruct::EXTENSION,"err");
+                cinfo!(ModuleEnumsStruct::EXTENSION, "err");
             }
             Ok(v) => {
-                cinfo!(ModuleEnumsStruct::EXTENSION,"msg:{}",v);
+                cinfo!(ModuleEnumsStruct::EXTENSION, "msg:{}", v);
             }
         }
 
         let r3_res = r3.recv();
         match r3_res {
             Err(e) => {
-                cinfo!(ModuleEnumsStruct::EXTENSION,"err");
+                cinfo!(ModuleEnumsStruct::EXTENSION, "err");
             }
             Ok(v) => {
-                cinfo!(ModuleEnumsStruct::EXTENSION,"msg:{}",v);
+                cinfo!(ModuleEnumsStruct::EXTENSION, "msg:{}", v);
             }
         }
     }

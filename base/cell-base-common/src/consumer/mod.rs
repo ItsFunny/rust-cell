@@ -1,7 +1,7 @@
 use std::fmt::Error;
 
 pub trait IConsumer<T, V> {
-    fn consume(&self,t:T) -> Option<V>;
+    fn consume(&self, t: T) -> Option<V>;
 }
 
 #[cfg(test)]

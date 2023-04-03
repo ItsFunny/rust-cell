@@ -1,15 +1,14 @@
 extern crate core;
 
-pub mod server;
-pub mod dispatcher;
-pub mod module;
-pub mod extension;
 pub mod channel;
 pub mod context;
-pub mod response;
+pub mod dispatcher;
+pub mod extension;
+pub mod module;
 pub mod request;
+pub mod response;
 mod selector;
-
+pub mod server;
 
 #[cfg(test)]
 mod tests {

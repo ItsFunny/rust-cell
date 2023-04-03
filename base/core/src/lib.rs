@@ -2,49 +2,48 @@
 extern crate logsdk;
 extern crate core as std_core;
 
-pub mod wrapper;
+pub mod application;
+mod banner;
 pub mod body;
-pub mod summary;
-pub mod channel;
-pub mod reactor;
-pub mod context;
-pub mod request;
-pub mod response;
-pub mod command;
+pub mod bus;
 mod byte_str;
+pub mod cell_macro;
+pub mod cerror;
+pub mod channel;
+pub mod collector;
+pub mod command;
+pub mod constants;
+pub mod context;
+pub mod decorator;
+pub mod di;
+pub mod dispatcher;
+pub mod event;
+pub mod extension;
 pub mod header;
 pub mod input;
-pub mod output;
-pub mod decorator;
-pub mod cerror;
-pub mod constants;
-pub mod suit;
-pub mod dispatcher;
-pub mod selector;
-pub mod extension;
-pub mod event;
-mod banner;
-pub mod application;
 pub mod module;
-pub mod collector;
-pub mod cell_macro;
-pub mod di;
-pub mod bus;
+pub mod output;
+pub mod reactor;
+pub mod request;
+pub mod response;
+pub mod selector;
+pub mod suit;
+pub mod summary;
+pub mod wrapper;
 
 use std::fmt::Debug;
 
 // pub trait ExecutorValueTrait: Debug {}
 
 pub mod core {
-    use std::fmt::Debug;
-    use std::io;
-    use std::rc::Rc;
+    use crate::wrapper::ContextResponseWrapper;
     use http::header::HeaderName;
     use http::{Error, HeaderValue, Response};
     use hyper::Body;
+    use std::fmt::Debug;
+    use std::io;
+    use std::rc::Rc;
     use tokio::sync::oneshot::{Receiver, Sender};
-    use crate::wrapper::ContextResponseWrapper;
-
 
     pub type ProtocolID = &'static str;
 
@@ -57,7 +56,6 @@ pub mod core {
     pub const runTypeHttp: RunType = 1 as RunType;
     pub const runTypeHttpPost: RunType = runTypeHttp << 1 | runTypeHttp;
     pub const runTypeHttpGet: RunType = runTypeHttp << 2 | runTypeHttp;
-
 
     pub trait ExecutorValueTrait<'a>: Debug + 'a {}
 

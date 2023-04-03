@@ -20,7 +20,6 @@ macro_rules! cdebug {
     };
 }
 
-
 #[macro_export]
 macro_rules! cwarn {
     ($m:expr,$e:expr) => {
@@ -72,19 +71,17 @@ macro_rules! log_impl {
     };
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    use crate::{CellModule, LogLevel, module};
     use crate::log4rs::DEFAULT_LOGGER;
+    use crate::{module, CellModule, LogLevel};
 
     #[test]
     fn test_macros() {
         static M: &CellModule = &module::CellModule::new(1, "MACROS", &LogLevel::Info);
-        cinfo!(M,"hello",);
-        cdebug!(M,"hello {}", "cats");
-        cwarn!(M,"hello {}", "cats",);
+        cinfo!(M, "hello",);
+        cdebug!(M, "hello {}", "cats");
+        cwarn!(M, "hello {}", "cats",);
         cerror!(M,"hello {}", "cats", {
             cat_1: "chashu",
             cat_2: "nori",

@@ -1,18 +1,18 @@
-use std::any::Any;
-use std::fmt::Error;
-use http::header::HeaderName;
-use http::{HeaderValue, Response};
-use hyper::Body;
-use tokio::sync::oneshot::Sender;
 use crate::cerror::CellResult;
 use crate::core::ProtocolID;
 use crate::header::name::CellHeaderName;
 use crate::header::value::CellHeaderValue;
+use http::header::HeaderName;
+use http::{HeaderValue, Response};
+use hyper::Body;
+use std::any::Any;
+use std::fmt::Error;
+use tokio::sync::oneshot::Sender;
 
 pub trait ServerRequestTrait: Send + Sync {
     fn as_any(&self) -> &dyn Any;
-    fn get_string_protocol(&self)->String;
-    fn get_ip(&self)->String;
+    fn get_string_protocol(&self) -> String;
+    fn get_ip(&self) -> String;
 }
 
 pub trait ServerResponseTrait: Send + Sync {
@@ -21,19 +21,18 @@ pub trait ServerResponseTrait: Send + Sync {
     fn as_any(&self) -> &dyn Any;
 }
 
-
 // mock
 pub struct MockRequest {
     pub protocol: ProtocolID,
 }
 
-
 impl MockRequest {
     pub fn new() -> Self {
-        MockRequest { protocol: "protocol"}
+        MockRequest {
+            protocol: "protocol",
+        }
     }
 }
-
 
 impl ServerRequestTrait for MockRequest {
     fn as_any(&self) -> &dyn Any {

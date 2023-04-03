@@ -1,14 +1,12 @@
-use shaku::{module, Component, Interface, HasComponent};
 use crate::extension::HttpExtension;
-
-
+use shaku::{module, Component, HasComponent, Interface};
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-    use std::sync::{Arc, Mutex};
     use crate::extension::{HttpExtension, HttpExtensionBuilder};
     use crate::server::{HttpServer, HttpServerBuilder};
+    use std::cell::RefCell;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn it_works() {

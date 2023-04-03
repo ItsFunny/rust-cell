@@ -1,5 +1,1 @@
-pub trait  InputArchive {
-
-}
-
-
+pub trait InputArchive {}

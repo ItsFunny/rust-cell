@@ -1,6 +1,3 @@
-use std::any::Any;
-use std::cell::RefCell;
-use std::sync::Arc;
 use bytes::Bytes;
 use cell_core::application::CellApplication;
 use cell_core::cerror::CellResult;
@@ -12,14 +9,19 @@ use cell_core::wrapper::ContextResponseWrapper;
 use cellhttp::extension::HttpExtensionFactory;
 use logsdk::common::LogLevel;
 use logsdk::module::CellModule;
-
+use std::any::Any;
+use std::cell::RefCell;
+use std::sync::Arc;
 
 pub struct DemoExtensionFactory {}
 
 pub struct DemoExtension {}
 
 impl ExtensionFactory for DemoExtensionFactory {
-    fn build_extension(&self, compoents: Vec<Arc<Box<dyn Any>>>) -> Option<Arc<RefCell<dyn NodeExtension>>> {
+    fn build_extension(
+        &self,
+        compoents: Vec<Arc<Box<dyn Any>>>,
+    ) -> Option<Arc<RefCell<dyn NodeExtension>>> {
         Some(Arc::new(RefCell::new(DemoExtension {})))
     }
 }
@@ -34,7 +36,6 @@ impl NodeExtension for DemoExtension {
         rt.spawn(async {});
         Ok(())
     }
-
 
     fn commands(&mut self) -> Option<Vec<Command<'static>>> {
         let mut ret: Vec<Command> = Vec::new();

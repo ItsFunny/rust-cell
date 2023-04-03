@@ -10,5 +10,3 @@ fn hello(name: &str, age: u8) -> String {
 fn rocket() -> _ {
     rocket::build().mount("/hello", routes![hello])
 }
-
-

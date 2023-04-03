@@ -3,32 +3,36 @@ use core::cell::RefCell;
 use core::future::Future;
 use core::iter::Map;
 use std::collections::{HashMap, HashSet};
-use std::{mem, thread};
 use std::fmt::format;
+use std::{mem, thread};
 
-use derive_builder::Builder;
-use std::rc::Rc;
-use std::sync::{Arc, Mutex};
-use clap::{App, Arg, arg, ArgMatches, command};
+use crate::banner::{BLESS, CLOSE, INIT, START};
+use crate::bus::{
+    publish_application_events, subscribe_application_events, DefaultRegexQuery, EventBus,
+};
+use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
+use crate::command::Command;
+use crate::core::{conv_protocol_to_string, RunType};
+use crate::event::{
+    ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent,
+    ApplicationReadyEvent, ApplicationStartedEvent, CallBackEvent, Event, NextStepEvent,
+};
+use crate::module::ModuleEnumsStruct;
+use clap::{arg, command, App, Arg, ArgMatches};
 use crossbeam::channel::{bounded, Receiver, Select, Sender};
+use derive_builder::Builder;
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use futures::future::ok;
 use futures::StreamExt;
-use shaku::{module, Component, Interface, HasComponent};
+use logsdk::common::LogLevel;
+use logsdk::module::CellModule;
+use shaku::{module, Component, HasComponent, Interface};
+use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use stopwatch::Stopwatch;
 use tokio::runtime::Runtime;
 use tokio::select;
 use tokio::task::JoinHandle;
-use logsdk::common::LogLevel;
-use logsdk::module::CellModule;
-use crate::banner::{BLESS, CLOSE, INIT, START};
-use crate::bus::{DefaultRegexQuery, EventBus, publish_application_events, subscribe_application_events};
-use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
-use crate::command::Command;
-use crate::core::{conv_protocol_to_string, RunType};
-use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, CallBackEvent, Event, NextStepEvent};
-use crate::module::ModuleEnumsStruct;
-
 
 pub const step_0: u8 = 1 << 0;
 pub const step_1: u8 = 1 << 1;
@@ -40,7 +44,6 @@ pub const default_orderer: i32 = 0;
 pub const max_orderer: i32 = i32::MIN;
 
 const extension_manager: &'static str = "extension_manager";
-
 
 // pub trait  Component: Any + Clone{}
 
@@ -79,7 +82,10 @@ impl Clone for ExtensionManager {
 }
 
 pub trait ExtensionFactory {
-    fn build_extension(&self, compoents: Vec<Arc<Box<dyn Any>>>) -> Option<Arc<RefCell<dyn NodeExtension>>> {
+    fn build_extension(
+        &self,
+        compoents: Vec<Arc<Box<dyn Any>>>,
+    ) -> Option<Arc<RefCell<dyn NodeExtension>>> {
         None
     }
     // TODO ,maybe it should wrapped by refcell
@@ -115,7 +121,6 @@ impl Default for ExtensionManagerBuilder {
         }
     }
 }
-
 
 impl ExtensionManagerBuilder {
     pub fn with_tokio(mut self, r: Arc<Runtime>) -> Self {
@@ -206,7 +211,11 @@ impl ExtensionManager {
             if let Some(opt) = v.clone().borrow_mut().get_options() {
                 for o in opt {
                     if self.has_arg(o.clone()) {
-                        cerror!(ModuleEnumsStruct::EXTENSION,"duplicate option:{}",o.clone());
+                        cerror!(
+                            ModuleEnumsStruct::EXTENSION,
+                            "duplicate option:{}",
+                            o.clone()
+                        );
                         return Err(CellError::from(ErrorEnumsStruct::DUPLICATE_OPTION));
                     }
                     let long = o.clone().get_long();
@@ -256,22 +265,22 @@ impl ExtensionManager {
     //     self.ctx.clone().borrow_mut().set_commands(cmds);
     // }
 
-
     fn has_arg(&self, arg: Arg) -> bool {
-        self.short_ops.contains(&String::from(arg.get_name())) || self.long_ops.contains(&String::from(arg.get_name()))
+        self.short_ops.contains(&String::from(arg.get_name()))
+            || self.long_ops.contains(&String::from(arg.get_name()))
     }
 
     pub fn start(mut self) {
         let runtime = self.ctx.clone().borrow().tokio_runtime.clone();
-        runtime.clone().spawn(async move {
-            self.async_start().await
-        });
+        runtime
+            .clone()
+            .spawn(async move { self.async_start().await });
     }
     pub fn get_ctx(&self) -> Arc<RefCell<NodeContext>> {
         self.ctx.clone()
     }
     async fn async_start(&mut self) {
-        cinfo!(ModuleEnumsStruct::EXTENSION,"extension start");
+        cinfo!(ModuleEnumsStruct::EXTENSION, "extension start");
 
         let mut sel = Select::new();
         let clone_sub = self.subscriber.clone();
@@ -288,13 +297,13 @@ impl ExtensionManager {
             }
             let v = res.unwrap();
             if let Err(v) = self.handle_msg(v).await {
-                cerror!(ModuleEnumsStruct::EXTENSION,"handle msg failed:{}",v);
+                cerror!(ModuleEnumsStruct::EXTENSION, "handle msg failed:{}", v);
             }
         }
     }
 
     async fn handle_msg(&mut self, msg: Arc<Box<dyn Event>>) -> CellResult<()> {
-        cinfo!(ModuleEnumsStruct::EXTENSION,"receive msg:{}",msg);
+        cinfo!(ModuleEnumsStruct::EXTENSION, "receive msg:{}", msg);
         let any = msg.as_any();
         let mut res: CellResult<()> = Ok(());
         {
@@ -303,12 +312,15 @@ impl ExtensionManager {
                 Some(v) => {
                     res = self.on_prepare(v.args.clone());
                     // notify
-                    publish_application_events(self.bus.clone(), Box::new(NextStepEvent::new(self.step)), None);
+                    publish_application_events(
+                        self.bus.clone(),
+                        Box::new(NextStepEvent::new(self.step)),
+                        None,
+                    );
                 }
                 None => {}
             }
         }
-
 
         {
             let actual = any.downcast_ref::<ApplicationInitEvent>();
@@ -316,7 +328,11 @@ impl ExtensionManager {
                 Some(v) => {
                     res = self.on_init();
                     // notify
-                    publish_application_events(self.bus.clone(), Box::new(NextStepEvent::new(self.step)), None);
+                    publish_application_events(
+                        self.bus.clone(),
+                        Box::new(NextStepEvent::new(self.step)),
+                        None,
+                    );
                 }
                 None => {}
             }
@@ -329,12 +345,15 @@ impl ExtensionManager {
                     self.init_commands();
                     res = self.on_start();
                     // notify
-                    publish_application_events(self.bus.clone(), Box::new(NextStepEvent::new(self.step)), None);
+                    publish_application_events(
+                        self.bus.clone(),
+                        Box::new(NextStepEvent::new(self.step)),
+                        None,
+                    );
                 }
                 None => {}
             }
         }
-
 
         {
             let actual = any.downcast_ref::<ApplicationReadyEvent>();
@@ -356,7 +375,6 @@ impl ExtensionManager {
             }
         }
 
-
         res
     }
 
@@ -370,7 +388,7 @@ impl ExtensionManager {
     pub fn on_init(&mut self) -> CellResult<()> {
         self.verify_step(step_1)?;
 
-        cinfo!(ModuleEnumsStruct::EXTENSION,"{}",INIT);
+        cinfo!(ModuleEnumsStruct::EXTENSION, "{}", INIT);
         let mut i = 0;
         while i < self.extension.len() {
             let e = self.extension.get_mut(i).unwrap();
@@ -381,13 +399,21 @@ impl ExtensionManager {
                     if e.clone().borrow_mut().required() {
                         panic!("{}", err.get_msg())
                     }
-                    cerror!(ModuleEnumsStruct::EXTENSION,"init extension [{}] failed ,err:{}"
-                ,e.clone().borrow_mut().module().get_name(),err.get_msg());
+                    cerror!(
+                        ModuleEnumsStruct::EXTENSION,
+                        "init extension [{}] failed ,err:{}",
+                        e.clone().borrow_mut().module().get_name(),
+                        err.get_msg()
+                    );
                 }
                 Ok(..) => {}
             }
-            cinfo!(ModuleEnumsStruct::EXTENSION,"init extension [{}] successfully ,cost:{}"
-                ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
+            cinfo!(
+                ModuleEnumsStruct::EXTENSION,
+                "init extension [{}] successfully ,cost:{}",
+                e.clone().borrow_mut().module().get_name(),
+                wh.elapsed().as_secs()
+            );
             i += 1;
         }
         self.step = step_1;
@@ -397,7 +423,7 @@ impl ExtensionManager {
     pub fn on_start(&mut self) -> CellResult<()> {
         self.verify_step(step_2)?;
         let mut i = 0;
-        cinfo!(ModuleEnumsStruct::EXTENSION,"{}",START);
+        cinfo!(ModuleEnumsStruct::EXTENSION, "{}", START);
         while i < self.extension.len() {
             let wh = Stopwatch::start_new();
             let e = self.extension.get_mut(i).unwrap();
@@ -407,13 +433,21 @@ impl ExtensionManager {
                     if e.clone().borrow_mut().required() {
                         panic!("{}", err.get_msg())
                     }
-                    cerror!(ModuleEnumsStruct::EXTENSION,"start extension [{}] failed ,err:{}"
-                ,e.clone().borrow_mut().module().get_name(),err.get_msg());
+                    cerror!(
+                        ModuleEnumsStruct::EXTENSION,
+                        "start extension [{}] failed ,err:{}",
+                        e.clone().borrow_mut().module().get_name(),
+                        err.get_msg()
+                    );
                 }
                 Ok(..) => {}
             }
-            cinfo!(ModuleEnumsStruct::EXTENSION,"start extension [{}] successfully ,cost:{}"
-                ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
+            cinfo!(
+                ModuleEnumsStruct::EXTENSION,
+                "start extension [{}] successfully ,cost:{}",
+                e.clone().borrow_mut().module().get_name(),
+                wh.elapsed().as_secs()
+            );
             i += 1;
         }
         self.step = step_2;
@@ -424,7 +458,7 @@ impl ExtensionManager {
         self.verify_step(step_3)?;
 
         let mut i = 0;
-        cinfo!(ModuleEnumsStruct::EXTENSION,"{}",BLESS);
+        cinfo!(ModuleEnumsStruct::EXTENSION, "{}", BLESS);
         while i < self.extension.len() {
             let wh = Stopwatch::start_new();
             // TODO ,async
@@ -435,13 +469,21 @@ impl ExtensionManager {
                     if e.clone().borrow_mut().required() {
                         panic!("{}", err.get_msg())
                     }
-                    cerror!(ModuleEnumsStruct::EXTENSION,"load extension [{}] failed ,err:{}"
-                ,e.clone().borrow_mut().module().get_name(),err.get_msg());
+                    cerror!(
+                        ModuleEnumsStruct::EXTENSION,
+                        "load extension [{}] failed ,err:{}",
+                        e.clone().borrow_mut().module().get_name(),
+                        err.get_msg()
+                    );
                 }
                 Ok(..) => {}
             }
-            cinfo!(ModuleEnumsStruct::EXTENSION,"load extension [{}] successfully ,cost:{}"
-                ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
+            cinfo!(
+                ModuleEnumsStruct::EXTENSION,
+                "load extension [{}] successfully ,cost:{}",
+                e.clone().borrow_mut().module().get_name(),
+                wh.elapsed().as_secs()
+            );
             i += 1;
         }
         self.step = step_3;
@@ -450,7 +492,7 @@ impl ExtensionManager {
 
     pub fn on_close(&mut self) -> CellResult<()> {
         self.verify_step(step_4)?;
-        cinfo!(ModuleEnumsStruct::EXTENSION,"{}",CLOSE);
+        cinfo!(ModuleEnumsStruct::EXTENSION, "{}", CLOSE);
         let mut i = 0;
         while i < self.extension.len() {
             let wh = Stopwatch::start_new();
@@ -461,13 +503,21 @@ impl ExtensionManager {
                     if e.clone().borrow_mut().required() {
                         panic!("{}", err.get_msg())
                     }
-                    cerror!(ModuleEnumsStruct::EXTENSION,"close extension [{}] failed ,err:{}"
-                ,e.clone().borrow_mut().module().get_name(),err.get_msg());
+                    cerror!(
+                        ModuleEnumsStruct::EXTENSION,
+                        "close extension [{}] failed ,err:{}",
+                        e.clone().borrow_mut().module().get_name(),
+                        err.get_msg()
+                    );
                 }
                 Ok(..) => {}
             }
-            cinfo!(ModuleEnumsStruct::EXTENSION,"close extension [{}] successfully ,cost:{}"
-                ,e.clone().borrow_mut().module().get_name(),wh.elapsed().as_secs());
+            cinfo!(
+                ModuleEnumsStruct::EXTENSION,
+                "close extension [{}] successfully ,cost:{}",
+                e.clone().borrow_mut().module().get_name(),
+                wh.elapsed().as_secs()
+            );
             i += 1;
         }
         self.step = step_4;
@@ -505,7 +555,12 @@ pub struct NodeContext {
 
 impl NodeContext {
     pub fn new(tokio_runtime: Arc<Runtime>, bus: EventBus<Box<dyn Event>>) -> Self {
-        Self { tokio_runtime, matchers: ArgMatches::default(), commands: HashMap::new(), bus: bus }
+        Self {
+            tokio_runtime,
+            matchers: ArgMatches::default(),
+            commands: HashMap::new(),
+            bus: bus,
+        }
     }
 
     pub fn set_matchers(&mut self, m: ArgMatches) {
@@ -530,7 +585,8 @@ impl NodeContext {
     pub fn set_commands(&mut self, cmds: Vec<Command<'static>>) {
         for cmd in cmds {
             let id = conv_protocol_to_string(cmd.protocol_id);
-            self.commands.insert(self.build_protocol_key(id, cmd.run_type), cmd.clone());
+            self.commands
+                .insert(self.build_protocol_key(id, cmd.run_type), cmd.clone());
         }
     }
     pub fn build_protocol_key(&self, id: String, method: RunType) -> String {
@@ -541,7 +597,6 @@ impl NodeContext {
 unsafe impl Send for NodeContext {}
 
 unsafe impl Sync for NodeContext {}
-
 
 pub trait NodeExtension {
     fn module(&self) -> CellModule;
@@ -590,7 +645,6 @@ pub trait NodeExtension {
     // fn resolve(&mut self, any: Arc<Box<dyn Any>>) {}
 }
 
-
 pub const INTERNAL_TOKIO: CellModule = CellModule::new(1, "INTERNAL_TOKIO", &LogLevel::Info);
 
 ////////////// internal
@@ -616,7 +670,11 @@ impl NodeExtension for InternalTokioExtension {
     }
 
     fn on_start(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
-        ctx.clone().borrow_mut().tokio_runtime.clone().spawn(async {});
+        ctx.clone()
+            .borrow_mut()
+            .tokio_runtime
+            .clone()
+            .spawn(async {});
         Ok(())
     }
 
@@ -626,48 +684,63 @@ impl NodeExtension for InternalTokioExtension {
 }
 /////////
 
-
 #[cfg(test)]
 mod tests {
-    use std::cell::{Cell, RefCell};
-    use std::rc::Rc;
-    use std::sync::{Arc, Mutex};
-    use std::{env, thread, time};
-    use std::borrow::Borrow;
-    use std::collections::{HashMap, HashSet};
-    use std::time::Duration;
-    use crossbeam::channel::{bounded, Receiver, Select, unbounded};
+    use crate::bus::{
+        publish_application_events, subscribe_application_events, DefaultRegexQuery, EventBus,
+    };
+    use crate::event::{
+        ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent,
+        ApplicationReadyEvent, ApplicationStartedEvent, CallBackEvent, Event, NextStepEvent,
+    };
+    use crate::extension::{
+        step_0, step_1, step_2, step_3, step_4, ExtensionManager, ExtensionManagerBuilder,
+        NodeContext, NodeExtension,
+    };
+    use crate::module::ModuleEnumsStruct;
+    use crossbeam::channel::{bounded, unbounded, Receiver, Select};
     use flo_stream::{MessagePublisher, Publisher, Subscriber};
     use futures::StreamExt;
+    use logsdk::common::LogLevel;
+    use logsdk::module::CellModule;
+    use std::borrow::Borrow;
+    use std::cell::{Cell, RefCell};
+    use std::collections::{HashMap, HashSet};
+    use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+    use std::{env, thread, time};
     use stopwatch::Stopwatch;
     use tokio::runtime::Runtime;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;
-    use crate::event::{ApplicationCloseEvent, ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, CallBackEvent, Event, NextStepEvent};
-    use crate::extension::{ExtensionManager, ExtensionManagerBuilder, NodeContext, NodeExtension, step_0, step_1, step_2, step_3, step_4};
-    use crate::module::ModuleEnumsStruct;
-    use logsdk::common::LogLevel;
-    use logsdk::module::CellModule;
-    use crate::bus::{DefaultRegexQuery, EventBus, publish_application_events, subscribe_application_events};
-
 
     #[test]
     fn test_extension() {}
 
-    fn create_builder() -> (ExtensionManager, Arc<Runtime>, Sender<u8>, EventBus<Box<dyn Event>>) {
+    fn create_builder() -> (
+        ExtensionManager,
+        Arc<Runtime>,
+        Sender<u8>,
+        EventBus<Box<dyn Event>>,
+    ) {
         let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread().build().unwrap());
         let (tx, rx) = mpsc::channel::<u8>(1);
 
         let bus = EventBus::<Box<dyn Event>>::new(runtime.clone());
         bus.clone().start();
 
-        (ExtensionManagerBuilder::default()
-             .with_tokio(runtime.clone())
-             .with_close_notifyc(rx)
-             .with_bus(bus.clone())
-             .build(), runtime.clone(), tx, bus.clone())
+        (
+            ExtensionManagerBuilder::default()
+                .with_tokio(runtime.clone())
+                .with_close_notifyc(rx)
+                .with_bus(bus.clone())
+                .build(),
+            runtime.clone(),
+            tx,
+            bus.clone(),
+        )
     }
-
 
     #[test]
     fn test_init_command_line() {
@@ -676,21 +749,19 @@ mod tests {
         m.0.init_command_line(args);
     }
 
-
     #[test]
     fn test_extension_procedure() {
         let mut m = create_builder();
         let ctx = m.0.ctx.clone();
         let am = RefCell::new(m.0);
 
-
         let bus = Arc::new(ctx.clone().borrow_mut().bus.clone());
         let evs = HashSet::<String>::new();
-        let test_sub = subscribe_application_events(ctx.clone().borrow_mut().bus.clone(), "test", None);
+        let test_sub =
+            subscribe_application_events(ctx.clone().borrow_mut().bus.clone(), "test", None);
 
         let run = m.1.clone();
         am.into_inner().start();
-
 
         let clone_bus = bus.clone();
         run.clone().spawn(async move {
@@ -707,7 +778,7 @@ mod tests {
                     }
                 }
                 let msg = res.unwrap();
-                cinfo!(ModuleEnumsStruct::EXTENSION,"收到msg:{}",msg.clone());
+                cinfo!(ModuleEnumsStruct::EXTENSION, "收到msg:{}", msg.clone());
 
                 let any = msg.as_any();
                 {
@@ -715,15 +786,27 @@ mod tests {
                     match actual {
                         Some(v) => {
                             if v.current == step_0 {
-                                publish_application_events(arc_bus.clone(), Box::new(ApplicationInitEvent::new()), None);
+                                publish_application_events(
+                                    arc_bus.clone(),
+                                    Box::new(ApplicationInitEvent::new()),
+                                    None,
+                                );
                             } else if v.current == step_1 {
-                                publish_application_events(arc_bus.clone(), Box::new(ApplicationStartedEvent::new()), None);
+                                publish_application_events(
+                                    arc_bus.clone(),
+                                    Box::new(ApplicationStartedEvent::new()),
+                                    None,
+                                );
                             } else if v.current == step_2 {
-                                publish_application_events(arc_bus.clone(), Box::new(ApplicationReadyEvent::new()), None);
+                                publish_application_events(
+                                    arc_bus.clone(),
+                                    Box::new(ApplicationReadyEvent::new()),
+                                    None,
+                                );
                             } else if v.current == step_3 {
-                                cinfo!(ModuleEnumsStruct::EXTENSION,"step:3")
+                                cinfo!(ModuleEnumsStruct::EXTENSION, "step:3")
                             } else if v.current == step_4 {
-                                cinfo!(ModuleEnumsStruct::EXTENSION,"step:4")
+                                cinfo!(ModuleEnumsStruct::EXTENSION, "step:4")
                             }
                         }
                         None => {}
@@ -748,7 +831,6 @@ mod tests {
         let (sender, receiver) = bounded::<u8>(10);
         let run_time = Arc::new(tokio::runtime::Runtime::new().unwrap());
 
-
         let f = move |index: u8, s: crossbeam::channel::Sender<u8>, r: Receiver<u8>| {
             run_time.clone().spawn(async move {
                 let mut sel = Select::new();
@@ -763,11 +845,15 @@ mod tests {
                         }
                     }
                     let msg = res.unwrap();
-                    cinfo!(ModuleEnumsStruct::EXTENSION,"receive msg:{},index:{}", msg, index);
+                    cinfo!(
+                        ModuleEnumsStruct::EXTENSION,
+                        "receive msg:{},index:{}",
+                        msg,
+                        index
+                    );
                 }
             });
         };
-
 
         let s1 = sender.clone();
         let r1 = receiver.clone();
@@ -778,11 +864,9 @@ mod tests {
         let r2 = receiver.clone();
         f(2, s2, r2);
 
-
         let s3 = sender.clone();
         let r3 = receiver.clone();
         f(3, s3, r3);
-
 
         let publisher = sender.clone();
         for i in 0..5 {

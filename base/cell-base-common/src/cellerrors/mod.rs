@@ -1,12 +1,10 @@
 use std::error::Error;
-use std::fmt::{Display, Formatter, write};
-
+use std::fmt::{write, Display, Formatter};
 
 #[derive(Debug)]
 pub enum ErrorEnum {
     Error(i32, &'static str),
 }
-
 
 #[derive(Debug)]
 pub struct CellError {
@@ -18,7 +16,6 @@ impl<'a> CellError {
         CellError { error_enum }
     }
 }
-
 
 impl Display for CellError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

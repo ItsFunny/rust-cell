@@ -1,40 +1,49 @@
-use core::cell::RefCell;
-use core::ops::Deref;
-use std::arch;
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::Arc;
-use http::Response;
-use hyper::Body;
-use logsdk::common::LogLevel;
-use logsdk::module::CellModule;
 use crate::cerror::{CellError, CellResult, ErrorEnumsStruct};
 use crate::channel::ChannelTrait;
-use crate::command::{Command, CommandContext, mock_context};
+use crate::command::{mock_context, Command, CommandContext};
 use crate::context::{BaseBuzzContext, BuzzContextTrait, ContextWrapper};
 use crate::core::{ExecutorValueTrait, ProtocolID};
 use crate::extension::NodeContext;
 use crate::module::ModuleEnumsStruct;
 use crate::request::{ServerRequestTrait, ServerResponseTrait};
 use crate::selector::{CommandSelector, SelectorRequest, SelectorStrategy};
-
+use core::cell::RefCell;
+use core::ops::Deref;
+use http::Response;
+use hyper::Body;
+use logsdk::common::LogLevel;
+use logsdk::module::CellModule;
+use std::arch;
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Arc;
 
 pub trait Dispatcher: Send + Sync {
-    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>, cmd: &Command<'a>) -> Box<dyn BuzzContextTrait<'a> + 'a>;
+    fn get_info<'a>(
+        &self,
+        req: Arc<Box<dyn ServerRequestTrait + 'a>>,
+        resp: Box<dyn ServerResponseTrait + 'a>,
+        cmd: &Command<'a>,
+    ) -> Box<dyn BuzzContextTrait<'a> + 'a>;
 }
 
-
-pub struct DefaultDispatcher<'e: 'a, 'a>
-{
+pub struct DefaultDispatcher<'e: 'a, 'a> {
     channel: Box<dyn ChannelTrait<'e, 'a> + 'e>,
     command_selector: SelectorStrategy<'e>,
     dispatcher: Box<dyn Dispatcher + 'e>,
 }
 
-impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a> where
-{
-    pub fn new(channel: Box<dyn ChannelTrait<'e, 'a>>, command_selector: SelectorStrategy<'e>, dis: Box<dyn Dispatcher + 'e>) -> Self {
-        let ret = DefaultDispatcher { channel, command_selector, dispatcher: dis };
+impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a> {
+    pub fn new(
+        channel: Box<dyn ChannelTrait<'e, 'a>>,
+        command_selector: SelectorStrategy<'e>,
+        dis: Box<dyn Dispatcher + 'e>,
+    ) -> Self {
+        let ret = DefaultDispatcher {
+            channel,
+            command_selector,
+            dispatcher: dis,
+        };
 
         // TODO ,config commands
 
@@ -52,13 +61,15 @@ unsafe impl<'a> Send for DispatchContext<'a> {}
 unsafe impl<'a> Sync for DispatchContext<'a> {}
 
 impl<'a> DispatchContext<'a> {
-    pub fn new(req: Box<dyn ServerRequestTrait + 'a>, resp: Box<dyn ServerResponseTrait + 'a>) -> Self {
+    pub fn new(
+        req: Box<dyn ServerRequestTrait + 'a>,
+        resp: Box<dyn ServerResponseTrait + 'a>,
+    ) -> Self {
         Self { req, resp }
     }
 }
 
-impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
-{
+impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a> {
     #[inline]
     pub async fn dispatch(&self, mut ctx: DispatchContext<'a>) {
         let req_rc = Arc::new(ctx.req);
@@ -70,12 +81,22 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
         if let Some(c) = cmd_res {
             cmd = c;
         } else {
-            cerror!(ModuleEnumsStruct::DISPATCHER,"command not exists,ip:{},protocol:{}",req_rc.get_ip(),req_rc.get_string_protocol());
-            resp.fire_result(Response::new(Body::from(ErrorEnumsStruct::COMMAND_NOT_EXISTS.get_msg())));
+            cerror!(
+                ModuleEnumsStruct::DISPATCHER,
+                "command not exists,ip:{},protocol:{}",
+                req_rc.get_ip(),
+                req_rc.get_string_protocol()
+            );
+            resp.fire_result(Response::new(Body::from(
+                ErrorEnumsStruct::COMMAND_NOT_EXISTS.get_msg(),
+            )));
             return;
         }
-        let b_ctx: Box<dyn BuzzContextTrait + 'a> = self.dispatcher.get_info(req_rc.clone(), resp, &cmd);
-        self.channel.read_command(ContextWrapper::new(b_ctx, Arc::new(cmd))).await
+        let b_ctx: Box<dyn BuzzContextTrait + 'a> =
+            self.dispatcher.get_info(req_rc.clone(), resp, &cmd);
+        self.channel
+            .read_command(ContextWrapper::new(b_ctx, Arc::new(cmd)))
+            .await
     }
 
     pub fn init(&mut self, ctx: Arc<RefCell<NodeContext>>) {
@@ -85,7 +106,10 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
         }
     }
 
-    pub fn get_cmd_from_request(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>) -> Option<Command<'a>> {
+    pub fn get_cmd_from_request(
+        &self,
+        req: Arc<Box<dyn ServerRequestTrait + 'a>>,
+    ) -> Option<Command<'a>> {
         // TODO ,useless
         let (txx, mut rxx) = std::sync::mpsc::channel::<Command>();
         let req = SelectorRequest::new(req, txx);
@@ -96,29 +120,23 @@ impl<'e: 'a, 'a> DefaultDispatcher<'e, 'a>
 pub struct MockDispatcher {}
 
 impl Dispatcher for MockDispatcher {
-    fn get_info<'a>(&self, req: Arc<Box<dyn ServerRequestTrait + 'a>>, resp: Box<dyn ServerResponseTrait + 'a>, cmd: &Command<'a>) -> Box<dyn BuzzContextTrait<'a> + 'a> {
+    fn get_info<'a>(
+        &self,
+        req: Arc<Box<dyn ServerRequestTrait + 'a>>,
+        resp: Box<dyn ServerResponseTrait + 'a>,
+        cmd: &Command<'a>,
+    ) -> Box<dyn BuzzContextTrait<'a> + 'a> {
         let (c, rxx, ctx) = mock_context();
         let res: Box<dyn BuzzContextTrait<'a>> = Box::new(ctx);
         res
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-    use std::sync::Arc;
-    use bytes::Bytes;
-    use http::header::HeaderName;
-    use http::Response;
-    use hyper::Body;
-    use tokio::runtime::Runtime;
-    use logsdk::common::LogLevel;
-    use logsdk::module;
-    use logsdk::module::CellModule;
     use crate::cerror::CellResult;
     use crate::channel::mock_channel;
-    use crate::command::{Command, CommandContext, mock_context};
+    use crate::command::{mock_context, Command, CommandContext};
     use crate::constants::ProtocolStatus;
     use crate::context::BaseBuzzContext;
     use crate::core::{ProtocolID, RunType};
@@ -128,6 +146,16 @@ mod tests {
     use crate::selector::{CommandSelector, MockDefaultPureSelector, SelectorStrategy};
     use crate::summary::{Summary, SummaryTrait};
     use crate::wrapper::ContextResponseWrapper;
+    use bytes::Bytes;
+    use http::header::HeaderName;
+    use http::Response;
+    use hyper::Body;
+    use logsdk::common::LogLevel;
+    use logsdk::module;
+    use logsdk::module::CellModule;
+    use std::rc::Rc;
+    use std::sync::Arc;
+    use tokio::runtime::Runtime;
 
     #[test]
     fn it_works() {
@@ -149,7 +177,8 @@ mod tests {
         let mock_dispatcher = MockDispatcher {};
         let vec_executors: Vec<Box<dyn CommandSelector>> = vec![Box::new(selector)];
         let selector = SelectorStrategy::new(vec_executors);
-        let mut dispatcher = DefaultDispatcher::new(Box::new(channel), selector, Box::new(mock_dispatcher));
+        let mut dispatcher =
+            DefaultDispatcher::new(Box::new(channel), selector, Box::new(mock_dispatcher));
         let req = Box::new(MockRequest::new());
         let resp = Box::new(MockResponse::new(txx));
         let ctx = DispatchContext::new(req, resp);

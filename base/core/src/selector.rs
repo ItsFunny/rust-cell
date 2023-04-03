@@ -1,17 +1,17 @@
-use core::marker::PhantomData;
-use core::ops::Deref;
-use std::collections::HashMap;
-use std::fmt::{Debug, Formatter};
-use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::mpsc::Sender;
-use std_core::cell::RefCell;
-use rocket::figment::map;
-use pipeline2::pipeline2::DefaultPipelineV2;
 use crate::cerror::CellResult;
 use crate::command::*;
 use crate::core::{conv_protocol_to_string, ExecutorValueTrait};
 use crate::request::{MockRequest, ServerRequestTrait};
+use core::marker::PhantomData;
+use core::ops::Deref;
+use pipeline2::pipeline2::DefaultPipelineV2;
+use rocket::figment::map;
+use std::collections::HashMap;
+use std::fmt::{Debug, Formatter};
+use std::rc::Rc;
+use std::sync::mpsc::Sender;
+use std::sync::Arc;
+use std_core::cell::RefCell;
 
 pub trait CommandSelector<'a>: Send + Sync {
     // FIXME , reference or clone ?
@@ -28,7 +28,11 @@ pub struct SelectorRequest<'a> {
 
 impl<'a> SelectorRequest<'a> {
     pub fn new(request: Arc<Box<dyn ServerRequestTrait + 'a>>, tx: Sender<Command<'a>>) -> Self {
-        SelectorRequest { request, tx, done: RefCell::new(false) }
+        SelectorRequest {
+            request,
+            tx,
+            done: RefCell::new(false),
+        }
     }
 }
 
@@ -37,11 +41,12 @@ unsafe impl<'a> Send for SelectorRequest<'a> {}
 unsafe impl<'a> Sync for SelectorRequest<'a> {}
 
 impl<'a> Debug for SelectorRequest<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result { Ok(()) }
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
 }
 
 impl<'a> ExecutorValueTrait<'a> for SelectorRequest<'a> {}
-
 
 //////// mock
 pub struct MockDefaultPureSelector<'a> {
@@ -54,7 +59,9 @@ unsafe impl<'a> Sync for MockDefaultPureSelector<'a> {}
 
 impl<'a> MockDefaultPureSelector<'a> {
     pub fn new() -> Self {
-        let mut ret = MockDefaultPureSelector { commands: Default::default() };
+        let mut ret = MockDefaultPureSelector {
+            commands: Default::default(),
+        };
         ret.on_register_cmd(mock_command());
         return ret;
     }
@@ -79,9 +86,7 @@ impl<'a> CommandSelector<'a> for MockDefaultPureSelector<'a> {
                 // TODO
                 Some(ret.clone())
             }
-            None => {
-                None
-            }
+            None => None,
         }
     }
 
@@ -126,7 +131,9 @@ pub struct SelectorStrategy<'a> {
 
 impl<'a> SelectorStrategy<'a> {
     pub fn new(executor: Vec<Box<dyn CommandSelector<'a> + 'a>>) -> Self {
-        SelectorStrategy { selectors: executor }
+        SelectorStrategy {
+            selectors: executor,
+        }
     }
 }
 
@@ -149,11 +156,19 @@ impl<'a> CommandSelector<'a> for SelectorStrategy<'a> {
 
 #[cfg(test)]
 mod tests {
-    use core::cell::RefCell;
-    use std::borrow::Borrow;
-    use std::rc::Rc;
-    use std::sync::Arc;
+    use crate::command::*;
+    use crate::constants::ProtocolStatus;
+    use crate::context::BaseBuzzContext;
+    use crate::core::{ProtocolID, RunType};
+    use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
+    use crate::response::MockResponse;
+    use crate::selector::{
+        CommandSelector, MockDefaultPureSelector, SelectorRequest, SelectorStrategy,
+    };
+    use crate::summary::{Summary, SummaryTrait};
+    use crate::wrapper::ContextResponseWrapper;
     use bytes::Bytes;
+    use core::cell::RefCell;
     use futures::select;
     use http::header::HeaderName;
     use http::Response;
@@ -162,15 +177,9 @@ mod tests {
     use logsdk::module;
     use logsdk::module::CellModule;
     use pipeline2::pipeline2::{ClosureExecutor, DefaultReactorExecutor, PipelineBuilder};
-    use crate::command::*;
-    use crate::constants::ProtocolStatus;
-    use crate::context::BaseBuzzContext;
-    use crate::core::{ProtocolID, RunType};
-    use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
-    use crate::response::MockResponse;
-    use crate::selector::{CommandSelector, MockDefaultPureSelector, SelectorRequest, SelectorStrategy};
-    use crate::summary::{Summary, SummaryTrait};
-    use crate::wrapper::ContextResponseWrapper;
+    use std::borrow::Borrow;
+    use std::rc::Rc;
+    use std::sync::Arc;
 
     #[test]
     fn it_works() {

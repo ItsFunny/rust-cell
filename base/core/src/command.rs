@@ -1,16 +1,3 @@
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::sync::Arc;
-use bytes::Bytes;
-use http::Response;
-use hyper::Body;
-use tokio::sync::oneshot::Sender;
-use logsdk::common::LogLevel;
-use logsdk::log4rs::DEFAULT_LOGGER;
-use logsdk::module;
-use logsdk::module::CellModule;
 use crate::constants::ProtocolStatus;
 use crate::context::{BaseBuzzContext, BuzzContextTrait};
 use crate::core::{AliasRequestType, AliasResponseType, ExecutorValueTrait, ProtocolID, RunType};
@@ -19,7 +6,19 @@ use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
 use crate::response::MockResponse;
 use crate::summary::{Summary, SummaryTrait};
 use crate::wrapper::ContextResponseWrapper;
-
+use bytes::Bytes;
+use http::Response;
+use hyper::Body;
+use logsdk::common::LogLevel;
+use logsdk::log4rs::DEFAULT_LOGGER;
+use logsdk::module;
+use logsdk::module::CellModule;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::sync::Arc;
+use tokio::sync::oneshot::Sender;
 
 pub type Function = dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>);
 
@@ -36,10 +35,12 @@ pub struct ClosureFunc<'a> {
     _marker_e: PhantomData<&'a ()>,
 }
 
-
 impl<'a> ClosureFunc<'a> {
     pub fn new(f: Arc<dyn Fn(&mut dyn BuzzContextTrait, Option<&dyn ExecutorValueTrait>)>) -> Self {
-        Self { f, _marker_e: Default::default() }
+        Self {
+            f,
+            _marker_e: Default::default(),
+        }
     }
 }
 
@@ -55,8 +56,7 @@ pub trait CommandTrait: Clone {
     // fn to_command<'a>(&self) -> Command<'a>;
 }
 
-pub struct Command<'a>
-{
+pub struct Command<'a> {
     pub protocol_id: ProtocolID,
     pub fun: Option<Arc<ClosureFunc<'a>>>,
     pub meta_data: MetaData,
@@ -89,7 +89,6 @@ pub fn mock_command2<'a>() -> Command<'a> {
     c = c.with_protocol_id("/protocol").with_executor(Arc::new(f));
     return c;
 }
-
 
 impl<'a> Clone for Command<'a> {
     fn clone(&self) -> Self {
@@ -172,8 +171,7 @@ impl MetaData {
     }
 }
 
-pub struct CommandContext<'a>
-{
+pub struct CommandContext<'a> {
     pub module: &'static CellModule,
     pub server_request: Arc<Box<dyn ServerRequestTrait + 'a>>,
     // TODO REFCELL
@@ -198,12 +196,12 @@ impl<'a> Default for Command<'a> {
     }
 }
 
-impl<'a> CommandContext<'a> where
-{
-    pub fn new(module: &'static CellModule,
-               server_request: Arc<Box<dyn ServerRequestTrait + 'a>>,
-               server_response: Box<dyn ServerResponseTrait + 'a>,
-               st: Box<dyn SummaryTrait + 'a>,
+impl<'a> CommandContext<'a> {
+    pub fn new(
+        module: &'static CellModule,
+        server_request: Arc<Box<dyn ServerRequestTrait + 'a>>,
+        server_response: Box<dyn ServerResponseTrait + 'a>,
+        st: Box<dyn SummaryTrait + 'a>,
     ) -> Self {
         CommandContext {
             module,
@@ -231,7 +229,11 @@ impl<'a> CommandTrait for Command<'a> {
     }
 }
 
-pub fn mock_context<'a>() -> (Command<'a>, std::sync::mpsc::Receiver<Response<Body>>, BaseBuzzContext<'a>) {
+pub fn mock_context<'a>() -> (
+    Command<'a>,
+    std::sync::mpsc::Receiver<Response<Body>>,
+    BaseBuzzContext<'a>,
+) {
     let (txx, mut rxx) = std::sync::mpsc::channel::<Response<Body>>();
     let p: ProtocolID = "/protocol/v1" as ProtocolID;
     let mut c = mock_command();
@@ -250,7 +252,14 @@ pub fn mock_context<'a>() -> (Command<'a>, std::sync::mpsc::Receiver<Response<Bo
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use crate::command::{mock_context, Command, CommandContext, CommandTrait};
+    use crate::constants::ProtocolStatus;
+    use crate::context::BaseBuzzContext;
+    use crate::core::ProtocolID;
+    use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
+    use crate::response::MockResponse;
+    use crate::summary::{Summary, SummaryTrait};
+    use crate::wrapper::ContextResponseWrapper;
     use bytes::Bytes;
     use http::header::HeaderName;
     use http::Response;
@@ -259,14 +268,7 @@ mod tests {
     use logsdk::module;
     use logsdk::module::CellModule;
     use pipeline2::pipeline2::is_send;
-    use crate::command::{Command, CommandContext, CommandTrait, mock_context};
-    use crate::constants::ProtocolStatus;
-    use crate::context::BaseBuzzContext;
-    use crate::core::ProtocolID;
-    use crate::request::{MockRequest, ServerRequestTrait, ServerResponseTrait};
-    use crate::response::MockResponse;
-    use crate::summary::{Summary, SummaryTrait};
-    use crate::wrapper::ContextResponseWrapper;
+    use std::sync::Arc;
 
     #[test]
     fn it_works() {

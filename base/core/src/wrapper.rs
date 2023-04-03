@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-use std::marker::PhantomData;
-use bytes::Bytes;
-use rocket::response::Body;
 use crate::constants::EnumsProtocolStatus;
 use crate::output::OutputArchive;
+use bytes::Bytes;
+use rocket::response::Body;
+use std::collections::HashMap;
+use std::marker::PhantomData;
 
 pub struct ContextResponseWrapper<'a> {
     status: Option<&'static EnumsProtocolStatus>,
@@ -15,7 +15,6 @@ pub struct ContextResponseWrapper<'a> {
 // unsafe impl<'a> Send for ContextResponseWrapper<'a> {}
 //
 // unsafe impl<'a> Sync for ContextResponseWrapper<'a> {}
-
 
 impl<'a> ContextResponseWrapper<'a> {
     #[inline(always)]

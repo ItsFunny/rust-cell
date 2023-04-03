@@ -1,10 +1,10 @@
-use std::collections::HashMap;
 use crate::command::Command;
 use crate::core::conv_protocol_to_string;
+use std::collections::HashMap;
 
 pub trait Collector<T>
-    where
-        T: Clone
+where
+    T: Clone,
 {
     fn collect(&mut self, t: T);
 }
@@ -24,4 +24,3 @@ impl Collector<Command<'static>> for DefaultCommandCollector {
         self.commands.insert(id, cmd);
     }
 }
-

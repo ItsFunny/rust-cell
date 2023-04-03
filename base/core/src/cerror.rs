@@ -1,11 +1,9 @@
-use std::error::Error;
-use std::{fmt, io, result};
-use std::fmt::{Display, Formatter};
 use crate::cerror::ErrorEnums::Kind;
-
+use std::error::Error;
+use std::fmt::{Display, Formatter};
+use std::{fmt, io, result};
 
 pub type CellResult<T> = Result<T, CellError>;
-
 
 #[derive(Debug)]
 pub struct CellError {
@@ -27,7 +25,12 @@ impl CellError {
         &self.msg
     }
     pub fn new(code: usize, msg: String) -> Self {
-        CellError { code, msg, err: None, wrapped_error: None }
+        CellError {
+            code,
+            msg,
+            err: None,
+            wrapped_error: None,
+        }
     }
     pub fn with_wrapped_error(mut self, e: Box<CellError>) -> Self {
         self.wrapped_error = Some(e);
@@ -76,17 +79,12 @@ impl Display for CellError {
 impl Error for CellError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match &self.wrapped_error {
-            Some(v) => {
-                Some(v)
-            }
-            None => {
-                None
-            }
+            Some(v) => Some(v),
+            None => None,
         }
     }
 }
 // TODO ,add from
-
 
 //// enums
 // #[derive(Debug)]
@@ -98,30 +96,20 @@ pub enum ErrorEnums {
 impl ErrorEnums {
     pub fn get_code(&self) -> usize {
         match self {
-            Kind(code, msg) => {
-                *code
-            }
-            _ => {
-                0
-            }
+            Kind(code, msg) => *code,
+            _ => 0,
         }
     }
     pub fn get_msg(&self) -> &'static str {
         match self {
-            Kind(code, msg) => {
-                *msg
-            }
-            _ => {
-                "wrong type"
-            }
+            Kind(code, msg) => *msg,
+            _ => "wrong type",
         }
     }
     pub fn is_success(&self) -> bool {
         self.get_code() == 0
     }
 }
-
-
 
 #[macro_export]
 macro_rules! error_enums {
@@ -160,14 +148,11 @@ error_enums!(
     (EVENT_BUS_SUBSCRIBE_FAILED,11,"failed to subscribe");
 );
 
-
-
-
 //// tests
 #[cfg(test)]
 mod tests {
-    use std::io;
     use crate::cerror::{CellError, ErrorEnums, ErrorEnumsStruct};
+    use std::io;
 
     #[test]
     fn test_enums() {

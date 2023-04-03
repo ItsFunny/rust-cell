@@ -1,5 +1,5 @@
-use rocket::time::macros::time;
 use crate::constants::EnumsProtocolStatus::Status;
+use rocket::time::macros::time;
 
 pub enum EnumsProtocolStatus {
     Status(i64),
@@ -8,12 +8,8 @@ pub enum EnumsProtocolStatus {
 impl EnumsProtocolStatus {
     pub fn get_i64(self) -> i64 {
         match self {
-            Status(v) => {
-                v
-            }
-            _ => {
-                0
-            }
+            Status(v) => v,
+            _ => 0,
         }
     }
 }

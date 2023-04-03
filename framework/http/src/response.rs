@@ -1,13 +1,13 @@
-use std::any::Any;
-use std::sync::Arc;
-use std::sync::mpsc::Sender;
+use cell_core::cerror::CellResult;
+use cell_core::request::ServerResponseTrait;
+use futures::*;
 use http::header::HeaderName;
 use http::{HeaderValue, Response};
 use hyper::Body;
-use futures::*;
+use std::any::Any;
+use std::sync::mpsc::Sender;
+use std::sync::Arc;
 use tokio::sync::oneshot;
-use cell_core::cerror::CellResult;
-use cell_core::request::ServerResponseTrait;
 
 pub struct HttpResponse {
     // tx: oneshot::Sender<Response<Body>>,
@@ -20,15 +20,12 @@ unsafe impl Sync for HttpResponse {}
 
 impl HttpResponse {
     pub fn new(txxxx: Sender<Response<Body>>) -> Self {
-        Self {  txx: txxxx }
+        Self { txx: txxxx }
     }
 }
 
-
 impl ServerResponseTrait for HttpResponse {
-    fn add_header(&mut self, key: HeaderName, value: HeaderValue) {
-
-    }
+    fn add_header(&mut self, key: HeaderName, value: HeaderValue) {}
 
     fn fire_result(&mut self, result: Response<Body>) -> CellResult<()> {
         let (tx, rx) = std::sync::mpsc::channel::<Response<Body>>();

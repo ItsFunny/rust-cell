@@ -1,43 +1,37 @@
-use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::ops::Add;
+use crate::cerror::{CellError, CellResult, ErrorEnums, ErrorEnumsStruct};
+use crate::output;
 use bytes::Bytes;
 use chrono::format::Item;
 use futures::task::ArcWake;
 use json::JsonValue;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use crate::cerror::{CellError, CellResult, ErrorEnums, ErrorEnumsStruct};
-use crate::output;
-
+use std::fmt::Debug;
+use std::marker::PhantomData;
+use std::ops::Add;
 
 pub trait Serializable<'a>: Serialize + Deserialize<'a> + Debug + 'a {}
 
 lazy_static! {
-pub static ref DEFAULT_JSON_OUTPUT_ARCHIVE: JSONOutputArchive<'static> = JSONOutputArchive { _marker: Default::default() };
-    }
-
-
-pub fn as_json_bytes<'a, T: output::Serializable<'a>>(syn: T) -> CellResult<Bytes> {
-    unsafe {
-        DEFAULT_JSON_OUTPUT_ARCHIVE.as_bytes(Box::new(syn))
-    }
+    pub static ref DEFAULT_JSON_OUTPUT_ARCHIVE: JSONOutputArchive<'static> = JSONOutputArchive {
+        _marker: Default::default()
+    };
 }
 
-pub trait OutputArchive<T>: Sync + Send
-{
+pub fn as_json_bytes<'a, T: output::Serializable<'a>>(syn: T) -> CellResult<Bytes> {
+    unsafe { DEFAULT_JSON_OUTPUT_ARCHIVE.as_bytes(Box::new(syn)) }
+}
+
+pub trait OutputArchive<T>: Sync + Send {
     fn as_bytes(&self, s: Box<T>) -> CellResult<Bytes>;
 }
 
-pub struct JSONOutputArchive<'a>
-{
+pub struct JSONOutputArchive<'a> {
     _marker: PhantomData<&'a ()>,
 }
 
-unsafe impl<'a> Send for JSONOutputArchive<'a>
-{}
+unsafe impl<'a> Send for JSONOutputArchive<'a> {}
 
-unsafe impl<'a> Sync for JSONOutputArchive<'a>
-{}
+unsafe impl<'a> Sync for JSONOutputArchive<'a> {}
 
 impl<'a> Default for JSONOutputArchive<'a> {
     fn default() -> Self {
@@ -48,28 +42,26 @@ impl<'a> Default for JSONOutputArchive<'a> {
 }
 
 impl<'a, T> OutputArchive<T> for JSONOutputArchive<'a>
-    where
-        T: Serializable<'a>
+where
+    T: Serializable<'a>,
 {
     fn as_bytes(&self, syn: Box<T>) -> CellResult<Bytes> {
         // TODO NONE
-        serde_json::to_string(&syn).and_then(|v| {
-            Ok(Bytes::from(v))
-        }).map_err(|e| {
-            CellError::from(ErrorEnumsStruct::JSON_SERIALIZE).with_error(Box::new(e))
-        })
+        serde_json::to_string(&syn)
+            .and_then(|v| Ok(Bytes::from(v)))
+            .map_err(|e| CellError::from(ErrorEnumsStruct::JSON_SERIALIZE).with_error(Box::new(e)))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use std::fmt::{Debug, Formatter};
-    use std::ops::Add;
+    use crate::output::{JSONOutputArchive, OutputArchive, Serializable};
     use bytes::{Buf, Bytes};
     use json::JsonValue;
     use rocket::debug;
-    use crate::output::{JSONOutputArchive, OutputArchive, Serializable};
+    use std::collections::HashMap;
+    use std::fmt::{Debug, Formatter};
+    use std::ops::Add;
 
     use serde::{Deserialize, Serialize, Serializer};
     use serde_json::Result;
@@ -120,7 +112,6 @@ mod tests {
         let ret = serde_json::to_string(bs.chunk());
         println!("{:?}", ret);
     }
-
 
     pub struct C {
         name: String,

@@ -1,3 +1,1 @@
-pub trait Decorator {
-
-}
+pub trait Decorator {}

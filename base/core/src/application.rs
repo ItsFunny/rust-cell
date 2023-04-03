@@ -1,20 +1,26 @@
+use crate::bus::{publish_application_events, subscribe_application_events, EventBus};
+use crate::command::Command;
+use crate::event::{
+    ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent,
+    ApplicationStartedEvent, Event, NextStepEvent,
+};
+use crate::extension::{
+    step_0, step_1, step_2, step_3, step_4, ExtensionFactory, ExtensionManager,
+    ExtensionManagerBuilder,
+};
+use crate::module::ModuleEnumsStruct;
 use core::any::Any;
 use core::cell::RefCell;
-use std::sync::{Arc, Mutex};
-use std::thread::sleep;
 use crossbeam::channel::{bounded, Select, Sender};
 use flo_stream::Publisher;
+use logsdk::common::LogLevel;
+use logsdk::module::CellModule;
 use rocket::build;
+use std::sync::{Arc, Mutex};
+use std::thread::sleep;
 use tokio::runtime::Runtime;
 use tokio::signal;
 use tokio::sync::mpsc;
-use logsdk::common::LogLevel;
-use logsdk::module::CellModule;
-use crate::bus::{EventBus, publish_application_events, subscribe_application_events};
-use crate::command::Command;
-use crate::event::{ApplicationEnvironmentPreparedEvent, ApplicationInitEvent, ApplicationReadyEvent, ApplicationStartedEvent, Event, NextStepEvent};
-use crate::extension::{ExtensionFactory, ExtensionManager, ExtensionManagerBuilder, step_0, step_1, step_2, step_3, step_4};
-use crate::module::ModuleEnumsStruct;
 
 const Application: &'static str = "application";
 
@@ -25,13 +31,10 @@ pub struct CellApplication {
     runtime: Arc<Runtime>,
 }
 
-
 impl CellApplication {
     pub fn run(self, args: Vec<String>) {
         let runtime = self.runtime.clone();
-        runtime.block_on(async {
-            self.async_start(args).await
-        })
+        runtime.block_on(async { self.async_start(args).await })
     }
     async fn async_start(self, args: Vec<String>) {
         // start
@@ -42,7 +45,11 @@ impl CellApplication {
         match signal::ctrl_c().await {
             Ok(()) => {}
             Err(err) => {
-                cerror!(ModuleEnumsStruct::CELL_APPLICATION,"Unable to listen for shutdown signal: {}", err);
+                cerror!(
+                    ModuleEnumsStruct::CELL_APPLICATION,
+                    "Unable to listen for shutdown signal: {}",
+                    err
+                );
             }
         }
     }
@@ -66,7 +73,11 @@ impl CellApplication {
                 }
             }
             let msg = res.unwrap();
-            cinfo!(ModuleEnumsStruct::CELL_APPLICATION,"收到msg:{}",msg.clone());
+            cinfo!(
+                ModuleEnumsStruct::CELL_APPLICATION,
+                "收到msg:{}",
+                msg.clone()
+            );
 
             let any = msg.as_any();
             {
@@ -74,15 +85,27 @@ impl CellApplication {
                 match actual {
                     Some(v) => {
                         if v.current == step_0 {
-                            publish_application_events(arc_bus.clone(), Box::new(ApplicationInitEvent::new()), None);
+                            publish_application_events(
+                                arc_bus.clone(),
+                                Box::new(ApplicationInitEvent::new()),
+                                None,
+                            );
                         } else if v.current == step_1 {
-                            publish_application_events(arc_bus.clone(), Box::new(ApplicationStartedEvent::new()), None);
+                            publish_application_events(
+                                arc_bus.clone(),
+                                Box::new(ApplicationStartedEvent::new()),
+                                None,
+                            );
                         } else if v.current == step_2 {
-                            publish_application_events(arc_bus.clone(), Box::new(ApplicationReadyEvent::new()), None);
+                            publish_application_events(
+                                arc_bus.clone(),
+                                Box::new(ApplicationReadyEvent::new()),
+                                None,
+                            );
                         } else if v.current == step_3 {
-                            cinfo!(ModuleEnumsStruct::EXTENSION,"step:3")
+                            cinfo!(ModuleEnumsStruct::EXTENSION, "step:3")
                         } else if v.current == step_4 {
-                            cinfo!(ModuleEnumsStruct::EXTENSION,"step:4")
+                            cinfo!(ModuleEnumsStruct::EXTENSION, "step:4")
                         }
                     }
                     None => {}
@@ -93,7 +116,12 @@ impl CellApplication {
 
     pub fn new(mut builders: Vec<Box<dyn ExtensionFactory>>) -> Self {
         let mut components = collect_components(&builders);
-        let rt = Arc::new(tokio::runtime::Builder::new_multi_thread().enable_io().build().unwrap());
+        let rt = Arc::new(
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_io()
+                .build()
+                .unwrap(),
+        );
         let mut bus = EventBus::new(rt.clone());
         let mut manage_builder = ExtensionManagerBuilder::default();
         manage_builder = manage_builder
@@ -108,14 +136,15 @@ impl CellApplication {
             }
         }
         let (txx, rxx) = mpsc::channel::<u8>(1);
-        manage_builder = manage_builder
-            .with_close_notifyc(rxx);
+        manage_builder = manage_builder.with_close_notifyc(rxx);
         let extension_manager = manage_builder.build();
-        let runtime = extension_manager.get_ctx().clone().borrow().tokio_runtime.clone();
-        runtime.spawn(async {
-            println!("1")
-        });
-
+        let runtime = extension_manager
+            .get_ctx()
+            .clone()
+            .borrow()
+            .tokio_runtime
+            .clone();
+        runtime.spawn(async { println!("1") });
 
         CellApplication {
             bus: bus.clone(),
@@ -125,7 +154,6 @@ impl CellApplication {
         }
     }
 }
-
 
 fn collect_components(mut builders: &Vec<Box<dyn ExtensionFactory>>) -> Vec<Arc<Box<dyn Any>>> {
     let mut ret: Vec<Arc<Box<dyn Any>>> = Vec::new();
@@ -167,26 +195,27 @@ fn collect_components(mut builders: &Vec<Box<dyn ExtensionFactory>>) -> Vec<Arc<
 //     return ret;
 // }
 
-
 #[cfg(test)]
 mod tests {
-    use core::any::Any;
-    use core::cell::RefCell;
-    use std::env;
-    use std::sync::Arc;
-    use clap::Arg;
-    use logsdk::common::LogLevel;
-    use logsdk::module::CellModule;
     use crate::application::CellApplication;
     use crate::command::Command;
     use crate::extension::{ExtensionFactory, NodeExtension};
-
+    use clap::Arg;
+    use core::any::Any;
+    use core::cell::RefCell;
+    use logsdk::common::LogLevel;
+    use logsdk::module::CellModule;
+    use std::env;
+    use std::sync::Arc;
 
     //////
     pub struct DemoExtensionFactory {}
 
     impl ExtensionFactory for DemoExtensionFactory {
-        fn build_extension(&self, components: Vec<Arc<Box<dyn Any>>>) -> Option<Arc<RefCell<dyn NodeExtension>>> {
+        fn build_extension(
+            &self,
+            components: Vec<Arc<Box<dyn Any>>>,
+        ) -> Option<Arc<RefCell<dyn NodeExtension>>> {
             let mut compo1: Option<DemoComponent1> = None;
             for com in components {
                 if let Some(v) = com.downcast_ref::<DemoComponent1>() {
@@ -194,12 +223,13 @@ mod tests {
                 }
             }
             // panic
-            let ret = DemoExtension { com1: compo1.unwrap() };
+            let ret = DemoExtension {
+                com1: compo1.unwrap(),
+            };
 
             Some(Arc::new(RefCell::new(ret)))
         }
     }
-
 
     pub struct DemoExtension {
         // pub com1:,
@@ -219,8 +249,10 @@ mod tests {
             CellModule::new(1, "asd", &LogLevel::Info)
         }
         fn get_options<'a>(&self) -> Option<Vec<Arg<'a>>> {
-            Some(vec![Arg::default().name("demo").long("long").required(false),
-                      Arg::default().name("demo2").long("long2").required(false)])
+            Some(vec![
+                Arg::default().name("demo").long("long").required(false),
+                Arg::default().name("demo2").long("long2").required(false),
+            ])
         }
     }
 

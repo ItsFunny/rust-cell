@@ -1,9 +1,9 @@
 use core::any::Any;
 use core::future::Future;
-use std::fmt::{Display, Formatter, write};
-use std::sync::{Arc, mpsc, Mutex};
-use std_core::cell::RefCell;
 use flo_stream::{MessagePublisher, Publisher};
+use std::fmt::{write, Display, Formatter};
+use std::sync::{mpsc, Arc, Mutex};
+use std_core::cell::RefCell;
 use tokio::runtime::Runtime;
 
 pub trait Event: Send + Sync + Display {
@@ -36,7 +36,6 @@ impl Event for ApplicationEnvironmentPreparedEvent {
         self
     }
 }
-
 
 /////////
 pub struct ApplicationInitEvent {}
@@ -121,7 +120,6 @@ impl Event for ApplicationCloseEvent {
         self
     }
 }
-
 
 ///////////
 pub struct NextStepEvent {

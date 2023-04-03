@@ -4,50 +4,61 @@ extern crate log4rs;
 
 use backtrace::Backtrace;
 
-use std::borrow::{Borrow, BorrowMut};
-use std::fmt::Arguments;
-use std::ptr::null;
-use std::{thread, time};
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::thread::LocalKey;
 use log::{error, Level, LevelFilter, Log, Metadata, Record};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
-use log4rs::encode::pattern::PatternEncoder;
 use log4rs::config::{Appender, Config, Logger, Root};
+use log4rs::encode::pattern::PatternEncoder;
+use std::borrow::{Borrow, BorrowMut};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::fmt::Arguments;
+use std::ptr::null;
+use std::thread::LocalKey;
+use std::{thread, time};
 use term_painter::{Color, ToStyle};
-
-
 
 fn init_log() {
     let _ = log4rs::init_config(build_cfg()).unwrap();
     let ll = log4rs::Logger::new(build_cfg());
-    ll.log(&Record::builder()
-        .module_path(Some("asdd"))
-        .file(Some("filepath"))
-        .metadata(Metadata::builder().level(Level::Error).target("metadata").build())
-        .build());
+    ll.log(
+        &Record::builder()
+            .module_path(Some("asdd"))
+            .file(Some("filepath"))
+            .metadata(
+                Metadata::builder()
+                    .level(Level::Error)
+                    .target("metadata")
+                    .build(),
+            )
+            .build(),
+    );
     ll.flush();
 }
 
 fn build_cfg() -> Config {
     let stdout = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("[Console] {d} - {l} -{t} - {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new(
+            "[Console] {d} - {l} -{t} - {m}{n}",
+        )))
         .build();
 
     let file = FileAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("[File] {d} - {l} - {t} - {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new(
+            "[File] {d} - {l} - {t} - {m}{n}",
+        )))
         .build("log/test.log")
         .unwrap();
 
     let config = Config::builder()
         .appender(Appender::builder().build("stdout", Box::new(stdout)))
         .appender(Appender::builder().build("file", Box::new(file)))
-        .logger(Logger::builder()
-            .appender("file")
-            .additive(false)
-            .build("app", LevelFilter::Info))
+        .logger(
+            Logger::builder()
+                .appender("file")
+                .additive(false)
+                .build("app", LevelFilter::Info),
+        )
         .build(Root::builder().appender("stdout").build(LevelFilter::Info))
         .unwrap();
     config
@@ -68,7 +79,6 @@ impl log::Log for Mylog {
         todo!()
     }
 }
-
 
 // fn main() {
 //     let bt = Backtrace::new();
@@ -96,7 +106,6 @@ impl Bar {
     }
 }
 
-
 fn main() {
     let mut a = "asd";
     // p(a);
@@ -111,14 +120,13 @@ fn main() {
     // testH();
 }
 
-
 pub struct thread_local_demo {}
 
 impl thread_local_demo {
     thread_local! {
- // Could add pub to make it public to whatever Foo already is public to.
-        static FOO: RefCell<usize> = RefCell::new(0);
-    }
+    // Could add pub to make it public to whatever Foo already is public to.
+           static FOO: RefCell<usize> = RefCell::new(0);
+       }
 }
 
 fn test_thread_local() {
@@ -131,7 +139,9 @@ pub struct A {
 }
 
 fn testH() {
-    let mut a = &mut A { m: HashMap::<i32, i32>::new() };
+    let mut a = &mut A {
+        m: HashMap::<i32, i32>::new(),
+    };
     a.m.insert(4, 5);
     let mut m = &mut a.m;
     m.insert(1, 2);
@@ -198,18 +208,22 @@ fn testlog() {
     for v in frames {
         println!("{:?}", v);
         for s in v.symbols() {
-            println!("{},{:?},{}", s.name().unwrap(), s.addr(), s.lineno().unwrap())
+            println!(
+                "{},{:?},{}",
+                s.name().unwrap(),
+                s.addr(),
+                s.lineno().unwrap()
+            )
         }
     }
     // do_some_work();
     println!("{:?}", bt);
 }
 
-
 #[cfg(test)]
 mod tests {
+    use crate::DIMM_COLOR;
     use term_painter::{Color, ToStyle};
-    use crate::{DIMM_COLOR};
 
     #[test]
     fn test_color() {
@@ -222,7 +236,6 @@ mod tests {
     #[test]
     fn test_asd() {}
 
-
     #[test]
     fn test_life_time() {
         struct Context<'a> {
@@ -231,16 +244,15 @@ mod tests {
 
         fn main() {
             let mut v = Context { vars: vec![] };
-            v.vars.push("hello");               // 'a
+            v.vars.push("hello"); // 'a
 
             {
-                let s = String::from("dd");     // 'b
+                let s = String::from("dd"); // 'b
                 v.vars.push(&s);
             }
             println!("{:?}", v.vars);
         }
     }
     #[test]
-    fn test_log(){
-    }
+    fn test_log() {}
 }

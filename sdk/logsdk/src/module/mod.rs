@@ -1,7 +1,7 @@
-use std::fmt::{Debug, Display, Formatter};
 use crate::common::LogLevel;
+use std::fmt::{Debug, Display, Formatter};
 
-pub trait Module: Display + Debug +Sync{
+pub trait Module: Display + Debug + Sync {
     fn name(&self) -> &'static str;
     fn index(&self) -> i16;
     fn log_level(&self) -> &'static LogLevel;
@@ -21,11 +21,10 @@ impl CellModule {
             log_level: log_level,
         }
     }
-    pub fn get_name(&self)->&'static str{
-        return self.name
+    pub fn get_name(&self) -> &'static str {
+        return self.name;
     }
 }
-
 
 #[macro_export]
 macro_rules! module_enums {
@@ -46,8 +45,6 @@ macro_rules! module_enums {
         }
     }
 }
-
-
 
 impl Display for CellModule {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

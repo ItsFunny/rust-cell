@@ -1,26 +1,29 @@
-use std::any::Any;
-use std::borrow::BorrowMut;
-use std::cell::RefCell;
-use std::{mem, thread};
-use std::sync::{Arc, Mutex};
-use cell_core::cerror::CellResult;
-use cell_core::dispatcher::DefaultDispatcher;
-use cell_core::extension::{ExtensionFactory, NodeContext, NodeExtension};
-use cell_core::selector::{CommandSelector, SelectorStrategy};
-use logsdk::common::LogLevel;
-use logsdk::module::CellModule;
-use shaku::{module, Component, Interface, HasComponent};
-use cell_core::command::Command;
-use logsdk::cinfo;
 use crate::channel::HttpChannel;
 use crate::dispatcher::HttpDispatcher;
 use crate::selector::HttpSelector;
 use crate::server::{HttpServer, HttpServerBuilder};
+use cell_core::cerror::CellResult;
+use cell_core::command::Command;
+use cell_core::dispatcher::DefaultDispatcher;
+use cell_core::extension::{ExtensionFactory, NodeContext, NodeExtension};
+use cell_core::selector::{CommandSelector, SelectorStrategy};
+use logsdk::cinfo;
+use logsdk::common::LogLevel;
+use logsdk::module::CellModule;
+use shaku::{module, Component, HasComponent, Interface};
+use std::any::Any;
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
+use std::{mem, thread};
 
 pub struct HttpExtensionFactory {}
 
 impl ExtensionFactory for HttpExtensionFactory {
-    fn build_extension(&self, compoents: Vec<Arc<Box<dyn Any>>>) -> Option<Arc<RefCell<dyn NodeExtension>>> {
+    fn build_extension(
+        &self,
+        compoents: Vec<Arc<Box<dyn Any>>>,
+    ) -> Option<Arc<RefCell<dyn NodeExtension>>> {
         let ext = HttpExtensionBuilder::default().build();
         Some(Arc::new(RefCell::new(ext)))
     }
@@ -40,7 +43,7 @@ impl HttpExtensionBuilder {
 impl Default for HttpExtensionBuilder {
     fn default() -> Self {
         HttpExtensionBuilder {
-            server_builder: Default::default()
+            server_builder: Default::default(),
         }
     }
 }
@@ -64,13 +67,11 @@ impl HttpExtension {
     }
 }
 
-
 pub const HttpModule: CellModule = CellModule::new(1, "HTTP_EXTENSION", &LogLevel::Info);
 
 pub trait HttpNodeExtension: NodeExtension + Interface {}
 
 impl HttpNodeExtension for HttpExtension {}
-
 
 unsafe impl Sync for HttpExtension {}
 
@@ -87,40 +88,40 @@ impl NodeExtension for HttpExtension {
         let mut s = self.server.clone().take();
         s.init(ctx.clone());
         let rt = ctx.borrow().tokio_runtime.clone();
-        rt.clone().spawn(async move {
-            s.start().await
-        });
+        rt.clone().spawn(async move { s.start().await });
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::any::Any;
-    use std::cell::RefCell;
-    use std::sync::Arc;
-    use std::thread;
-    use std::time::Duration;
+    use crate::extension::{HttpExtension, HttpExtensionBuilder, HttpExtensionFactory};
     use bytes::Bytes;
     use cell_core::application::CellApplication;
     use cell_core::cerror::CellResult;
     use cell_core::command::{ClosureFunc, Command};
     use cell_core::constants::ProtocolStatus;
-    use cell_core::core::{ProtocolID, runTypeHttp};
+    use cell_core::core::{runTypeHttp, ProtocolID};
     use cell_core::extension::{ExtensionFactory, NodeContext, NodeExtension};
     use cell_core::selector::MockDefaultPureSelector;
     use cell_core::wrapper::ContextResponseWrapper;
     use logsdk::common::LogLevel;
     use logsdk::module::CellModule;
-    use crate::extension::{HttpExtension, HttpExtensionBuilder, HttpExtensionFactory};
-
+    use std::any::Any;
+    use std::cell::RefCell;
+    use std::sync::Arc;
+    use std::thread;
+    use std::time::Duration;
 
     pub struct DemoExtensionFactory {}
 
     pub struct DemoExtension {}
 
     impl ExtensionFactory for DemoExtensionFactory {
-        fn build_extension(&self, compoents: Vec<Arc<Box<dyn Any>>>) -> Option<Arc<RefCell<dyn NodeExtension>>> {
+        fn build_extension(
+            &self,
+            compoents: Vec<Arc<Box<dyn Any>>>,
+        ) -> Option<Arc<RefCell<dyn NodeExtension>>> {
             Some(Arc::new(RefCell::new(DemoExtension {})))
         }
     }
@@ -132,12 +133,9 @@ mod tests {
 
         fn on_start(&mut self, ctx: Arc<RefCell<NodeContext>>) -> CellResult<()> {
             let rt = ctx.clone().borrow().tokio_runtime.clone();
-            rt.spawn(async {
-                println!("{}", 1)
-            });
+            rt.spawn(async { println!("{}", 1) });
             Ok(())
         }
-
 
         fn commands(&mut self) -> Option<Vec<Command<'static>>> {
             let mut ret: Vec<Command> = Vec::new();

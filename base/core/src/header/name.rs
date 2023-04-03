@@ -1,4 +1,1 @@
-
-pub struct CellHeaderName{
-
-}
+pub struct CellHeaderName {}

@@ -1,20 +1,20 @@
+use bytes::Bytes;
+use cell_core::application::CellApplication;
+use cell_core::command::{ClosureFunc, Command};
+use cell_core::constants::{EnumsProtocolStatus, ProtocolStatus};
+use cell_core::core::{runTypeHttp, ProtocolID};
+use cell_core::extension::{ExtensionFactory, NodeExtension};
+use cell_core::wrapper::ContextResponseWrapper;
+use cellhttp::extension::HttpExtensionFactory;
+use lazy_static::lazy_static;
+use logsdk::common::LogLevel;
+use logsdk::module::CellModule;
+use pipeline2::pipeline2::ClosureExecutor;
 use std::any::Any;
 use std::borrow::{Borrow, Cow};
 use std::cell::RefCell;
 use std::fmt::format;
 use std::sync::{Arc, Mutex};
-use bytes::Bytes;
-use lazy_static::lazy_static;
-use cell_core::application::CellApplication;
-use cell_core::command::{ClosureFunc, Command};
-use cell_core::constants::{EnumsProtocolStatus, ProtocolStatus};
-use cell_core::core::{ProtocolID, runTypeHttp};
-use cell_core::extension::{ExtensionFactory, NodeExtension};
-use cell_core::wrapper::ContextResponseWrapper;
-use cellhttp::extension::HttpExtensionFactory;
-use logsdk::common::LogLevel;
-use logsdk::module::CellModule;
-use pipeline2::pipeline2::ClosureExecutor;
 
 lazy_static! {
     static ref ARRAY: Vec<String> = init_arrays();
@@ -46,7 +46,10 @@ pub struct BenchMarkExtension {}
 pub struct BenchMarkFactory {}
 
 impl ExtensionFactory for BenchMarkFactory {
-    fn build_extension(&self, compoents: Vec<Arc<Box<dyn Any>>>) -> Option<Arc<RefCell<dyn NodeExtension>>> {
+    fn build_extension(
+        &self,
+        compoents: Vec<Arc<Box<dyn Any>>>,
+    ) -> Option<Arc<RefCell<dyn NodeExtension>>> {
         Some(Arc::new(RefCell::new(BenchMarkExtension {})))
     }
 }

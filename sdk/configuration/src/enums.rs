@@ -1,4 +1,4 @@
-#[derive(Eq,PartialEq,Hash)]
+#[derive(Eq, PartialEq, Hash)]
 pub enum Schema {
     JSON,
 }

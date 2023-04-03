@@ -1,6 +1,6 @@
 pub trait IEvent {}
 
-pub trait IEventResult{}
+pub trait IEventResult {}
 #[cfg(test)]
 mod tests {
     #[test]
