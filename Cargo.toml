@@ -17,5 +17,7 @@ members=[
     "useless/demo",
     "useless/shaku",
     "useless/clapdemo",
+    "extensions/zkextension",
+    "sdk/merkle_tree",
 ]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
