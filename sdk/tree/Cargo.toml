@@ -1,0 +1,67 @@
+[package]
+name = "tree"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[dependencies]
+failure = "0.1.8"
+merk = { git = "https://github.com/ItsFunny/merk.git" }
+thiserror = "1.0.38"
+hex = "0.4.3"
+async-trait = "0.1.64"
+futures = "0.3.21"
+derive_builder = "0.12.0"
+tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+
+hash-db = { version = "0.15.2", default-features = false }
+trie-db = { version = "0.25.1", default-features = false }
+trie-root = { version = "0.17.0", default-features = false }
+memory-db = { version = "0.31.0", default-features = false }
+
+parity-scale-codec = { version = "3.0.0", features = ["derive"] }
+keccak-hasher = "0.15.3"
+
+#sparse-merkle-tree = {git="https://github.com/ItsFunny/sparse-merkle-tree.git"}
+blake2b-rs = "0.2.0"
+hash256-std-hasher = "0.15.2"
+crossbeam = "0.8.2"
+
+waitgroup = "0.1.2"
+smt = {git="https://github.com/rooch-network/smt.git"}
+
+deadpool = { version = "0.8", features = [
+    "rt_tokio_1",
+] }
+sqlx = { version = "0.5", default-features = false, features = [
+    "runtime-tokio-native-tls",
+    "macros",
+    "postgres",
+    "bigdecimal",
+    "chrono",
+    "json",
+    "offline",
+    "migrate",
+] }
+
+
+
+
+anyhow = "1.0.69"
+
+
+tokio = { version = "1.25.0", features = ["full"] }
+
+
+
+
+sp-trie = "18.0.0"
+
+serde = { version = "1.0.152" }
+serde_json = "1.0.93"
+log = "0.4.17"
+rmp-serde = "1.1.1"
+num_cpus = "1.15.0"
+ed = "0.2.2"

@@ -43,7 +43,7 @@ impl<T: Clone> SMTStorage<ItemIndex, T> for DefaultMemorySMTStorage<T> {
     }
 
     fn get(&self, index: &ItemIndex) -> Option<T> {
-        self.items.get(index).clone()
+        self.items.get(index).cloned()
     }
 
     fn remove(&mut self, index: &ItemIndex) -> Option<T> {

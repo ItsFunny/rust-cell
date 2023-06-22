@@ -4,6 +4,8 @@ pub mod params;
 pub mod primitives;
 pub mod smt;
 
+use crate::smt::parallel_smt;
+use crate::smt::storage::DefaultMemorySMTStorage;
 use franklin_crypto::alt_babyjubjub::AltJubjubBn256;
 use franklin_crypto::rescue::bn256::Bn256RescueParams;
 use franklin_crypto::{
@@ -31,3 +33,7 @@ pub type PlonkCS = PlonkCsWidth4WithNextStepParams;
 
 pub type PrivateKey = PrivateKeyImport<Engine>;
 pub type PublicKey = PublicKeyImport<Engine>;
+
+/// Sparse merkle tree used to calculate root hashes for the state in zkSync network.
+pub type SparseMerkleTree<T, H, HH> =
+    parallel_smt::SparseMerkleTree<T, H, HH, DefaultMemorySMTStorage<T>>;
