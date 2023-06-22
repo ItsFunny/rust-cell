@@ -1,4 +1,9 @@
+pub mod blocks;
 pub mod circuits;
+pub mod db;
+pub mod executor;
+pub mod store;
+pub mod suite;
 pub mod types;
 
 use crate::types::instance::Instance;

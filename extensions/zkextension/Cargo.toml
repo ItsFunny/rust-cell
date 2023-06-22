@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 merkle_tree = {path="../../sdk/merkle_tree"}
+tree={path="../../sdk/tree"}
+anyhow = "1.0.69"

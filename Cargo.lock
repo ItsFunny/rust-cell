@@ -7666,5 +7666,7 @@ dependencies = [
 name = "zkextension"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "merkle_tree",
+ "tree",
 ]

@@ -11,7 +11,7 @@ use crate::merkle::MerkleRocksDBConfiguration;
 use crate::operation::{Operation, RollBackOperation};
 
 pub type RootHash = [u8; 32];
-pub(crate) type KV = (Vec<u8>, Vec<u8>);
+pub type KV = (Vec<u8>, Vec<u8>);
 
 pub trait KeyHasher: Hasher {}
 
