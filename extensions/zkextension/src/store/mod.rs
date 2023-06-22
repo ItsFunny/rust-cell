@@ -1,4 +1,7 @@
 pub mod trace;
-use tree::tree::TreeDB;
+use crate::store::trace::TraceTable;
+use tree::tree::{KeyHasher, TreeDB, DB};
 
-pub trait Store: TreeDB {}
+pub trait Store<K: KeyHasher>: DB {
+    fn get_traces(&self) -> TraceTable<K>;
+}

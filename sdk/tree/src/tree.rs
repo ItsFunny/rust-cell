@@ -13,8 +13,9 @@ use crate::operation::{Operation, RollBackOperation};
 pub type RootHash = [u8; 32];
 pub type KV = (Vec<u8>, Vec<u8>);
 
-pub trait KeyHasher: Hasher + Default {}
+pub trait KeyHasher: Hasher + Default + Clone {}
 
+#[derive(Clone)]
 pub struct NullHasher {}
 
 impl Default for NullHasher {

@@ -7667,6 +7667,7 @@ name = "zkextension"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "crc32fast",
  "merkle_tree",
  "tree",
 ]

@@ -4,14 +4,14 @@ use tree::couple::{ProveRequestEnums, ProveResponseEnums, VerifyRequestEnums, Ve
 use tree::error::TreeResult;
 use tree::merkle::MerkleRocksDBConfiguration;
 use tree::operation::{Operation, RollBackOperation};
-use tree::tree::{Batch, KeyHasher, Read, RootHash, TreeDB, Write, DB, NullHasher};
+use tree::tree::{Batch, KeyHasher, NullHasher, Read, RootHash, TreeDB, Write, DB};
 
 pub type KeyBits = Vec<u8>;
 pub type ValueBits = Vec<u8>;
 
 pub struct TraceStore<H: KeyHasher> {
     trace: RefCell<TraceTable<H>>,
-    internal: Box<dyn TreeDB>,
+    internal: Box<dyn DB>,
 }
 
 #[derive(Default, Clone)]
@@ -19,6 +19,11 @@ pub struct TraceTable<H: KeyHasher> {
     alloc: u32,
     write: WriteTable<H>,
     read: ReadTable,
+}
+impl<H: KeyHasher> TraceTable<H> {
+    pub fn is_empty(&self) -> bool {
+        self.alloc == 0
+    }
 }
 #[derive(Default, Clone)]
 pub struct WriteTable<H: KeyHasher> {
@@ -44,7 +49,9 @@ impl<H: KeyHasher> TraceTable<H> {
         self.alloc_incr();
     }
     fn trace_read(&mut self, k: &[u8]) {
-        self.read.traces.push(ReadTrace::Get(self.alloc,k.to_vec()))
+        self.read
+            .traces
+            .push(ReadTrace::Get(self.alloc, k.to_vec()));
         self.alloc_incr();
     }
 
@@ -74,7 +81,7 @@ pub trait IndexAble {
 }
 
 impl<H: KeyHasher> TraceStore<H> {
-    pub fn new(internal: Box<dyn TreeDB>) -> Self {
+    pub fn new(internal: Box<dyn DB>) -> Self {
         Self {
             trace: RefCell::new(TraceTable::default()),
             internal,
@@ -82,7 +89,11 @@ impl<H: KeyHasher> TraceStore<H> {
     }
 }
 
-impl<H: KeyHasher> Store for TraceStore<H> {}
+impl<H: KeyHasher> Store<H> for TraceStore<H> {
+    fn get_traces(&self) -> TraceTable<H> {
+        self.trace.borrow_mut().clone()
+    }
+}
 
 impl<H: KeyHasher> DB for TraceStore<H> {
     fn get_configuration(&self) -> MerkleRocksDBConfiguration {
@@ -132,19 +143,5 @@ impl<H: KeyHasher> Read for TraceStore<H> {
 impl<H: KeyHasher> Batch for TraceStore<H> {
     fn commit(&mut self, operations: Vec<Operation>) -> RootHash {
         self.internal.commit(operations)
-    }
-}
-
-impl<H: KeyHasher> TreeDB for TraceStore<H> {
-    fn prove(&self, req: ProveRequestEnums) -> TreeResult<ProveResponseEnums> {
-        self.internal.prove(req)
-    }
-
-    fn verify(&self, req: VerifyRequestEnums) -> TreeResult<VerifyResponse> {
-        self.internal.verify(req)
-    }
-
-    fn root_hash(&self) -> RootHash {
-        self.internal.root_hash()
     }
 }

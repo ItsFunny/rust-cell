@@ -9,3 +9,4 @@ edition = "2021"
 merkle_tree = {path="../../sdk/merkle_tree"}
 tree={path="../../sdk/tree"}
 anyhow = "1.0.69"
+crc32fast = "1.2.0"

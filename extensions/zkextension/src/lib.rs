@@ -1,7 +1,7 @@
 pub mod blocks;
 pub mod circuits;
 pub mod db;
-pub mod executor;
+pub mod instance;
 pub mod store;
 pub mod suite;
 pub mod types;

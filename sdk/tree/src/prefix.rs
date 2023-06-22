@@ -16,13 +16,13 @@ impl<M> PrefixWrapper<M> {
     }
 }
 
-impl<M: TreeDB> Batch for PrefixWrapper<M> {
+impl<M: DB> Batch for PrefixWrapper<M> {
     fn commit(&mut self, operations: Vec<Operation>) -> RootHash {
         self.inner.commit(operations)
     }
 }
 
-impl<M: TreeDB> DB for PrefixWrapper<M> {
+impl<M: DB> DB for PrefixWrapper<M> {
     fn get_configuration(&self) -> MerkleRocksDBConfiguration {
         self.inner.get_configuration()
     }
@@ -44,7 +44,7 @@ impl<M: TreeDB> DB for PrefixWrapper<M> {
     }
 }
 
-impl<M: TreeDB> Write for PrefixWrapper<M> {
+impl<M: DB> Write for PrefixWrapper<M> {
     fn set(&mut self, k: Vec<u8>, v: Vec<u8>) -> TreeResult<Vec<u8>> {
         self.inner
             .set(concat(self.prefix.as_slice(), k.as_slice()), v)
@@ -56,7 +56,7 @@ impl<M: TreeDB> Write for PrefixWrapper<M> {
     }
 }
 
-impl<M: TreeDB> Read for PrefixWrapper<M> {
+impl<M: DB> Read for PrefixWrapper<M> {
     fn get(&self, k: &[u8]) -> TreeResult<Option<Vec<u8>>> {
         self.inner.get(concat(self.prefix.as_slice(), k).as_slice())
     }
