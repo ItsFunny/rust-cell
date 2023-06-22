@@ -1,15 +1,16 @@
 use crate::store::Store;
+use std::cell::RefCell;
 use tree::couple::{ProveRequestEnums, ProveResponseEnums, VerifyRequestEnums, VerifyResponse};
 use tree::error::TreeResult;
 use tree::merkle::MerkleRocksDBConfiguration;
 use tree::operation::{Operation, RollBackOperation};
-use tree::tree::{Batch, KeyHasher, Read, RootHash, TreeDB, Write, DB};
+use tree::tree::{Batch, KeyHasher, Read, RootHash, TreeDB, Write, DB, NullHasher};
 
 pub type KeyBits = Vec<u8>;
 pub type ValueBits = Vec<u8>;
 
 pub struct TraceStore<H: KeyHasher> {
-    trace: TraceTable<H>,
+    trace: RefCell<TraceTable<H>>,
     internal: Box<dyn TreeDB>,
 }
 
@@ -28,7 +29,7 @@ pub struct ReadTable {
     traces: Vec<ReadTrace>,
 }
 impl<H: KeyHasher> TraceTable<H> {
-    fn trace_write(&mut self, k: Vec<u8>, v: Vec<u8>) {
+    fn trace_set(&mut self, k: &Vec<u8>, v: &Vec<u8>) {
         self.write.traces.push(WriteTrace::Set(
             self.alloc,
             H::hash(k.as_slice()),
@@ -36,7 +37,17 @@ impl<H: KeyHasher> TraceTable<H> {
         ));
         self.alloc_incr();
     }
-    fn trace_read(&mut self, k: &[u8]) {}
+    fn trace_delete(&mut self, k: &Vec<u8>) {
+        self.write
+            .traces
+            .push(WriteTrace::Delete(self.alloc, H::hash(k.as_slice())));
+        self.alloc_incr();
+    }
+    fn trace_read(&mut self, k: &[u8]) {
+        self.read.traces.push(ReadTrace::Get(self.alloc,k.to_vec()))
+        self.alloc_incr();
+    }
+
     fn alloc_incr(&mut self) {
         self.alloc = self.alloc + 1;
     }
@@ -50,6 +61,7 @@ pub enum TraceEnum<H: KeyHasher> {
 #[derive(Clone)]
 pub enum WriteTrace<H: KeyHasher> {
     Set(u32, H::Out, H::Out),
+    Delete(u32, H::Out),
 }
 
 #[derive(Clone)]
@@ -64,7 +76,7 @@ pub trait IndexAble {
 impl<H: KeyHasher> TraceStore<H> {
     pub fn new(internal: Box<dyn TreeDB>) -> Self {
         Self {
-            trace: Default::default(),
+            trace: RefCell::new(TraceTable::default()),
             internal,
         }
     }
@@ -96,16 +108,19 @@ impl<H: KeyHasher> DB for TraceStore<H> {
 
 impl<H: KeyHasher> Write for TraceStore<H> {
     fn set(&mut self, k: Vec<u8>, v: Vec<u8>) -> TreeResult<Vec<u8>> {
+        self.trace.borrow_mut().trace_set(&k, &v);
         self.internal.set(k, v)
     }
 
     fn delete(&mut self, k: Vec<u8>) -> TreeResult<()> {
+        self.trace.borrow_mut().trace_delete(&k);
         self.internal.delete(k)
     }
 }
 
 impl<H: KeyHasher> Read for TraceStore<H> {
     fn get(&self, k: &[u8]) -> TreeResult<Option<Vec<u8>>> {
+        self.trace.borrow_mut().trace_read(k);
         self.internal.get(k)
     }
 
