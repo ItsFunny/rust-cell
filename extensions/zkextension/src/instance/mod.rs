@@ -1,5 +1,6 @@
 pub mod contract;
 pub mod manager;
+pub mod merkle;
 
 use crate::blocks::block::Block;
 use crate::store::trace::TraceTable;

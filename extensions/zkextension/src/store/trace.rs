@@ -1,4 +1,5 @@
 use crate::store::Store;
+use merkle_tree::primitives::GetBits;
 use std::cell::RefCell;
 use tree::couple::{ProveRequestEnums, ProveResponseEnums, VerifyRequestEnums, VerifyResponse};
 use tree::error::TreeResult;
@@ -17,8 +18,8 @@ pub struct TraceStore<H: KeyHasher> {
 #[derive(Default, Clone)]
 pub struct TraceTable<H: KeyHasher> {
     alloc: u32,
-    write: WriteTable<H>,
-    read: ReadTable,
+    pub write: WriteTable<H>,
+    pub read: ReadTable,
 }
 impl<H: KeyHasher> TraceTable<H> {
     pub fn is_empty(&self) -> bool {
@@ -27,7 +28,7 @@ impl<H: KeyHasher> TraceTable<H> {
 }
 #[derive(Default, Clone)]
 pub struct WriteTable<H: KeyHasher> {
-    traces: Vec<WriteTrace<H>>,
+    pub traces: Vec<WriteTrace<H>>,
 }
 #[derive(Default, Clone)]
 pub struct ReadTable {

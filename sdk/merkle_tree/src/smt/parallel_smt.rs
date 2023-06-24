@@ -7,11 +7,14 @@ use crate::Fr;
 use ff_ce::{PrimeField, PrimeFieldRepr};
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher as STDHash};
 use std::marker::PhantomData;
 use std::{
     fmt::Debug,
     sync::{RwLock, RwLockReadGuard},
 };
+use tree::tree::TreeDB;
 
 /// Nodes are indexed starting with index(root) = 0
 /// To store the index, at least 2 * TREE_HEIGHT bits is required.
@@ -756,6 +759,62 @@ where
                 .collect(),
         );
     }
+}
+
+//
+// impl<T, Hash, H, S> TreeDB for SparseMerkleTree<T, Hash, H, S>
+// where
+//     T: GetBits,
+//     Hash: Clone + Debug,
+//     H: Hasher<Hash>,
+//     S: SMTStorage<ItemIndex, T>,
+// {
+// }
+//
+// impl<T, Hash, H, S> DB for SparseMerkleTree<T, Hash, H, S>
+// where
+//     T: GetBits,
+//     Hash: Clone + Debug,
+//     H: Hasher<Hash>,
+//     S: SMTStorage<ItemIndex, T>,
+// {
+// }
+use tree::error::*;
+use tree::tree::*;
+// impl<T, Hash, H, S> Write for SparseMerkleTree<T, Hash, H, S>
+// where
+//     T: GetBits,
+//     Hash: Clone + Debug,
+//     H: Hasher<Hash>,
+//     S: SMTStorage<ItemIndex, T>,
+// {
+// }
+//
+// impl<T, Hash, H, S> Batch for SparseMerkleTree<T, Hash, H, S>
+// where
+//     T: GetBits,
+//     Hash: Clone + Debug,
+//     H: Hasher<Hash>,
+//     S: SMTStorage<ItemIndex, T>,
+// {
+// }
+// impl<T, Hash, H, S> Read for SparseMerkleTree<T, Hash, H, S>
+// where
+//     T: GetBits,
+//     Hash: Clone + Debug,
+//     H: Hasher<Hash>,
+//     S: SMTStorage<ItemIndex, T>,
+// {
+//     fn get(&self, k: &[u8]) -> TreeResult<Option<Vec<u8>>> {
+//         let index=calculate_unique_u64(k);
+//         let v=SparseMerkleTree::get(self,index)
+//     }
+// }
+use crc32fast::Hasher as CRCHasher;
+fn calculate_unique_u64(data: &[u8]) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    data.hash(&mut hasher);
+    hasher.finish()
 }
 
 #[cfg(test)]

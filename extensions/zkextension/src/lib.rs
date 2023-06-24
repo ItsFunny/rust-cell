@@ -6,8 +6,8 @@ pub mod store;
 pub mod suite;
 pub mod types;
 
-use crate::types::instance::Instance;
+use crate::instance::merkle::InstanceMerkleNode;
 use merkle_tree::smt::rescue_hasher::RescueHasher;
 use merkle_tree::{Engine, Fr, SparseMerkleTree};
 
-pub type InstanceTree = SparseMerkleTree<Instance, Fr, RescueHasher<Engine>>;
+pub type InstanceTree = SparseMerkleTree<InstanceMerkleNode, Fr, RescueHasher<Engine>>;
