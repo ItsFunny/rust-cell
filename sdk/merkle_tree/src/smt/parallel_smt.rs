@@ -783,11 +783,15 @@ use tree::error::*;
 use tree::tree::*;
 // impl<T, Hash, H, S> Write for SparseMerkleTree<T, Hash, H, S>
 // where
-//     T: GetBits,
-//     Hash: Clone + Debug,
-//     H: Hasher<Hash>,
+//     T: GetBits + Default + Sync + Serialize + Deserialize<'a>,
+//     Hash: Clone + Debug + Send + Sync,
+//     H: Hasher<Hash> + Send + Sync,
 //     S: SMTStorage<ItemIndex, T>,
 // {
+//     fn set(&mut self, k: Vec<u8>, v: Vec<u8>) -> TreeResult<Vec<u8>> {
+//         let index = calculate_unique_u64(k.as_slice());
+//         self.insert(index)
+//     }
 // }
 //
 // impl<T, Hash, H, S> Batch for SparseMerkleTree<T, Hash, H, S>
@@ -798,18 +802,21 @@ use tree::tree::*;
 //     S: SMTStorage<ItemIndex, T>,
 // {
 // }
-// impl<T, Hash, H, S> Read for SparseMerkleTree<T, Hash, H, S>
-// where
-//     T: GetBits,
-//     Hash: Clone + Debug,
-//     H: Hasher<Hash>,
-//     S: SMTStorage<ItemIndex, T>,
-// {
-//     fn get(&self, k: &[u8]) -> TreeResult<Option<Vec<u8>>> {
-//         let index=calculate_unique_u64(k);
-//         let v=SparseMerkleTree::get(self,index)
-//     }
-// }
+impl<'a, T, Hash, H, S> Read for SparseMerkleTree<T, Hash, H, S>
+where
+    T: GetBits + Default + Sync + Serialize + Deserialize<'a>,
+    Hash: Clone + Debug + Send + Sync,
+    H: Hasher<Hash> + Send + Sync,
+    S: SMTStorage<ItemIndex, T>,
+{
+    fn get(&self, k: &[u8]) -> TreeResult<Option<Vec<u8>>> {
+        let index = calculate_unique_u64(k);
+        Ok(SparseMerkleTree::get(self, index).map(|v| serde_json::to_vec(&v).unwrap()))
+    }
+    fn get_next(&self, start: &[u8]) -> TreeResult<Option<KV>> {
+        todo!()
+    }
+}
 use crc32fast::Hasher as CRCHasher;
 fn calculate_unique_u64(data: &[u8]) -> u64 {
     let mut hasher = DefaultHasher::new();
