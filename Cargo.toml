@@ -9,8 +9,6 @@ members=[
     "demo/benchmark",
     "demo/tokio",
     "demo/cell",
-    "demo/zk",
-    "demo/zk2",
     "base/cell-base-common",
     "base/core",
     "useless/hyper",

@@ -781,7 +781,7 @@ where
 // }
 use tree::error::*;
 use tree::tree::*;
-// impl<T, Hash, H, S> Write for SparseMerkleTree<T, Hash, H, S>
+// impl<'a, T, Hash, H, S> Write for SparseMerkleTree<T, Hash, H, S>
 // where
 //     T: GetBits + Default + Sync + Serialize + Deserialize<'a>,
 //     Hash: Clone + Debug + Send + Sync,
@@ -790,7 +790,16 @@ use tree::tree::*;
 // {
 //     fn set(&mut self, k: Vec<u8>, v: Vec<u8>) -> TreeResult<Vec<u8>> {
 //         let index = calculate_unique_u64(k.as_slice());
-//         self.insert(index)
+//         let value = v.clone().as_slice();
+//         let t: T = serde_json::from_slice(value).unwrap();
+//         self.insert(index, t);
+//         Ok(v)
+//     }
+//
+//     fn delete(&mut self, k: Vec<u8>) -> TreeResult<()> {
+//         let index = calculate_unique_u64(k.as_slice());
+//         self.remove(index);
+//         Ok(())
 //     }
 // }
 //
