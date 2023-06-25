@@ -6240,6 +6240,8 @@ dependencies = [
  "halo2_proofs",
  "hex",
  "merkle_tree",
+ "num-bigint 0.4.3",
+ "num-traits",
  "recursive_aggregation_circuit",
  "tree",
 ]

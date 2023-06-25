@@ -11,10 +11,29 @@ use halo2_proofs::pasta::Fq;
 use merkle_tree::params::RESCUE_PARAMS;
 use merkle_tree::smt::hasher::Hasher;
 use merkle_tree::{Engine, Fr, RescueParams};
+use num_bigint::BigInt;
+use num_traits::identities::Zero;
 use std::io;
 use std::io::{Read, Write};
 use std::marker::PhantomData;
 
+pub fn fr_from_bigint(num: &BigInt) -> Fr {
+    if num > &BigInt::zero() {
+        fr_from(&num.to_string())
+    } else {
+        let mut num = fr_from(&(-num).to_string());
+        num.negate();
+        num
+    }
+}
+
+pub fn fq_from_bigint<F: PrimeField>(num: &BigInt) -> F {
+    let fr = fr_from_bigint(num);
+    fr_to_fq(&fr)
+}
+pub fn fr_from<T: ToString>(input: T) -> Fr {
+    Fr::from_str(&input.to_string()).unwrap()
+}
 pub fn fq_to_fr<F: PrimeField>(f: &F) -> Fr {
     use byteorder::WriteBytesExt;
     let rep = f.to_repr();
@@ -71,6 +90,12 @@ pub fn test_fq_to_fr() {
 pub fn test_fr_to_fq() {
     let a = Fr::one();
     let fq: Fq = fr_to_fq(&a);
+    println!("{:?}", fq);
+}
+#[test]
+pub fn test_fq_from_bigint() {
+    let a = BigInt::from(12333345);
+    let fq: Fq = fq_from_bigint(&a);
     println!("{:?}", fq);
 }
 // pub fn to_hex<F: PrimeField>(el: &F) -> String {
