@@ -8,6 +8,7 @@ pub mod store;
 pub mod suite;
 mod traces;
 pub mod types;
+pub mod utils;
 
 use crate::instance::merkle::InstanceMerkleNode;
 use merkle_tree::smt::rescue_hasher::RescueHasher;

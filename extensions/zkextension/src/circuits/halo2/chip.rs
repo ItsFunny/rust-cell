@@ -1,25 +1,29 @@
-use crate::circuits::halo2::hasher::{fq_to_fr, fr_from, fr_to_fq};
 use crate::circuits::halo2::BlockHalo2Config;
-use franklin_crypto::bellman::{ConstraintSystem, SynthesisError};
+use crate::traces::TraceTableCircuit;
+use crate::utils::{fr_from, fr_to_fq};
+use franklin_crypto::bellman::bn256::Bn256;
+use franklin_crypto::bellman::Field as FranklinField;
+use franklin_crypto::bellman::{ConstraintSystem as PlonkConstraintSystem, SynthesisError};
 use franklin_crypto::circuit::boolean::Boolean;
-use franklin_crypto::circuit::num::AllocatedNum;
+use franklin_crypto::circuit::num::{AllocatedNum, Num};
 use franklin_crypto::circuit::test::TestConstraintSystem;
-use franklin_crypto::circuit::{multipack, rescue};
+use franklin_crypto::circuit::{multipack, rescue, Assignment};
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::{AssignedCell, Chip, Layouter};
 use halo2_proofs::pasta::group::ff::PrimeField;
-
-use crate::traces::TraceTableCircuit;
+use halo2_proofs::plonk::ConstraintSystem;
 use merkle_tree::params::RESCUE_PARAMS;
 use merkle_tree::{Engine, Fr, RescueParams};
+use rescue_poseidon::rescue_hash;
 use std::marker::PhantomData;
+use std::vec;
 
-pub struct MerkleChip<F: Field> {
+pub struct MerkleChip<F: PrimeField> {
     config: BlockHalo2Config,
     _marker: PhantomData<F>,
 }
 
-impl<F: Field> MerkleChip<F> {
+impl<F: PrimeField> MerkleChip<F> {
     pub fn new(config: BlockHalo2Config) -> Self {
         Self {
             config,
@@ -36,7 +40,7 @@ pub trait MerkleChipTrait<F: PrimeField>: Chip<F> {
     ) -> AssignedCell<F, F>;
 }
 
-impl<F: Field> Chip<F> for MerkleChip<F> {
+impl<F: PrimeField> Chip<F> for MerkleChip<F> {
     type Config = BlockHalo2Config;
     type Loaded = ();
 
@@ -60,6 +64,7 @@ impl<F: PrimeField> MerkleChipTrait<F> for MerkleChip<F> {
 }
 
 pub fn get_delta_root<F: PrimeField>(
+    meta: &mut ConstraintSystem<F>,
     leaf_bits: &[bool],
     index: u64,
     audit_path: &[Fr],
@@ -84,6 +89,7 @@ pub fn get_delta_root<F: PrimeField>(
         .unwrap();
 
     get_merkle_root(
+        meta,
         cs.namespace(|| "get root"),
         &bool_bits,
         &index.as_slice(),
@@ -92,7 +98,8 @@ pub fn get_delta_root<F: PrimeField>(
         &RESCUE_PARAMS,
     )
 }
-fn get_merkle_root<F: PrimeField, CS: ConstraintSystem<Engine>>(
+fn get_merkle_root<F: PrimeField, CS: PlonkConstraintSystem<Engine>>(
+    meta: &mut ConstraintSystem<F>,
     mut cs: CS,
     leaf_bits: &[Boolean],
     index: &[Boolean],
@@ -101,6 +108,7 @@ fn get_merkle_root<F: PrimeField, CS: ConstraintSystem<Engine>>(
     params: &RescueParams,
 ) -> F {
     let alloc = do_allocate_merkle_root(
+        meta,
         cs.namespace(|| "allocate merkle root"),
         leaf_bits,
         index,
@@ -112,7 +120,9 @@ fn get_merkle_root<F: PrimeField, CS: ConstraintSystem<Engine>>(
     let fr = alloc.get_value().unwrap();
     fr_to_fq(&fr)
 }
-fn do_allocate_merkle_root<CS: ConstraintSystem<Engine>>(
+
+fn do_allocate_merkle_root<F: PrimeField, CS: PlonkConstraintSystem<Engine>>(
+    meta: &mut ConstraintSystem<F>,
     mut cs: CS,
     leaf_bits: &[Boolean],
     index: &[Boolean],
@@ -133,23 +143,26 @@ fn do_allocate_merkle_root<CS: ConstraintSystem<Engine>>(
     let index = &index[0..length_to_root];
     let audit_path = &audit_path[0..length_to_root];
 
-    let leaf_packed = multipack::pack_into_witness(
-        cs.namespace(|| "pack leaf bits into field elements"),
-        leaf_bits,
-    )?;
+    let leaf_packed_vec = simple_pack_into_witness(leaf_bits).unwrap();
 
+    let hash: Vec<Fr> =
+        franklin_crypto::rescue::rescue_hash::<Bn256>(params, leaf_packed_vec.as_slice());
+    let hash = hash.get(0).unwrap().clone();
+    let mut cur_hash = AllocatedNum::alloc(cs.namespace(|| "aaaasdasd"), || Ok(hash)).unwrap();
+
+    let mut leaf_packed = vec![];
+    for (i, fr) in leaf_packed_vec.iter().enumerate() {
+        let fr = fr.clone();
+        leaf_packed
+            .push(AllocatedNum::alloc(cs.namespace(|| format!("aaa{:?}", i)), || Ok(fr)).unwrap());
+    }
     let mut account_leaf_hash = rescue::rescue_hash(
         cs.namespace(|| "account leaf content hash"),
         &leaf_packed,
         params,
     )?;
 
-    assert_eq!(account_leaf_hash.len(), 1);
-
-    let mut cur_hash = account_leaf_hash.pop().expect("must get a single element");
-
     // Ascend the merkle tree authentication path
-
     for (i, direction_bit) in index.iter().enumerate() {
         let cs = &mut cs.namespace(|| format!("from merkle tree hash {}", i));
 
@@ -183,12 +196,41 @@ fn do_allocate_merkle_root<CS: ConstraintSystem<Engine>>(
 
     Ok(cur_hash)
 }
+pub fn simple_pack_into_witness(bits: &[Boolean]) -> Result<Vec<Fr>, SynthesisError> {
+    let mut results = vec![];
+
+    for (_, bits) in bits.chunks(253 as usize).enumerate() {
+        let mut coeff = Fr::one();
+        let mut value = Some(Fr::zero());
+        for bit in bits {
+            let newval: Option<Fr> = match (value, bit.get_value()) {
+                (Some(mut curval), Some(bval)) => {
+                    if bval {
+                        curval.add_assign(&coeff);
+                    }
+
+                    Some(curval)
+                }
+                _ => None,
+            };
+            value = newval;
+
+            coeff.double();
+        }
+        // TODO, add constraint
+        let fr = value.unwrap();
+        results.push(fr);
+    }
+
+    Ok(results)
+}
 
 #[cfg(test)]
 mod tests {
     use crate::circuits::halo2::chip::{get_delta_root, get_merkle_root};
     use crate::instance::merkle::u8_array_to_bool_vec;
     use halo2_proofs::pasta::Fq;
+    use halo2_proofs::plonk::ConstraintSystem;
     use hash_db::Hasher;
     use keccak_hasher::KeccakHasher;
     use merkle_tree::params::RESCUE_PARAMS;
@@ -240,7 +282,8 @@ mod tests {
 
         let binding = node3.clone().get_bits_le();
         let leaf_bits = binding.as_slice();
-        let root_delta: Fq = get_delta_root(leaf_bits, 3, aa.as_slice(), 64);
+        let mut css = ConstraintSystem::default();
+        let root_delta: Fq = get_delta_root(&mut css, leaf_bits, 3, aa.as_slice(), 64);
         println!("root_delta:{:?}", root_delta);
         // get_delta_root(leaf_bits, 3)
     }

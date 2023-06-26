@@ -13,6 +13,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "addchain"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b2e69442aa5628ea6951fa33e24efe8313f4321a91bd729fc2f75bdfc858570"
+dependencies = [
+ "num-bigint 0.3.3",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -135,6 +146,27 @@ name = "arc-swap"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dabe5a181f83789739c194cbe5a897dde195078fac08568d09221fd6137a7ba8"
+
+[[package]]
+name = "arr_macro"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a105bfda48707cf19220129e78fca01e9639433ffaef4163546ed8fb04120a5"
+dependencies = [
+ "arr_macro_impl",
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "arr_macro_impl"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0609c78bd572f4edc74310dfb63a01f5609d53fa8b4dd7c4d98aef3b3e8d72d1"
+dependencies = [
+ "proc-macro-hack",
+ "quote 1.0.28",
+ "syn 1.0.109",
+]
 
 [[package]]
 name = "array-bytes"
@@ -303,7 +335,7 @@ version = "0.3.2"
 source = "git+https://github.com/matter-labs/bellman?branch=beta#416f79d3f93fc855fb96bb61bfe73d2472e95548"
 dependencies = [
  "bit-vec",
- "blake2s_const",
+ "blake2s_const 0.6.0 (git+https://github.com/matter-labs/bellman?branch=beta)",
  "blake2s_simd",
  "byteorder",
  "cfg-if 1.0.0",
@@ -312,8 +344,31 @@ dependencies = [
  "hex",
  "lazy_static",
  "num_cpus",
- "pairing_ce",
+ "pairing_ce 0.24.2",
  "rand 0.4.6",
+ "tiny-keccak 1.5.0",
+]
+
+[[package]]
+name = "bellman_ce"
+version = "0.3.2"
+source = "git+https://github.com/matter-labs/bellman?branch=dev#bbac0559fdc440b2331eca1c347a30559a3dd969"
+dependencies = [
+ "arrayvec 0.7.4",
+ "bit-vec",
+ "blake2s_const 0.6.0 (git+https://github.com/matter-labs/bellman?branch=dev)",
+ "blake2s_simd",
+ "byteorder",
+ "cfg-if 1.0.0",
+ "crossbeam 0.7.3",
+ "futures",
+ "hex",
+ "lazy_static",
+ "num_cpus",
+ "pairing_ce 0.28.5",
+ "rand 0.4.6",
+ "serde",
+ "smallvec",
  "tiny-keccak 1.5.0",
 ]
 
@@ -410,6 +465,9 @@ name = "bit-vec"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "bitflags"
@@ -503,6 +561,16 @@ dependencies = [
 name = "blake2s_const"
 version = "0.6.0"
 source = "git+https://github.com/matter-labs/bellman?branch=beta#416f79d3f93fc855fb96bb61bfe73d2472e95548"
+dependencies = [
+ "arrayref",
+ "arrayvec 0.5.2",
+ "constant_time_eq 0.1.5",
+]
+
+[[package]]
+name = "blake2s_const"
+version = "0.6.0"
+source = "git+https://github.com/matter-labs/bellman?branch=dev#bbac0559fdc440b2331eca1c347a30559a3dd969"
 dependencies = [
  "arrayref",
  "arrayvec 0.5.2",
@@ -1599,9 +1667,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38107cbd8bac0d907d7e7513c9f68c95adbda9e6f6f6bdf3f5111c6ecac4fe47"
 dependencies = [
  "byteorder",
- "ff_derive_ce",
+ "ff_derive_ce 0.9.3",
  "hex",
  "rand 0.4.6",
+]
+
+[[package]]
+name = "ff_ce"
+version = "0.14.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b538e4231443a5b9c507caee3356f016d832cf7393d2d90f03ea3180d4e3fbc"
+dependencies = [
+ "byteorder",
+ "ff_derive_ce 0.11.2",
+ "hex",
+ "rand 0.4.6",
+ "serde",
 ]
 
 [[package]]
@@ -1615,6 +1696,21 @@ dependencies = [
  "num-traits",
  "proc-macro2 1.0.63",
  "quote 1.0.28",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "ff_derive_ce"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b96fbccd88dbb1fac4ee4a07c2fcc4ca719a74ffbd9d2b9d41d8c8eb073d8b20"
+dependencies = [
+ "num-bigint 0.4.3",
+ "num-integer",
+ "num-traits",
+ "proc-macro2 1.0.63",
+ "quote 1.0.28",
+ "serde",
  "syn 1.0.109",
 ]
 
@@ -1725,7 +1821,7 @@ name = "franklin-crypto"
 version = "0.0.5"
 source = "git+https://github.com/matter-labs/franklin-crypto.git?branch=beta#6e448d23161eacabb9465dc3181b7b15174cda2f"
 dependencies = [
- "bellman_ce",
+ "bellman_ce 0.3.2 (git+https://github.com/matter-labs/bellman?branch=beta)",
  "bit-vec",
  "blake2 0.9.2",
  "blake2-rfc_bellman_edition",
@@ -1743,6 +1839,36 @@ dependencies = [
  "serde",
  "serde_derive",
  "sha2 0.9.9",
+ "splitmut",
+ "tiny-keccak 1.5.0",
+]
+
+[[package]]
+name = "franklin-crypto"
+version = "0.0.5"
+source = "git+https://github.com/matter-labs/franklin-crypto?branch=dev#5922873d25ecec827cd60420ca8cd84a188bb965"
+dependencies = [
+ "arr_macro",
+ "bellman_ce 0.3.2 (git+https://github.com/matter-labs/bellman?branch=dev)",
+ "bit-vec",
+ "blake2 0.9.2",
+ "blake2-rfc_bellman_edition",
+ "blake2s_simd",
+ "byteorder",
+ "digest 0.9.0",
+ "hex",
+ "indexmap 1.9.3",
+ "itertools 0.10.5",
+ "lazy_static",
+ "num-bigint 0.4.3",
+ "num-derive 0.2.5",
+ "num-integer",
+ "num-traits",
+ "rand 0.4.6",
+ "serde",
+ "sha2 0.9.9",
+ "sha3 0.9.1",
+ "smallvec",
  "splitmut",
  "tiny-keccak 1.5.0",
 ]
@@ -2803,16 +2929,16 @@ dependencies = [
  "bit-vec",
  "crc32fast",
  "ethabi",
- "ff_ce",
+ "ff_ce 0.12.0",
  "fnv",
- "franklin-crypto",
+ "franklin-crypto 0.0.5 (git+https://github.com/matter-labs/franklin-crypto.git?branch=beta)",
  "hex",
  "lazy_static",
  "num 0.4.0",
  "rand 0.4.6",
  "rayon",
  "recursive_aggregation_circuit",
- "rescue_poseidon",
+ "rescue_poseidon 0.3.0",
  "serde",
  "serde_json",
  "thiserror",
@@ -3086,6 +3212,17 @@ dependencies = [
 
 [[package]]
 name = "num-derive"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eafd0b45c5537c3ba526f79d3e75120036502bebacbb3f3220914067ce39dbf2"
+dependencies = [
+ "proc-macro2 0.4.30",
+ "quote 0.6.13",
+ "syn 0.15.44",
+]
+
+[[package]]
+name = "num-derive"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "876a53fff98e03a936a674b29568b0e605f06b29372c2489ff4de23f1949743d"
@@ -3283,8 +3420,21 @@ checksum = "1e753515675eaaa98071d814bea0148ae8c9d7995fa0531bf222e7857e3f1759"
 dependencies = [
  "byteorder",
  "cfg-if 1.0.0",
- "ff_ce",
+ "ff_ce 0.12.0",
  "rand 0.4.6",
+]
+
+[[package]]
+name = "pairing_ce"
+version = "0.28.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db007b21259660d025918e653508f03050bf23fb96a88601f9936329faadc597"
+dependencies = [
+ "byteorder",
+ "cfg-if 1.0.0",
+ "ff_ce 0.14.3",
+ "rand 0.4.6",
+ "serde",
 ]
 
 [[package]]
@@ -3574,7 +3724,7 @@ dependencies = [
  "num-bigint 0.2.6",
  "num-integer",
  "num-traits",
- "pairing_ce",
+ "pairing_ce 0.24.2",
  "rand 0.4.6",
  "sha2 0.8.2",
  "tiny-keccak 1.5.0",
@@ -3889,7 +4039,7 @@ name = "recursive_aggregation_circuit"
 version = "1.0.0"
 source = "git+https://github.com/matter-labs/recursive_aggregation_circuit.git?branch=master#63c954be7f755d235965a9e0e668813bfd2330eb"
 dependencies = [
- "franklin-crypto",
+ "franklin-crypto 0.0.5 (git+https://github.com/matter-labs/franklin-crypto.git?branch=beta)",
  "hex",
  "once_cell",
  "sha2 0.9.9",
@@ -3988,13 +4138,33 @@ version = "0.3.0"
 source = "git+https://github.com/matter-labs/rescue-poseidon.git?branch=stable#3415de1faa2cfa836f1ac059bf91b19af7c4c620"
 dependencies = [
  "byteorder",
- "franklin-crypto",
+ "franklin-crypto 0.0.5 (git+https://github.com/matter-labs/franklin-crypto.git?branch=beta)",
  "num-bigint 0.3.3",
  "num-integer",
  "num-iter",
  "num-traits",
  "rand 0.4.6",
  "sha3 0.9.1",
+]
+
+[[package]]
+name = "rescue_poseidon"
+version = "0.4.1"
+source = "git+https://github.com/matter-labs/rescue-poseidon.git#f611a3353e48cf42153e44d89ed90da9bc5934e8"
+dependencies = [
+ "addchain",
+ "arrayvec 0.7.4",
+ "blake2 0.10.6",
+ "byteorder",
+ "franklin-crypto 0.0.5 (git+https://github.com/matter-labs/franklin-crypto?branch=dev)",
+ "num-bigint 0.3.3",
+ "num-integer",
+ "num-iter",
+ "num-traits",
+ "rand 0.4.6",
+ "serde",
+ "sha3 0.9.1",
+ "smallvec",
 ]
 
 [[package]]
@@ -4577,7 +4747,7 @@ dependencies = [
  "lazy_static",
  "log",
  "more-asserts",
- "num-derive",
+ "num-derive 0.3.3",
  "num-traits",
  "once_cell",
  "parking_lot 0.12.1",
@@ -6236,7 +6406,7 @@ dependencies = [
  "anyhow",
  "byteorder",
  "crc32fast",
- "franklin-crypto",
+ "franklin-crypto 0.0.5 (git+https://github.com/matter-labs/franklin-crypto.git?branch=beta)",
  "halo2_proofs",
  "hash-db",
  "hex",
@@ -6245,5 +6415,6 @@ dependencies = [
  "num-bigint 0.4.3",
  "num-traits",
  "recursive_aggregation_circuit",
+ "rescue_poseidon 0.4.1",
  "tree",
 ]
