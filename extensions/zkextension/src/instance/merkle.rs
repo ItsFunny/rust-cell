@@ -1,4 +1,6 @@
 use crate::store::trace::{TraceTable, WriteTrace};
+use crate::traces::TraceTableCircuit;
+use halo2_proofs::pasta::Fq;
 use merkle_tree::primitives::GetBits;
 use std::mem::take;
 use tree::tree::NullHasher;
@@ -9,22 +11,8 @@ pub struct InstanceMerkleNode {
 
 impl GetBits for InstanceMerkleNode {
     fn get_bits_le(&self) -> Vec<bool> {
-        let mut ret = vec![];
-        let write = &self.table.write;
-        for trace in &write.traces {
-            match trace {
-                WriteTrace::Set(index, k, v) => {
-                    ret.extend(u32_to_bool_vec(*index));
-                    ret.extend(u8_array_to_bool_vec(k));
-                    ret.extend(u8_array_to_bool_vec(v));
-                }
-                WriteTrace::Delete(index, k) => {
-                    ret.extend(u32_to_bool_vec(*index));
-                    ret.extend(u8_array_to_bool_vec(k));
-                }
-            }
-        }
-        ret
+        let table: TraceTableCircuit<Fq> = self.table.clone().into();
+        table.get_bits_le()
     }
 }
 

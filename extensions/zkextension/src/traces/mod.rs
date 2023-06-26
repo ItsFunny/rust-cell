@@ -1,11 +1,11 @@
 use crate::store::trace::{TraceTable, WriteTable, WriteTrace};
-use crate::utils::{fr_to_fq, u32_array_to_f};
+use crate::utils::{f_get_bits, fr_to_fq, u32_array_to_f};
 use franklin_crypto::bellman::bn256::Bn256;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::pasta::group::ff::PrimeField;
 use halo2_proofs::pasta::Fq;
 use merkle_tree::primitives::GetBits;
-use merkle_tree::Fr;
+use merkle_tree::{params, Fr};
 use tree::tree::NullHasher;
 
 pub struct TraceTableCircuit<F: PrimeField> {
@@ -15,7 +15,22 @@ pub struct TraceTableCircuit<F: PrimeField> {
 
 impl<F: PrimeField> GetBits for TraceTableCircuit<F> {
     fn get_bits_le(&self) -> Vec<bool> {
-        todo!()
+        let mut ret = vec![];
+        ret.extend(f_get_bits(&self.alloc, params::FR_BIT_WIDTH));
+        for trace in &self.write.traces {
+            match trace {
+                WriteTraceCircuit::Set(index, k, v) => {
+                    ret.extend(f_get_bits(index, params::FR_BIT_WIDTH));
+                    ret.extend(f_get_bits(k, params::FR_BIT_WIDTH));
+                    ret.extend(f_get_bits(v, params::FR_BIT_WIDTH));
+                }
+                WriteTraceCircuit::Delete(index, k) => {
+                    ret.extend(f_get_bits(index, params::FR_BIT_WIDTH));
+                    ret.extend(f_get_bits(k, params::FR_BIT_WIDTH));
+                }
+            }
+        }
+        ret
     }
 }
 impl<F: PrimeField> From<TraceTable<NullHasher>> for TraceTableCircuit<F> {
@@ -40,11 +55,11 @@ impl<F: PrimeField> From<WriteTable<NullHasher>> for WriteTableCircuit<F> {
                     WriteTrace::Set(index, k, v) => {
                         let k_f = u32_array_to_f(&k);
                         let k_v = u32_array_to_f(&v);
-                        WriteTraceCircuit::Set(index, k_f, k_v)
+                        WriteTraceCircuit::Set(F::from(index as u64), k_f, k_v)
                     }
                     WriteTrace::Delete(index, k) => {
                         let k_f = u32_array_to_f(&k);
-                        WriteTraceCircuit::Delete(index, k_f)
+                        WriteTraceCircuit::Delete(F::from(index as u64), k_f)
                     }
                 };
                 a
@@ -56,9 +71,13 @@ impl<F: PrimeField> From<WriteTable<NullHasher>> for WriteTableCircuit<F> {
 
 #[derive(Clone)]
 pub enum WriteTraceCircuit<F: PrimeField> {
-    Set(u32, F, F),
-    Delete(u32, F),
+    Set(F, F, F),
+    Delete(F, F),
 }
 
-#[test]
-pub fn tesae() {}
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    pub fn tesae() {}
+}

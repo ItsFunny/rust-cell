@@ -10,6 +10,7 @@ use halo2_proofs::pasta::group::ff::{BitViewSized, PrimeField, PrimeFieldBits};
 use halo2_proofs::pasta::Fq;
 use hash_db::Hasher as HashDBHasher;
 use merkle_tree::params::RESCUE_PARAMS;
+use merkle_tree::primitives::BitIteratorLe;
 use merkle_tree::smt::hasher::Hasher;
 use merkle_tree::{Engine, Fr, RescueParams};
 use num_bigint::BigInt;
@@ -89,6 +90,14 @@ pub fn u32_array_to_f<F: PrimeField>(data: &[u8; 32]) -> F {
     let mut repr = F::Repr::default();
     read_rep::<&[u8], F>(&mut repr, &data[..]);
     F::from_repr(repr).unwrap()
+}
+pub fn f_get_bits<F: PrimeField>(f: &F, n: usize) -> Vec<bool> {
+    let mut r: Vec<bool> = Vec::with_capacity(n);
+    let repr = f.to_repr();
+    r.extend(BitIteratorLe::new(repr).take(n));
+    let len = r.len();
+    r.extend((len..n).map(|_| false));
+    r
 }
 
 #[test]

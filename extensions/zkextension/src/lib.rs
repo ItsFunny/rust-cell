@@ -15,3 +15,5 @@ use merkle_tree::smt::rescue_hasher::RescueHasher;
 use merkle_tree::{Engine, Fr, SparseMerkleTree};
 
 pub type InstanceTree = SparseMerkleTree<InstanceMerkleNode, Fr, RescueHasher<Engine>>;
+
+pub type CircuitInstanceTree = SparseMerkleTree<InstanceMerkleNode, Fr, RescueHasher<Engine>>;
