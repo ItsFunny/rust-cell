@@ -17,7 +17,7 @@ pub struct TraceStore<H: KeyHasher> {
 
 #[derive(Default, Clone)]
 pub struct TraceTable<H: KeyHasher> {
-    alloc: u32,
+    pub alloc: u32,
     pub write: WriteTable<H>,
     pub read: ReadTable,
 }

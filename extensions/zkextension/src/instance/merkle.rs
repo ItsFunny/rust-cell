@@ -28,7 +28,7 @@ impl GetBits for InstanceMerkleNode {
     }
 }
 
-fn u8_array_to_bool_vec(array: &[u8; 32]) -> Vec<bool> {
+pub fn u8_array_to_bool_vec(array: &[u8; 32]) -> Vec<bool> {
     let mut bool_vec = Vec::new();
 
     for &byte in array.iter() {
@@ -40,7 +40,7 @@ fn u8_array_to_bool_vec(array: &[u8; 32]) -> Vec<bool> {
     bool_vec
 }
 
-fn u32_to_bool_vec(num: u32) -> Vec<bool> {
+pub fn u32_to_bool_vec(num: u32) -> Vec<bool> {
     let mut bool_vec = Vec::new();
 
     for i in (0..32).rev() {

@@ -2,9 +2,10 @@ mod chip;
 mod hasher;
 
 use crate::circuits::halo2::chip::{MerkleChip, MerkleChipTrait};
-use crate::circuits::traces::TraceTableCircuit;
+use crate::traces::TraceTableCircuit;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::{Layouter, Region, SimpleFloorPlanner};
+use halo2_proofs::pasta::group::ff::PrimeField;
 use halo2_proofs::pasta::Fq;
 use halo2_proofs::plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance};
 use halo2_proofs::poly::Rotation;
@@ -15,11 +16,11 @@ pub struct BlockHalo2Config {
     traces: [Column<Advice>; 10],
     new_root: Column<Instance>,
 }
-pub struct BlockHalo2Circuit<F: Field> {
-    traces: TraceTableCircuit<F>,
+pub struct BlockHalo2Circuit<F: PrimeField> {
+    trace_table: TraceTableCircuit<F>,
 }
 
-impl<F: Field> Circuit<F> for BlockHalo2Circuit<F> {
+impl<F: PrimeField> Circuit<F> for BlockHalo2Circuit<F> {
     type Config = BlockHalo2Config;
     type FloorPlanner = SimpleFloorPlanner;
 
@@ -33,13 +34,23 @@ impl<F: Field> Circuit<F> for BlockHalo2Circuit<F> {
         let new_root = meta.instance_column();
         meta.enable_equality(new_root);
         meta.enable_equality(old_root);
+        for trace in traces {
+            meta.enable_equality(trace);
+        }
 
         meta.create_gate("merkle root", |meta| {
             let ret = meta.query_advice(traces[0], Rotation::cur());
+            // | trace_0  | trace_1  | trace_2 |trace_3 |trace_4 |trace_5 |trace_6 |trace_7 |trace_8 |trace_9 |
+            // |-----|-----|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|
+            // | lhs |.....
+            // | out |     |       |
+            for i in 0..10 {
+                let advice = meta.query_advice(traces[i], Rotation::cur());
+            }
+            let out = meta.query_advice(traces[0], Rotation::next());
 
             vec![ret]
         });
-
         BlockHalo2Config {
             old_root,
             traces,

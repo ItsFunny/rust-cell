@@ -1,9 +1,12 @@
+extern crate core;
+
 pub mod blocks;
 pub mod circuits;
 pub mod db;
 pub mod instance;
 pub mod store;
 pub mod suite;
+mod traces;
 pub mod types;
 
 use crate::instance::merkle::InstanceMerkleNode;
