@@ -8,6 +8,18 @@ use merkle_tree::primitives::GetBits;
 use merkle_tree::{params, Fr};
 use tree::tree::NullHasher;
 
+#[derive(Default, Clone)]
+pub struct CircuitMerkleNode<F: PrimeField> {
+    pub table: TraceTableCircuit<F>,
+}
+
+impl<F: PrimeField> GetBits for CircuitMerkleNode<F> {
+    fn get_bits_le(&self) -> Vec<bool> {
+        self.table.get_bits_le()
+    }
+}
+
+#[derive(Default, Clone)]
 pub struct TraceTableCircuit<F: PrimeField> {
     pub alloc: F,
     pub write: WriteTableCircuit<F>,
@@ -42,6 +54,7 @@ impl<F: PrimeField> From<TraceTable<NullHasher>> for TraceTableCircuit<F> {
         }
     }
 }
+#[derive(Default, Clone)]
 pub struct WriteTableCircuit<F: PrimeField> {
     pub traces: Vec<WriteTraceCircuit<F>>,
 }
@@ -77,7 +90,37 @@ pub enum WriteTraceCircuit<F: PrimeField> {
 
 #[cfg(test)]
 mod tests {
+    use crate::traces::{
+        CircuitMerkleNode, TraceTableCircuit, WriteTableCircuit, WriteTraceCircuit,
+    };
+    use crate::CircuitInstanceTree;
+    use halo2_proofs::pasta::Fq;
+    use merkle_tree::params;
 
     #[test]
-    pub fn tesae() {}
+    pub fn tesae() {
+        let mut circuit_tree: CircuitInstanceTree =
+            CircuitInstanceTree::new(params::INSTANCE_TREE_DEPTH);
+
+        let node1 = {
+            let ret = CircuitMerkleNode {
+                table: TraceTableCircuit {
+                    alloc: Fq::default(),
+                    write: WriteTableCircuit {
+                        traces: vec![WriteTraceCircuit::Set(
+                            Fq::from(1),
+                            Fq::from(123),
+                            Fq::from(456),
+                        )],
+                    },
+                },
+            };
+            ret
+        };
+
+        circuit_tree.insert(1, node1);
+
+        let root1 = circuit_tree.root_hash();
+        println!("{:?}", root1);
+    }
 }

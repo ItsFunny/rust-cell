@@ -1,5 +1,7 @@
 mod chip;
+mod chip2;
 mod hasher;
+mod mimc;
 pub mod rescue_chip;
 
 use crate::circuits::halo2::chip::{MerkleChip, MerkleChipTrait};
@@ -64,11 +66,12 @@ impl<F: PrimeField> Circuit<F> for BlockHalo2Circuit<F> {
         config: Self::Config,
         mut layouter: impl Layouter<F>,
     ) -> Result<(), Error> {
-        let chip = MerkleChip::<F>::new(config.clone());
-        let root = chip.allocate_merkle_root(layouter.namespace(|| "roots"), &self.trace_table);
-        layouter
-            .constrain_instance(root.cell(), config.new_root.clone(), 0)
-            .unwrap();
-        Ok(())
+        // let chip = MerkleChip::<F>::new(config.clone());
+        // let root = chip.allocate_merkle_root(layouter.namespace(|| "roots"), &self.trace_table);
+        // layouter
+        //     .constrain_instance(root.cell(), config.new_root.clone(), 0)
+        //     .unwrap();
+        // Ok(())
+        todo!()
     }
 }

@@ -11,13 +11,22 @@ use franklin_crypto::circuit::{multipack, rescue, Assignment};
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::{AssignedCell, Chip, Layouter};
 use halo2_proofs::pasta::group::ff::PrimeField;
-use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Instance};
 use merkle_tree::params::RESCUE_PARAMS;
 use merkle_tree::{Engine, Fr, RescueParams};
 use rescue_poseidon::rescue_hash;
 use std::marker::PhantomData;
 use std::vec;
 
+// lhs|rhs|root_cur
+pub struct MerkleConfig {
+    merkle_path: [Column<Advice>; 64],
+    lhs: Column<Advice>,
+    rhs: Column<Advice>,
+    cur_root: Column<Advice>,
+
+    new_root: Column<Instance>,
+}
 pub struct MerkleChip<F: PrimeField> {
     config: BlockHalo2Config,
     _marker: PhantomData<F>,
@@ -134,12 +143,6 @@ fn do_allocate_merkle_root<F: PrimeField, CS: PlonkConstraintSystem<Engine>>(
     assert!(length_to_root <= index.len());
     assert!(index.len() >= audit_path.len());
 
-    let remaining_index_bits = AllocatedNum::pack_bits_to_element(
-        cs.namespace(|| "index_bits_after_length_root_packed"),
-        &index[length_to_root..],
-    )?;
-    remaining_index_bits.assert_zero(cs.namespace(|| "index_bits_after_length_are_zero"))?;
-
     let index = &index[0..length_to_root];
     let audit_path = &audit_path[0..length_to_root];
 
@@ -162,6 +165,7 @@ fn do_allocate_merkle_root<F: PrimeField, CS: PlonkConstraintSystem<Engine>>(
         params,
     )?;
 
+    // TODO, add constraint
     // Ascend the merkle tree authentication path
     for (i, direction_bit) in index.iter().enumerate() {
         let cs = &mut cs.namespace(|| format!("from merkle tree hash {}", i));

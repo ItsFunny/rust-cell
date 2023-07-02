@@ -10,6 +10,7 @@ pub const BALANCE_TREE_DEPTH: usize = 4;
 //TODO
 pub const ORDER_TREE_DEPTH: usize = 4;
 
+pub const INSTANCE_TREE_DEPTH: usize = 32;
 // pub const BALANCE_TREE_DEPTH: usize = 32;
 /// Version of transactions.
 pub const CURRENT_TX_VERSION: u8 = 1;

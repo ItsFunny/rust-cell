@@ -2,9 +2,9 @@ use crate::store::trace::{TraceTable, WriteTrace};
 use crate::traces::TraceTableCircuit;
 use halo2_proofs::pasta::Fq;
 use merkle_tree::primitives::GetBits;
-use std::mem::take;
 use tree::tree::NullHasher;
 
+#[derive(Default, Clone)]
 pub struct InstanceMerkleNode {
     pub table: TraceTable<NullHasher>,
 }
