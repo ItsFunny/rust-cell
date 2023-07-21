@@ -72,59 +72,59 @@ impl<F: PrimeField> MerkleChipTrait<F> for MerkleChip<F> {
     }
 }
 
-pub fn get_delta_root<F: PrimeField>(
-    leaf_bits: &[bool],
-    index: u64,
-    audit_path: &[Fr],
-    length_to_root: usize,
-) -> F {
-    let mut cs = TestConstraintSystem::new();
-    let mut bool_bits = vec![];
-    for item in leaf_bits {
-        bool_bits.push(Boolean::constant(*item));
-    }
-    let mut allocated = vec![];
-    for (i, e) in audit_path.iter().enumerate() {
-        let fr = e.clone();
-        let path_element =
-            AllocatedNum::alloc(cs.namespace(|| format!("path element{}", i)), || Ok(fr)).unwrap();
-        allocated.push(path_element);
-    }
-    let index_fr = fr_from(index);
-    let id = AllocatedNum::alloc(cs.namespace(|| "id"), || Ok(index_fr)).unwrap();
-    let index = id
-        .into_bits_le_fixed(cs.namespace(|| "into_bits_le_fixed"), 64)
-        .unwrap();
-
-    get_merkle_root(
-        cs.namespace(|| "get root"),
-        &bool_bits,
-        &index.as_slice(),
-        &allocated,
-        length_to_root,
-        &RESCUE_PARAMS,
-    )
-}
-fn get_merkle_root<F: PrimeField, CS: PlonkConstraintSystem<Engine>>(
-    mut cs: CS,
-    leaf_bits: &[Boolean],
-    index: &[Boolean],
-    audit_path: &[AllocatedNum<Engine>],
-    length_to_root: usize,
-    params: &RescueParams,
-) -> F {
-    let alloc = do_allocate_merkle_root(
-        cs.namespace(|| "allocate merkle root"),
-        leaf_bits,
-        index,
-        audit_path,
-        length_to_root,
-        params,
-    )
-    .unwrap();
-    let fr = alloc.get_value().unwrap();
-    fr_to_fq(&fr)
-}
+// pub fn get_delta_root<F: PrimeField>(
+//     leaf_bits: &[bool],
+//     index: u64,
+//     audit_path: &[Fr],
+//     length_to_root: usize,
+// ) -> F {
+//     let mut cs = TestConstraintSystem::new();
+//     let mut bool_bits = vec![];
+//     for item in leaf_bits {
+//         bool_bits.push(Boolean::constant(*item));
+//     }
+//     let mut allocated = vec![];
+//     for (i, e) in audit_path.iter().enumerate() {
+//         let fr = e.clone();
+//         let path_element =
+//             AllocatedNum::alloc(cs.namespace(|| format!("path element{}", i)), || Ok(fr)).unwrap();
+//         allocated.push(path_element);
+//     }
+//     let index_fr = fr_from(index);
+//     let id = AllocatedNum::alloc(cs.namespace(|| "id"), || Ok(index_fr)).unwrap();
+//     let index = id
+//         .into_bits_le_fixed(cs.namespace(|| "into_bits_le_fixed"), 64)
+//         .unwrap();
+//
+//     get_merkle_root(
+//         cs.namespace(|| "get root"),
+//         &bool_bits,
+//         &index.as_slice(),
+//         &allocated,
+//         length_to_root,
+//         &RESCUE_PARAMS,
+//     )
+// }
+// fn get_merkle_root<F: PrimeField, CS: PlonkConstraintSystem<Engine>>(
+//     mut cs: CS,
+//     leaf_bits: &[Boolean],
+//     index: &[Boolean],
+//     audit_path: &[AllocatedNum<Engine>],
+//     length_to_root: usize,
+//     params: &RescueParams,
+// ) -> F {
+//     let alloc = do_allocate_merkle_root(
+//         cs.namespace(|| "allocate merkle root"),
+//         leaf_bits,
+//         index,
+//         audit_path,
+//         length_to_root,
+//         params,
+//     )
+//     .unwrap();
+//     let fr = alloc.get_value().unwrap();
+//     fr_to_fq(&fr)
+// }
 
 fn do_allocate_merkle_root<F: PrimeField, CS: PlonkConstraintSystem<Engine>>(
     mut cs: CS,
@@ -224,65 +224,65 @@ pub fn simple_pack_into_witness(bits: &[Boolean]) -> Result<Vec<Fr>, SynthesisEr
     Ok(results)
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::circuits::halo2::chip::{get_delta_root, get_merkle_root};
-    use crate::instance::merkle::u8_array_to_bool_vec;
-    use halo2_proofs::circuit::NamespacedLayouter;
-    use halo2_proofs::pasta::Fq;
-    use halo2_proofs::plonk::ConstraintSystem;
-    use hash_db::Hasher;
-    use keccak_hasher::KeccakHasher;
-    use merkle_tree::params::RESCUE_PARAMS;
-    use merkle_tree::primitives::GetBits;
-    use merkle_tree::smt::rescue_hasher::RescueHasher;
-    use merkle_tree::{Engine, Fr, RescueParams, SparseMerkleTree};
-    use std::collections::hash_map::DefaultHasher;
-    use tree::tree::NullHasher;
-
-    pub type NodeTree = SparseMerkleTree<Node, Fr, RescueHasher<Engine>>;
-    #[derive(Default, Clone)]
-    pub struct Node {
-        data: Vec<u8>,
-    }
-
-    impl Node {
-        pub fn new(data: &str) -> Self {
-            Self {
-                data: data.as_bytes().to_vec(),
-            }
-        }
-    }
-
-    impl GetBits for Node {
-        fn get_bits_le(&self) -> Vec<bool> {
-            let v = KeccakHasher::hash(self.data.as_slice());
-            u8_array_to_bool_vec(&v)
-        }
-    }
-    #[test]
-    pub fn test_get_root() {
-        let mut tree = NodeTree::new(64);
-        tree.insert(1, Node::new("data1"));
-        tree.insert(2, Node::new("data2"));
-        let root1 = tree.root_hash();
-        println!("{:?}", root1);
-        let tree2 = tree.clone();
-        let node3 = Node::new("data3");
-        tree.insert(3, node3.clone());
-        let root11 = tree.root_hash();
-        println!("root11:{:?}", root11);
-
-        let aa: Vec<Option<Fr>> = tree2
-            .merkle_path(3)
-            .into_iter()
-            .map(|e| Some(e.0))
-            .collect();
-        let aa: Vec<Fr> = aa.into_iter().map(|v| v.unwrap()).collect();
-
-        let binding = node3.clone().get_bits_le();
-        let leaf_bits = binding.as_slice();
-        let root_delta: Fq = get_delta_root(leaf_bits, 3, aa.as_slice(), 64);
-        println!("root_delta:{:?}", root_delta);
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use crate::circuits::halo2::chip::{get_delta_root, get_merkle_root};
+//     use crate::instance::merkle::u8_array_to_bool_vec;
+//     use halo2_proofs::circuit::NamespacedLayouter;
+//     use halo2_proofs::pasta::Fq;
+//     use halo2_proofs::plonk::ConstraintSystem;
+//     use hash_db::Hasher;
+//     use keccak_hasher::KeccakHasher;
+//     use merkle_tree::params::RESCUE_PARAMS;
+//     use merkle_tree::primitives::GetBits;
+//     use merkle_tree::smt::rescue_hasher::RescueHasher;
+//     use merkle_tree::{Engine, Fr, RescueParams, SparseMerkleTree};
+//     use std::collections::hash_map::DefaultHasher;
+//     use tree::tree::NullHasher;
+//
+//     pub type NodeTree = SparseMerkleTree<Node, Fr, RescueHasher<Engine>>;
+//     #[derive(Default, Clone)]
+//     pub struct Node {
+//         data: Vec<u8>,
+//     }
+//
+//     impl Node {
+//         pub fn new(data: &str) -> Self {
+//             Self {
+//                 data: data.as_bytes().to_vec(),
+//             }
+//         }
+//     }
+//
+//     impl GetBits for Node {
+//         fn get_bits_le(&self) -> Vec<bool> {
+//             let v = KeccakHasher::hash(self.data.as_slice());
+//             u8_array_to_bool_vec(&v)
+//         }
+//     }
+//     #[test]
+//     pub fn test_get_root() {
+//         let mut tree = NodeTree::new(64);
+//         tree.insert(1, Node::new("data1"));
+//         tree.insert(2, Node::new("data2"));
+//         let root1 = tree.root_hash();
+//         println!("{:?}", root1);
+//         let tree2 = tree.clone();
+//         let node3 = Node::new("data3");
+//         tree.insert(3, node3.clone());
+//         let root11 = tree.root_hash();
+//         println!("root11:{:?}", root11);
+//
+//         let aa: Vec<Option<Fr>> = tree2
+//             .merkle_path(3)
+//             .into_iter()
+//             .map(|e| Some(e.0))
+//             .collect();
+//         let aa: Vec<Fr> = aa.into_iter().map(|v| v.unwrap()).collect();
+//
+//         let binding = node3.clone().get_bits_le();
+//         let leaf_bits = binding.as_slice();
+//         let root_delta: Fq = get_delta_root(leaf_bits, 3, aa.as_slice(), 64);
+//         println!("root_delta:{:?}", root_delta);
+//     }
+// }
