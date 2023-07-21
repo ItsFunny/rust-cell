@@ -1,5 +1,5 @@
 // Built-in deps
-use ethabi::ethereum_types::U256;
+use ethabi::ethereum_types::{H256, U256};
 use ff_ce::BitIterator;
 use std::{convert::TryInto, mem};
 // External deps
@@ -406,6 +406,16 @@ pub trait FromBytes: Sized {
     fn from_bytes(bytes: &[u8]) -> Option<Self>;
 }
 
+pub fn h256_to_u256(h: &H256) -> U256 {
+    U256::from_little_endian(&h[..])
+}
+
+pub fn u256_to_h256(u: &U256) -> H256 {
+    let mut h = [0u8; 32];
+    u.to_little_endian(&mut h[..]);
+    H256(h)
+}
+
 macro_rules! impl_from_bytes_for_primitive {
     ($Type:ty) => {
         impl FromBytes for $Type {
@@ -553,12 +563,15 @@ mod test {
         assert_eq!(number, 0x0102030405);
     }
 
-    // #[test]
-    // fn test_bit_iterator_e() {
-    //     let test_vector = [1u8, 2u8];
-    //     let mut reference: Vec<bool> = BitIterator::new(&test_vector).collect();
-    //     reference.reverse();
-    //     let out: Vec<bool> = BitIteratorLe::new(&test_vector).collect();
-    //     assert_eq!(reference, out);
-    // }
+    #[test]
+    fn test_bit_iterator_e() {
+        let test_vector = [1u8; 32];
+        let u256 = h256_to_u256(&H256(test_vector));
+        let mut reference: Vec<bool> = BitIterator::new(&u256.0).collect();
+        reference.reverse();
+        let out: Vec<bool> = BitIteratorLe::new(&test_vector).collect();
+        assert_eq!(reference, out);
+        println!("out:{:?}", out);
+        println!("reference:{:?}", reference);
+    }
 }
