@@ -11,7 +11,7 @@ tree={path="../../sdk/tree"}
 anyhow = "1.0.69"
 crc32fast = "1.2.0"
 #halo2aggregator-s = { git = "https://github.com/DelphinusLab/halo2aggregator-s.git", tag = "bisect-lookup-0.2.1"}
-halo2_proofs = "0.3.0"
+halo2_proofs ="0.3.0"
 #halo2_proofs = { git = "https://github.com/junyu0312/halo2", branch = "gpu", default-features = true }
 
 franklin_crypto = { package = "franklin-crypto", version = "0.0.5", git = "https://github.com/matter-labs/franklin-crypto.git", branch = "beta", features = ["multicore", "plonk"] }

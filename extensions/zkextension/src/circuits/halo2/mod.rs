@@ -1,8 +1,13 @@
 mod chip;
 mod chip2;
 mod hasher;
+mod index_to_bool;
+mod merkle;
 mod mimc;
 pub mod rescue_chip;
+mod reverse;
+mod temp;
+mod wrapper;
 
 use crate::circuits::halo2::chip::{MerkleChip, MerkleChipTrait};
 use crate::traces::TraceTableCircuit;

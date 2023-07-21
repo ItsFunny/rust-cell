@@ -104,7 +104,7 @@ pub struct BitIteratorLe<E> {
 
 impl<E: AsRef<[u8]>> BitIteratorLe<E> {
     pub fn new(t: E) -> Self {
-        let len = t.as_ref().len() * 64;
+        let len = t.as_ref().len() * 8;
 
         BitIteratorLe { t, n: 0, len }
     }

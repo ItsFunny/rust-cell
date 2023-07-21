@@ -73,7 +73,6 @@ impl<F: PrimeField> MerkleChipTrait<F> for MerkleChip<F> {
 }
 
 pub fn get_delta_root<F: PrimeField>(
-    meta: &mut ConstraintSystem<F>,
     leaf_bits: &[bool],
     index: u64,
     audit_path: &[Fr],
@@ -98,7 +97,6 @@ pub fn get_delta_root<F: PrimeField>(
         .unwrap();
 
     get_merkle_root(
-        meta,
         cs.namespace(|| "get root"),
         &bool_bits,
         &index.as_slice(),
@@ -108,7 +106,6 @@ pub fn get_delta_root<F: PrimeField>(
     )
 }
 fn get_merkle_root<F: PrimeField, CS: PlonkConstraintSystem<Engine>>(
-    meta: &mut ConstraintSystem<F>,
     mut cs: CS,
     leaf_bits: &[Boolean],
     index: &[Boolean],
@@ -117,7 +114,6 @@ fn get_merkle_root<F: PrimeField, CS: PlonkConstraintSystem<Engine>>(
     params: &RescueParams,
 ) -> F {
     let alloc = do_allocate_merkle_root(
-        meta,
         cs.namespace(|| "allocate merkle root"),
         leaf_bits,
         index,
@@ -131,7 +127,6 @@ fn get_merkle_root<F: PrimeField, CS: PlonkConstraintSystem<Engine>>(
 }
 
 fn do_allocate_merkle_root<F: PrimeField, CS: PlonkConstraintSystem<Engine>>(
-    meta: &mut ConstraintSystem<F>,
     mut cs: CS,
     leaf_bits: &[Boolean],
     index: &[Boolean],
@@ -233,6 +228,7 @@ pub fn simple_pack_into_witness(bits: &[Boolean]) -> Result<Vec<Fr>, SynthesisEr
 mod tests {
     use crate::circuits::halo2::chip::{get_delta_root, get_merkle_root};
     use crate::instance::merkle::u8_array_to_bool_vec;
+    use halo2_proofs::circuit::NamespacedLayouter;
     use halo2_proofs::pasta::Fq;
     use halo2_proofs::plonk::ConstraintSystem;
     use hash_db::Hasher;
@@ -286,9 +282,7 @@ mod tests {
 
         let binding = node3.clone().get_bits_le();
         let leaf_bits = binding.as_slice();
-        let mut css = ConstraintSystem::default();
-        let root_delta: Fq = get_delta_root(&mut css, leaf_bits, 3, aa.as_slice(), 64);
+        let root_delta: Fq = get_delta_root(leaf_bits, 3, aa.as_slice(), 64);
         println!("root_delta:{:?}", root_delta);
-        // get_delta_root(leaf_bits, 3)
     }
 }
