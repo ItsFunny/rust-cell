@@ -1,4 +1,5 @@
 use crate::circuits::halo2::chip2::{RescueHashChip, RescueHashConfig};
+use crate::circuits::halo2::index_to_bool::{IndexToBoolChip, IndexToBoolConfig};
 use crate::circuits::halo2::reverse::{ReverseChip, ReverseConfig};
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::pasta::group::ff::PrimeField;
@@ -6,29 +7,31 @@ use halo2_proofs::plonk::{ConstraintSystem, Error, Expression};
 use merkle_tree::primitives::BitIteratorLe;
 use std::marker::PhantomData;
 
-pub struct MerkleConfig {
+pub struct MerkleConfig<const D: usize> {
     pub reverse: ReverseConfig,
     pub rescue: RescueHashConfig,
+    pub index_bool: IndexToBoolConfig<D>,
 }
-pub struct MerkleChip<F: PrimeField> {
-    config: MerkleConfig,
+pub struct MerkleChip<F: PrimeField, const D: usize> {
+    config: MerkleConfig<D>,
     _ph: PhantomData<F>,
 }
 
-impl<F: PrimeField> MerkleChip<F> {
-    pub fn new(config: MerkleConfig) -> Self {
+impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
+    pub fn new(config: MerkleConfig<D>) -> Self {
         Self {
             config,
             _ph: Default::default(),
         }
     }
-    pub fn configure(meta: &mut ConstraintSystem<F>) -> MerkleConfig {
+    pub fn configure(meta: &mut ConstraintSystem<F>) -> MerkleConfig<D> {
         let reverse_config = ReverseChip::configure(meta);
         let rescue_config = RescueHashChip::configure(meta);
-
+        let index_to_bool_config = IndexToBoolChip::configure(meta);
         MerkleConfig {
             reverse: reverse_config,
             rescue: rescue_config,
+            index_bool: index_to_bool_config,
         }
     }
     pub fn assign(
