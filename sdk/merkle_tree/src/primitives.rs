@@ -126,6 +126,12 @@ impl<E: AsRef<[u8]>> Iterator for BitIteratorLe<E> {
     }
 }
 
+impl<E: AsRef<[u8]>> ExactSizeIterator for BitIteratorLe<E> {
+    fn len(&self) -> usize {
+        self.n
+    }
+}
+
 pub struct BitConvert;
 
 impl BitConvert {

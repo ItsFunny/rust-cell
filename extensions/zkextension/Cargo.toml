@@ -5,7 +5,14 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+dev-graph = ["halo2_proofs/dev-graph"]
+
+
 [dependencies]
+plotters = "0.3.5"
+tabbycat = { version = "0.1", features = ["attributes"], optional = true }
+
 merkle_tree = {path="../../sdk/merkle_tree"}
 tree={path="../../sdk/tree"}
 anyhow = "1.0.69"

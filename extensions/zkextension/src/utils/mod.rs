@@ -48,7 +48,7 @@ pub fn fq_to_fr<F: PrimeField>(f: &F) -> Fr {
     }
     let binding = hex::encode(&buf);
     let str = binding.as_str();
-    println!("{:?}", str);
+    println!("fq_to_fr {:?}", str);
     let fr = from_hex(str).unwrap();
     fr
 }
