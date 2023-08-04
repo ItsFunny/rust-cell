@@ -1,16 +1,19 @@
-use crate::enums::Schema;
+use crate::enums::{ModuleKey, ModuleValue, Schema};
 use crate::error::{ConfigurationError, ConfigurationResult};
+use crate::json::JsonValue;
+use crate::toml::TomlValue;
 use crate::value::ConfigValueTrait;
-use jsonnet::JsonnetVm;
+use anyhow::Context;
 use serde::de::DeserializeOwned;
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 
 pub enum ParserEnums {
-    JSON(Rc<RefCell<JsonParser>>),
+    JSON(Rc<RefCell<DefaultParser>>),
 }
 
 pub trait ConfigurationParser {
@@ -21,53 +24,46 @@ pub trait ConfigurationParser {
     ) -> ConfigurationResult<Box<dyn ConfigValueTrait<T>>>;
 }
 
-#[derive(Default)]
-pub struct JsonParser {
-    json_values: HashMap<JsonKey, JsonValue>,
+pub struct DefaultParser {
+    values: HashMap<ModuleKey, ModuleValue>,
+    schema: Schema,
 }
 
-#[derive(Eq, PartialEq, Hash)]
-struct JsonKey {
-    module_name: String,
-}
-
-impl JsonKey {
-    pub fn new(module_name: String) -> Self {
-        Self { module_name }
+impl DefaultParser {
+    pub fn new(schema: Schema) -> Self {
+        Self {
+            values: Default::default(),
+            schema,
+        }
     }
 }
 
-pub struct JsonValue {
-    data: Vec<u8>,
-}
-
-impl JsonValue {
-    pub fn new(data: Vec<u8>) -> Self {
-        Self { data }
-    }
-}
-
-impl<T: DeserializeOwned + Clone> ConfigValueTrait<T> for JsonValue {
-    fn as_object(&self) -> ConfigurationResult<T> {
-        let ret = serde_json::from_slice::<T>(self.data.as_slice())?;
-        Ok(ret)
-    }
-}
-
-impl ConfigurationParser for JsonParser {
-    fn parse_from<T: serde::de::DeserializeOwned + Clone + Sized>(
+impl ConfigurationParser for DefaultParser {
+    fn parse_from<T: DeserializeOwned + Clone + Sized>(
         &mut self,
         module_name: String,
         file_path: PathBuf,
     ) -> ConfigurationResult<Box<dyn ConfigValueTrait<T>>> {
-        let mut vm = JsonnetVm::new();
-        let data = vm.evaluate_file(file_path)?.to_string().as_bytes().to_vec();
-        let key = JsonKey::new(module_name.clone());
-        let info = self.json_values.get(&key);
-        if info.is_some() {}
-        let value = JsonValue::new(data);
-
-        Ok(Box::new(value))
+        let data = fs::read_to_string(file_path.as_ref()).with_context(|| {
+            format!(
+                "Failed to read config from {}",
+                file_path.as_ref().display()
+            )
+        })?;
+        let data = data.as_bytes().to_vec();
+        let value = ModuleValue::new(data.clone());
+        let key = ModuleKey::new(module_name);
+        self.values.insert(key, value.clone());
+        match self.schema {
+            Schema::JSON => {
+                let value = JsonValue::new(data);
+                Ok(Box::new(value))
+            }
+            Schema::TOML => {
+                let value = TomlValue::new(data);
+                Ok(Box::new(value))
+            }
+        }
     }
 }
 
