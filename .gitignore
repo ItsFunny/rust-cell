@@ -3,3 +3,4 @@
 .idea
 
 useless
+*.Ds_Store
