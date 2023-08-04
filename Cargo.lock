@@ -3194,6 +3194,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "num 0.4.0",
+ "pasta_curves",
  "rand 0.4.6",
  "rayon",
  "recursive_aggregation_circuit",
