@@ -4,6 +4,7 @@ mod hasher;
 mod index_to_bool;
 mod merkle;
 mod mimc;
+pub mod rescue;
 pub mod rescue_chip;
 mod reverse;
 mod temp;

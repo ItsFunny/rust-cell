@@ -87,3 +87,22 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
         })
     }
 }
+
+#[test]
+pub fn test_asd() {
+    let u64 = [
+        2208438750497609656u64,
+        15320337363210015184,
+        15995090123793024847,
+        2117741280830857960,
+        10431444199689328394,
+        2354366303523504534,
+        6239201738238234818,
+        985956890050594503,
+        49900000000,
+        0,
+    ];
+    let mut data = vec![];
+    u64.into_iter().for_each(|v| data.extend(v.to_le_bytes()));
+    println!("{:?}", data);
+}
