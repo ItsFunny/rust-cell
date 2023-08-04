@@ -18,6 +18,9 @@ pub enum ConfigurationError {
 
     #[error("{0}")]
     StringError(String),
+
+    #[error("anyhow errror {0}")]
+    AnyHowError(#[from] anyhow::Error),
 }
 
 impl<'a> From<jsonnet::Error<'a>> for ConfigurationError {

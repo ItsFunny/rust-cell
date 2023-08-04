@@ -7,7 +7,6 @@ members=[
     "demo/selfdemo",
     "demo/rocket",
     "demo/benchmark",
-    "demo/tokio",
     "demo/cell",
     "base/cell-base-common",
     "base/core",

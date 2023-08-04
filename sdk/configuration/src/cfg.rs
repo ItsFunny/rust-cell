@@ -1,7 +1,7 @@
 use crate::enums::Schema;
 use crate::error::{ConfigurationError, ConfigurationResult};
 use crate::manager::Manager;
-use crate::parser::{ConfigurationParser, JsonParser, ParserEnums};
+use crate::parser::{ConfigurationParser, DefaultParser, ParserEnums};
 use crate::value::ConfigValueTrait;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 pub struct Configuration {
-    parser: HashMap<Schema, ParserEnums>,
+    parser: HashMap<Schema, Rc<RefCell<DefaultParser>>>,
     config_module: HashMap<String, Vec<String>>,
 
     modules: HashMap<String, ConfigModule>,
@@ -39,12 +39,12 @@ impl Configuration {
         ret
     }
     fn init(&mut self) {
-        self.register_parser(
-            Schema::JSON,
-            ParserEnums::JSON(Rc::new(RefCell::new(JsonParser::default()))),
-        );
+        let json = Rc::new(RefCell::new(DefaultParser::new(Schema::JSON)));
+        let toml = Rc::new(RefCell::new(DefaultParser::new(Schema::TOML)));
+        self.register_parser(Schema::JSON, json);
+        self.register_parser(Schema::TOML, toml);
     }
-    fn register_parser(&mut self, s: Schema, p: ParserEnums) {
+    fn register_parser(&mut self, s: Schema, p: Rc<RefCell<DefaultParser>>) {
         self.parser.insert(s, p);
     }
 
@@ -58,26 +58,19 @@ impl Configuration {
             return Err(ConfigurationError::ModuleNotExists);
         }
         let module = module.unwrap();
-        match module.schema {
-            Schema::JSON => self.get_json_config_object(&module.schema, module_name.clone()),
-        }
+        self.get_config_object(&module.schema, module_name.clone())
     }
 
-    fn get_json_config_object<T: serde::de::DeserializeOwned + Clone + Sized>(
+    fn get_config_object<T: serde::de::DeserializeOwned + Clone + Sized>(
         &self,
         schema: &Schema,
         module_name: String,
     ) -> ConfigurationResult<T> {
         let module = self.get_module(module_name.clone()).unwrap();
         let parser = self.parser.get(schema).map_or_else(|| panic!(), |v| v);
-        match parser {
-            ParserEnums::JSON(parser) => {
-                let ret = parser
-                    .borrow_mut()
-                    .parse_from(module_name.clone(), module.module_full_path.clone())?;
-                return ret.as_object();
-            }
-        }
+        let mut parser = parser.borrow_mut();
+        let v = parser.parse_from(module_name.clone(), module.module_full_path.clone())?;
+        v.as_object()
     }
 
     fn get_module(&self, module_name: String) -> Option<&ConfigModule> {
