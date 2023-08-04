@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 pub struct Configuration {
-    parser: HashMap<Schema, Rc<RefCell<Box<dyn ConfigurationParser>>>>,
+    parser: HashMap<Schema, Rc<RefCell<DefaultParser>>>,
     config_module: HashMap<String, Vec<String>>,
 
     modules: HashMap<String, ConfigModule>,
@@ -39,12 +39,12 @@ impl Configuration {
         ret
     }
     fn init(&mut self) {
-        let json = Rc::new(RefCell::new(Box::new(DefaultParser::new(Schema::JSON))));
-        let toml = Rc::new(RefCell::new(Box::new(DefaultParser::new(Schema::TOML))));
+        let json = Rc::new(RefCell::new(DefaultParser::new(Schema::JSON)));
+        let toml = Rc::new(RefCell::new(DefaultParser::new(Schema::TOML)));
         self.register_parser(Schema::JSON, json);
         self.register_parser(Schema::TOML, toml);
     }
-    fn register_parser(&mut self, s: Schema, p: Rc<RefCell<Box<dyn ConfigurationParser>>>) {
+    fn register_parser(&mut self, s: Schema, p: Rc<RefCell<DefaultParser>>) {
         self.parser.insert(s, p);
     }
 

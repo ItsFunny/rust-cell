@@ -47,14 +47,22 @@ mod tests {
     use crate::manager::Manager;
     use serde::{Deserialize, Serialize};
 
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Nacos {
+        pub server_addr: String,
+    }
+    #[test]
+    pub fn test_toml() {
+        let manager = Manager::new_with_init("./config_toml", "Default");
+        let nacos = manager
+            .get_configuration()
+            .get_config::<Nacos>("nacos")
+            .unwrap();
+        println!("{:?}", nacos);
+    }
     #[test]
     fn test_get_obj() {
-        #[derive(Debug, Clone, Serialize, Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        pub struct Nacos {
-            pub server_addr: String,
-        }
-
         #[derive(Debug, Clone, Serialize, Deserialize)]
         #[serde(rename_all = "camelCase")]
         pub struct Test {

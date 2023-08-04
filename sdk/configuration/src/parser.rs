@@ -44,12 +44,8 @@ impl ConfigurationParser for DefaultParser {
         module_name: String,
         file_path: PathBuf,
     ) -> ConfigurationResult<Box<dyn ConfigValueTrait<T>>> {
-        let data = fs::read_to_string(file_path.as_ref()).with_context(|| {
-            format!(
-                "Failed to read config from {}",
-                file_path.as_ref().display()
-            )
-        })?;
+        let data = fs::read_to_string(file_path.clone())
+            .with_context(|| format!("Failed to read config :{:?}", &file_path))?;
         let data = data.as_bytes().to_vec();
         let value = ModuleValue::new(data.clone());
         let key = ModuleKey::new(module_name);

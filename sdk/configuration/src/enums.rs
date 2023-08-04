@@ -22,7 +22,7 @@ impl ToString for Schema {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct ModuleKey {
     pub module_name: String,
 }
@@ -33,7 +33,7 @@ impl ModuleKey {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct ModuleValue {
     data: Vec<u8>,
 }
