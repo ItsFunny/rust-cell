@@ -1,14 +1,11 @@
-use crate::circuits::halo2::chip2::{RescueHashChip, RescueHashConfig};
 use crate::circuits::halo2::index_to_bool::{IndexToBoolChip, IndexToBoolConfig};
+use crate::circuits::halo2::rescue::{RescueHashChip, RescueHashConfig};
 use crate::circuits::halo2::reverse::{ReverseChip, ReverseConfig};
 use crate::circuits::halo2::wrapper::CellWrapper;
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::pasta::group::ff::PrimeField;
-use halo2_proofs::plonk::{
-    Advice, Column, ConstraintSystem, Error, Expression, Instance, Selector,
-};
+use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Instance, Selector};
 use halo2_proofs::poly::Rotation;
-use merkle_tree::primitives::BitIteratorLe;
 use std::marker::PhantomData;
 
 #[derive(Clone)]
@@ -95,11 +92,6 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
                     rhs.cell().value().cloned(),
                 );
                 cur_hash = hash.cell().value().cloned();
-                // cur_hash.clone().as_ref().map(|v| {
-                //     v.cell().value().cloned().map(|vvv| {
-                //         println!("bool:{:?},circuit cur hash:{:?}", index, vvv);
-                //     })
-                // });
             }
             cur_hash
         });

@@ -1,76 +1,15 @@
-use crate::circuits::halo2::BlockHalo2Config;
-use crate::traces::TraceTableCircuit;
 use crate::utils::{fr_from, fr_to_fq};
 use franklin_crypto::bellman::bn256::Bn256;
 use franklin_crypto::bellman::Field as FranklinField;
 use franklin_crypto::bellman::{ConstraintSystem as PlonkConstraintSystem, SynthesisError};
 use franklin_crypto::circuit::boolean::Boolean;
-use franklin_crypto::circuit::num::{AllocatedNum, Num};
+use franklin_crypto::circuit::num::AllocatedNum;
+use franklin_crypto::circuit::rescue;
 use franklin_crypto::circuit::test::TestConstraintSystem;
-use franklin_crypto::circuit::{multipack, rescue, Assignment};
-use halo2_proofs::arithmetic::Field;
-use halo2_proofs::circuit::{AssignedCell, Chip, Layouter};
 use halo2_proofs::pasta::group::ff::PrimeField;
-use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Instance};
 use merkle_tree::params::RESCUE_PARAMS;
 use merkle_tree::{Engine, Fr, RescueParams};
-use rescue_poseidon::rescue_hash;
-use std::marker::PhantomData;
 use std::vec;
-
-// lhs|rhs|root_cur
-pub struct MerkleConfig {
-    merkle_path: [Column<Advice>; 64],
-    lhs: Column<Advice>,
-    rhs: Column<Advice>,
-    cur_root: Column<Advice>,
-
-    new_root: Column<Instance>,
-}
-pub struct MerkleChip<F: PrimeField> {
-    config: BlockHalo2Config,
-    _marker: PhantomData<F>,
-}
-
-impl<F: PrimeField> MerkleChip<F> {
-    pub fn new(config: BlockHalo2Config) -> Self {
-        Self {
-            config,
-            _marker: Default::default(),
-        }
-    }
-}
-
-pub trait MerkleChipTrait<F: PrimeField>: Chip<F> {
-    fn allocate_merkle_root(
-        &self,
-        layouter: impl Layouter<F>,
-        traces: &TraceTableCircuit<F>,
-    ) -> AssignedCell<F, F>;
-}
-
-impl<F: PrimeField> Chip<F> for MerkleChip<F> {
-    type Config = BlockHalo2Config;
-    type Loaded = ();
-
-    fn config(&self) -> &Self::Config {
-        &self.config
-    }
-
-    fn loaded(&self) -> &Self::Loaded {
-        &()
-    }
-}
-
-impl<F: PrimeField> MerkleChipTrait<F> for MerkleChip<F> {
-    fn allocate_merkle_root(
-        &self,
-        layouter: impl Layouter<F>,
-        traces: &TraceTableCircuit<F>,
-    ) -> AssignedCell<F, F> {
-        todo!()
-    }
-}
 
 pub fn get_delta_root<F: PrimeField>(
     leaf_bits: &[bool],

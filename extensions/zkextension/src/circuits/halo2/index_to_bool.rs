@@ -1,8 +1,4 @@
-use crate::circuits::halo2::temp::temp_a;
-use crate::utils::fq_to_fr;
-use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::{AssignedCell, Layouter, SimpleFloorPlanner, Value};
-use halo2_proofs::dev::MockProver;
 use halo2_proofs::pasta::group::ff::PrimeField;
 use halo2_proofs::pasta::Fp;
 use halo2_proofs::plonk::{
