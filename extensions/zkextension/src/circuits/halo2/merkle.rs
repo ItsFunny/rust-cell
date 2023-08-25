@@ -17,8 +17,8 @@ pub struct MerkleConfig<const D: usize> {
     pub rescue: RescueHashConfig,
     pub index_bool: IndexToBoolConfig<D>,
 
-    pub input: Column<Instance>,
-    pub output: Column<Advice>,
+    pub input: Column<Advice>,
+    pub output: Column<Instance>,
     pub s: Selector,
 }
 pub struct MerkleChip<F: PrimeField, const D: usize> {
@@ -37,12 +37,12 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
         let reverse_config = ReverseChip::configure(meta);
         let rescue_config = RescueHashChip::configure(meta);
         let index_to_bool_config = IndexToBoolChip::configure(meta);
-        let input = meta.instance_column();
-        let output = meta.advice_column();
+        let output = meta.instance_column();
+        let input = meta.advice_column();
         let s = meta.selector();
         meta.create_gate("output check", |meta| {
-            let input = meta.query_instance(input, Rotation::cur());
-            let output = meta.query_advice(output, Rotation::cur());
+            let output = meta.query_instance(output, Rotation::cur());
+            let input = meta.query_advice(input, Rotation::cur());
             let s = meta.query_selector(s);
             vec![s * (input - output)]
         });
@@ -65,21 +65,21 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
         let index_chip = IndexToBoolChip::new(self.config.index_bool.clone());
         let index = index_chip.assign(layout.namespace(|| "index"), index)?;
 
-        let cur_hash = self.assign_fist_leaf(layout.namespace(|| "assign first leaf"), leaf)?;
+        let mut cur_hash = self.assign_fist_leaf(layout.namespace(|| "assign first leaf"), leaf)?;
         let mut cur_hash = Value::known(cur_hash);
-        let a = index.map(|v| {
+        let mut a = index.map(|v| {
             for (i, direction_bit) in v.iter().enumerate() {
-                let path_element = &audit_path[i];
                 // Swap the two if the current subtree is on the right
                 let index = direction_bit.value().cloned();
                 let reverse_chip = ReverseChip::new(self.config.reverse.clone());
                 // get the current hash
                 let path_element = audit_path[i].clone();
+
                 let v = reverse_chip
                     .assign(
-                        layout.namespace(|| "reverse"),
-                        index,
-                        cur_hash.clone(),
+                        layout.namespace(|| "reverse_chip reverse"),
+                        index.clone(),
+                        cur_hash,
                         path_element,
                         i,
                     )
@@ -94,30 +94,48 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
                     rhs.cell(),
                 );
                 cur_hash = Value::known(hash);
+                // cur_hash.clone().as_ref().map(|v| {
+                //     v.cell().value().cloned().map(|vvv| {
+                //         println!("bool:{:?},circuit cur hash:{:?}", index, vvv);
+                //     })
+                // });
             }
             cur_hash
         });
-
         layout
             .assign_region(
                 || "assign merkle region",
                 |mut region| {
-                    a.clone().map(|vv| {
-                        vv.map(|v| {
-                            let cell = v.cell();
-                            let value = cell.value().cloned();
+                    a.clone().map(|v| {
+                        v.map(|vv| {
+                            let cell = vv.cell();
+                            let root = cell.value();
                             region
-                                .assign_advice(|| "assign root", self.config.output, 0, || value)
+                                .assign_advice(
+                                    || "assign root",
+                                    self.config.input,
+                                    0,
+                                    || root.cloned(),
+                                )
                                 .unwrap();
                         })
                     });
-                    // cur_hash.clone().map(|v| {
-                    //     let cell = v.cell();
-                    //     let value = cell.value().cloned();
+
+                    // region
+                    //     .assign_advice(
+                    //         || "assign root",
+                    //         self.config.input,
+                    //         0,
+                    //         || root_hash.cloned(),
+                    //     )
+                    //     .unwrap();
+                    // root_hash.clone().map(|vv| {
+                    //     println!("merkle root:{:?}", &vv);
                     //     region
-                    //         .assign_advice(|| "assign root", self.config.output, 0, || value)
+                    //         .assign_advice(|| "assign root", self.config.input, 0, || vv.cloned())
                     //         .unwrap();
                     // });
+                    self.config.s.enable(&mut region, 0)?;
                     Ok(())
                 },
             )
@@ -125,7 +143,7 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
 
         Ok(())
     }
-    pub fn enforce() {}
+
     fn assign_fist_leaf(
         &self,
         mut layout: impl Layouter<F>,
@@ -136,39 +154,11 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
 
         Ok(hash)
     }
-
-    // TODO: add constraints
-    fn index_to_bools(
-        &self,
-        layout: impl Layouter<F>,
-        index: Value<F>,
-    ) -> Value<Vec<Option<bool>>> {
-        let index = index.as_ref();
-        index.map(|value| {
-            let mut field_char = BitIteratorLe::new(F::MODULUS);
-
-            let mut tmp: Vec<Option<bool>> = Vec::with_capacity(F::NUM_BITS as usize);
-
-            let mut found_one = false;
-            for b in BitIteratorLe::new(value.to_repr()) {
-                // Skip leading bits
-                found_one |= field_char.next().unwrap();
-                if !found_one {
-                    continue;
-                }
-
-                tmp.push(Some(b));
-            }
-
-            assert_eq!(tmp.len(), F::NUM_BITS as usize);
-
-            tmp
-        })
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::circuits::halo2::chip::get_delta_root;
     use crate::circuits::halo2::merkle::{MerkleChip, MerkleConfig};
     use crate::utils::fr_to_fq;
     use halo2_proofs::circuit::{Layouter, SimpleFloorPlanner, Value};
@@ -252,26 +242,47 @@ mod tests {
     >;
     #[test]
     pub fn test_merkle() {
+        const index: u64 = 120;
         let mut tree = TestMerkleTree::new(64);
         for i in 0..10 {
             tree.insert(i, TestNode::new(i as u64));
         }
         let root = tree.root_hash();
-        let path: Vec<Fr> = tree.merkle_path(1).into_iter().map(|e| e.0).collect();
+        let path_list: Vec<Fr> = tree.merkle_path(index).into_iter().map(|e| e.0).collect();
         println!("{:?}", root);
-        println!("{:?}", path);
+        println!("{:?}", path_list.clone());
 
-        let path: Vec<Fp> = path.into_iter().map(|v| fr_to_fq(&v)).collect();
-        let leaf = TestNode::new(120);
+        let path: Vec<Fp> = path_list
+            .clone()
+            .into_iter()
+            .map(|v| fr_to_fq(&v))
+            .collect();
+        let leaf = TestNode::new(index);
         let circuit = MockCircuit {
             leaf: leaf.clone(),
-            index: 120,
+            index,
             audit_path: path.clone(),
         };
-        tree.insert(120, leaf);
-        let root = tree.root_hash();
         let root: Fp = fr_to_fq(&root);
         let public_inputs: Vec<Vec<Fp>> = vec![vec![root.clone()]];
-        let prover = MockProver::run(10, &circuit, public_inputs).unwrap();
+        let prover = MockProver::run(18, &circuit, public_inputs).unwrap();
+        let res = prover.verify();
+        println!("{:?}", res);
+
+        assert_eq!(res, Ok(()));
+
+        {
+            let root_delta: Fq = get_delta_root(
+                leaf.clone().get_bits_le().as_slice(),
+                120,
+                path_list.clone().as_slice(),
+                64,
+            );
+            println!("root delta:{:?}", root_delta);
+        }
+
+        tree.insert(index, leaf.clone());
+        let root = tree.root_hash();
+        println!("new root:{:?}", root);
     }
 }

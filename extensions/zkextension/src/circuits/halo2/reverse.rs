@@ -35,7 +35,7 @@ impl<F: PrimeField> ReverseChip<F> {
         let bit_col = meta.advice_column();
         let s = meta.selector();
 
-        meta.create_gate("reverse", |meta| {
+        meta.create_gate("reverse gate", |meta| {
             let a = meta.query_advice(a_col, Rotation::cur());
             let b = meta.query_advice(b_col, Rotation::cur());
             let bit = meta.query_advice(bit_col, Rotation::cur());
@@ -45,10 +45,11 @@ impl<F: PrimeField> ReverseChip<F> {
             let r = meta.query_advice(b_col, Rotation::next());
 
             vec![
-                s.clone()
-                    * (r.clone() - b.clone() - bit.clone() * (a.clone() - b.clone()) + l.clone()
-                        - a.clone()
-                        - bit.clone() * (a.clone() - b.clone())),
+                // s.clone()
+                //     * (r.clone() - b.clone() - bit.clone() * (a.clone() - b.clone()) + l.clone()
+                //         - a.clone()
+                //         - bit.clone() * (a.clone() - b.clone())),
+                s * ((bit * F::from(2) * (b.clone() - a.clone()) - (l - a)) - (b - r)),
             ]
         });
 
@@ -67,23 +68,50 @@ impl<F: PrimeField> ReverseChip<F> {
         b: Value<F>,
         offset: usize,
     ) -> Result<(CellWrapper<F>, CellWrapper<F>), Error> {
+        let offset = 0;
         layout.assign_region(
-            || "reverse assign",
+            || "reverse assign_region",
             |mut region| {
+                self.config.s.enable(&mut region, offset).unwrap();
+                // FIXME
+                let mut lhs = Default::default();
+                let mut rhs = Default::default();
+
                 index.map(|v| {
                     if v == F::ONE {
-                        self.config.s.enable(&mut region, offset).unwrap();
+                        region
+                            .assign_advice(
+                                || "bit",
+                                self.config.bit,
+                                offset,
+                                || Value::known(F::ONE),
+                            )
+                            .unwrap();
+                        a.clone().map(|mut v| {
+                            let cell = v.cell();
+                            rhs = cell.value().cloned()
+                        });
+                        lhs = b.clone();
+                    } else {
+                        region
+                            .assign_advice(
+                                || "bit",
+                                self.config.bit,
+                                offset,
+                                || Value::known(F::ZERO),
+                            )
+                            .unwrap();
+                        a.clone().map(|mut v| {
+                            let cell = v.cell();
+                            lhs = cell.value().cloned()
+                        });
+                        rhs = b.clone();
                     }
                 });
-                // FIXME: 这里的代码有问题，需要修改
-                let mut internal = Value::known(F::ONE);
-                a.clone().map(|mut v| {
-                    let cell = v.cell();
-                    internal = cell.value().cloned()
-                });
+
                 let l: AssignedCell<F, F> =
-                    region.assign_advice(|| "lhs", self.config.a, 1, || internal)?;
-                let r = region.assign_advice(|| "rhs", self.config.b, 1, || b)?;
+                    region.assign_advice(|| "lhs", self.config.a, 1, || lhs)?;
+                let r = region.assign_advice(|| "rhs", self.config.b, 1, || rhs)?;
 
                 Ok((CellWrapper::new(l), CellWrapper::new(r)))
             },
@@ -93,7 +121,33 @@ impl<F: PrimeField> ReverseChip<F> {
 
 #[cfg(test)]
 mod tests {
+    use crate::circuits::halo2::reverse::{ReverseChip, ReverseConfig};
+    use halo2_proofs::circuit::{Layouter, SimpleFloorPlanner};
+    use halo2_proofs::pasta::Fp;
+    use halo2_proofs::plonk::{Circuit, ConstraintSystem, Error};
+
     pub struct MockCircut {}
+    impl Circuit<Fp> for MockCircut {
+        type Config = ReverseConfig;
+        type FloorPlanner = SimpleFloorPlanner;
+
+        fn without_witnesses(&self) -> Self {
+            todo!()
+        }
+
+        fn configure(meta: &mut ConstraintSystem<Fp>) -> Self::Config {
+            ReverseChip::configure(meta)
+        }
+
+        fn synthesize(
+            &self,
+            config: Self::Config,
+            layouter: impl Layouter<Fp>,
+        ) -> Result<(), Error> {
+            // let chip = ReverseChip::new(config);
+            todo!()
+        }
+    }
     #[test]
     pub fn test_asd() {}
 }

@@ -149,9 +149,8 @@ impl<F: PrimeField> MerkleChip<F> {
 
 #[derive(Clone)]
 pub struct RescueHashConfig {
-    lhs: Column<Advice>,
-    rhs: Column<Advice>,
-
+    // lhs: Column<Advice>,
+    // rhs: Column<Advice>,
     cur: Column<Advice>,
 }
 pub struct RescueHashChip<F: PrimeField> {
@@ -162,10 +161,13 @@ pub struct RescueHashChip<F: PrimeField> {
 impl<F: PrimeField> RescueHashChip<F> {
     pub fn configure(meta: &mut ConstraintSystem<F>) -> RescueHashConfig {
         // FIXME ,need to implement the rescue chip
-        let lhs = meta.advice_column();
-        let rhs = meta.advice_column();
+        // let lhs = meta.advice_column();
+        // let rhs = meta.advice_column();
+        // let cur = meta.advice_column();
+        // RescueHashConfig { lhs, rhs, cur }
+
         let cur = meta.advice_column();
-        RescueHashConfig { lhs, rhs, cur }
+        RescueHashConfig { cur }
     }
     pub fn construct(config: RescueHashConfig) -> Self {
         Self {
