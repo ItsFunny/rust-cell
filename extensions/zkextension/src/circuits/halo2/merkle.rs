@@ -43,7 +43,8 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
         meta.create_gate("output check", |meta| {
             let input = meta.query_instance(input, Rotation::cur());
             let output = meta.query_advice(output, Rotation::cur());
-            vec![input - output]
+            let s = meta.query_selector(s);
+            vec![s * (input - output)]
         });
         MerkleConfig {
             reverse: reverse_config,

@@ -82,8 +82,8 @@ impl<F: PrimeField> ReverseChip<F> {
                     internal = cell.value().cloned()
                 });
                 let l: AssignedCell<F, F> =
-                    region.assign_advice(|| "lhs", self.config.a, 0, || internal)?;
-                let r = region.assign_advice(|| "rhs", self.config.b, 0, || b)?;
+                    region.assign_advice(|| "lhs", self.config.a, 1, || internal)?;
+                let r = region.assign_advice(|| "rhs", self.config.b, 1, || b)?;
 
                 Ok((CellWrapper::new(l), CellWrapper::new(r)))
             },
