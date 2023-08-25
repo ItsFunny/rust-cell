@@ -198,11 +198,9 @@ impl<F: PrimeField> RescueHashChip<F> {
     pub fn assign_rescue(
         &self,
         mut layout: impl Layouter<F>,
-        lhs: AssignedCell<F, F>,
-        rhs: AssignedCell<F, F>,
+        lhs_value: Value<F>,
+        rhs_value: Value<F>,
     ) -> CellWrapper<F> {
-        let lhs_value = lhs.value().cloned();
-        let rhs_value = rhs.value().cloned();
         let mut leaf = vec![];
         lhs_value.map(|v| leaf.push(v));
         rhs_value.map(|v| leaf.push(v));

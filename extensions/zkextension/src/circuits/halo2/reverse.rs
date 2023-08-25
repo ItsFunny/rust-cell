@@ -66,11 +66,11 @@ impl<F: PrimeField> ReverseChip<F> {
         index: Value<F>,
         a: Value<CellWrapper<F>>,
         b: Value<F>,
-        offset: usize,
+        region_name: usize,
     ) -> Result<(CellWrapper<F>, CellWrapper<F>), Error> {
         let offset = 0;
         layout.assign_region(
-            || "reverse assign_region",
+            || format!("reverse gate {}", region_name),
             |mut region| {
                 self.config.s.enable(&mut region, offset).unwrap();
                 // FIXME
@@ -110,8 +110,8 @@ impl<F: PrimeField> ReverseChip<F> {
                 });
 
                 let l: AssignedCell<F, F> =
-                    region.assign_advice(|| "lhs", self.config.a, 1, || lhs)?;
-                let r = region.assign_advice(|| "rhs", self.config.b, 1, || rhs)?;
+                    region.assign_advice(|| "lhs", self.config.a, offset + 1, || lhs)?;
+                let r = region.assign_advice(|| "rhs", self.config.b, offset + 1, || rhs)?;
 
                 Ok((CellWrapper::new(l), CellWrapper::new(r)))
             },

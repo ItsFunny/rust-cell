@@ -90,8 +90,8 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
 
                 let hash = hash_chip.assign_rescue(
                     layout.namespace(|| "assign rescue"),
-                    lhs.cell(),
-                    rhs.cell(),
+                    lhs.cell().value().cloned(),
+                    rhs.cell().value().cloned(),
                 );
                 cur_hash = Value::known(hash);
                 // cur_hash.clone().as_ref().map(|v| {
