@@ -128,8 +128,8 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
 
 #[cfg(test)]
 mod tests {
-    use crate::circuits::halo2::chip::get_delta_root;
     use crate::circuits::halo2::merkle::{MerkleChip, MerkleConfig};
+    use crate::circuits::halo2::temp::get_delta_root;
     use crate::utils::fr_to_fq;
     use halo2_proofs::circuit::{Layouter, SimpleFloorPlanner, Value};
     use halo2_proofs::dev::MockProver;

@@ -144,22 +144,23 @@ impl Circuit<Fp> for MockCircuit {
         Ok(())
     }
 }
-#[test]
-pub fn test_index() {
-    println!("{:?}", Fp::ONE + Fp::ONE);
-    let circuit = MockCircuit {
-        index: Value::known(Fp::from(5u64)),
-    };
-    let prover = MockProver::run(8, &circuit, vec![]).unwrap();
-    assert_eq!(prover.verify(), Ok(()))
-}
 
 #[cfg(test)]
 #[cfg(feature = "dev-graph")]
 mod tests {
     use super::*;
-    use halo2_proofs::dev::circuit_dot_graph;
+    use halo2_proofs::arithmetic::Field;
+    use halo2_proofs::dev::{circuit_dot_graph, MockProver};
 
+    #[test]
+    pub fn test_index() {
+        println!("{:?}", Fp::ONE + Fp::ONE);
+        let circuit = MockCircuit {
+            index: Value::known(Fp::from(5u64)),
+        };
+        let prover = MockProver::run(8, &circuit, vec![]).unwrap();
+        assert_eq!(prover.verify(), Ok(()))
+    }
     #[test]
     pub fn test_print() {
         use plotters::prelude::*;
