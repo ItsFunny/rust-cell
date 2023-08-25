@@ -73,10 +73,11 @@ impl<F: PrimeField> ReverseChip<F> {
             || format!("reverse gate {}", region_name),
             |mut region| {
                 self.config.s.enable(&mut region, offset).unwrap();
+                region.assign_advice(|| "lhs", self.config.a, offset, || a)?;
+                region.assign_advice(|| "rhs", self.config.b, offset, || b)?;
                 // FIXME
                 let mut lhs = Default::default();
                 let mut rhs = Default::default();
-
                 index.map(|v| {
                     if v == F::ONE {
                         region
@@ -87,8 +88,8 @@ impl<F: PrimeField> ReverseChip<F> {
                                 || Value::known(F::ONE),
                             )
                             .unwrap();
-                        rhs = a.clone();
-                        lhs = b.clone();
+                        rhs = a;
+                        lhs = b;
                     } else {
                         region
                             .assign_advice(
@@ -98,11 +99,10 @@ impl<F: PrimeField> ReverseChip<F> {
                                 || Value::known(F::ZERO),
                             )
                             .unwrap();
-                        lhs = a.clone();
-                        rhs = b.clone();
+                        lhs = a;
+                        rhs = b;
                     }
                 });
-
                 let l: AssignedCell<F, F> =
                     region.assign_advice(|| "lhs", self.config.a, offset + 1, || lhs)?;
                 let r = region.assign_advice(|| "rhs", self.config.b, offset + 1, || rhs)?;
@@ -116,11 +116,16 @@ impl<F: PrimeField> ReverseChip<F> {
 #[cfg(test)]
 mod tests {
     use crate::circuits::halo2::reverse::{ReverseChip, ReverseConfig};
-    use halo2_proofs::circuit::{Layouter, SimpleFloorPlanner};
+    use halo2_proofs::circuit::{Layouter, SimpleFloorPlanner, Value};
+    use halo2_proofs::dev::MockProver;
     use halo2_proofs::pasta::Fp;
     use halo2_proofs::plonk::{Circuit, ConstraintSystem, Error};
 
-    pub struct MockCircut {}
+    pub struct MockCircut {
+        index: u64,
+        a: Value<Fp>,
+        b: Value<Fp>,
+    }
     impl Circuit<Fp> for MockCircut {
         type Config = ReverseConfig;
         type FloorPlanner = SimpleFloorPlanner;
@@ -136,12 +141,29 @@ mod tests {
         fn synthesize(
             &self,
             config: Self::Config,
-            layouter: impl Layouter<Fp>,
+            mut layouter: impl Layouter<Fp>,
         ) -> Result<(), Error> {
-            // let chip = ReverseChip::new(config);
-            todo!()
+            let chip = ReverseChip::new(config);
+            let index = Value::known(Fp::from(self.index));
+            chip.assign(
+                layouter.namespace(|| "asd"),
+                index.clone(),
+                self.a.clone(),
+                self.b.clone(),
+                1,
+            )
+            .unwrap();
+            Ok(())
         }
     }
     #[test]
-    pub fn test_asd() {}
+    pub fn test_asd() {
+        let a = Value::known(Fp::from(1));
+        let b = Value::known(Fp::from(2));
+        let index = 1;
+        let circuit = MockCircut { index, a, b };
+        let public_inputs: Vec<Vec<Fp>> = vec![];
+        let prover = MockProver::run(18, &circuit, public_inputs).unwrap();
+        prover.verify().unwrap();
+    }
 }

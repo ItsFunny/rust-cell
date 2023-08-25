@@ -108,6 +108,7 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
                 || "assign merkle region",
                 |mut region| {
                     a.clone().map(|v| {
+                        println!("circuit root:{:?}", &v);
                         region
                             .assign_advice(|| "assign root", self.config.input, 0, || v)
                             .unwrap();
