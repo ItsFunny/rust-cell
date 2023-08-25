@@ -112,34 +112,7 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
                         region
                             .assign_advice(|| "assign root", self.config.input, 0, || v)
                             .unwrap();
-                        // v.map(|vv| {
-                        //     let cell = vv.cell();
-                        //     let root = cell.value();
-                        //     region
-                        //         .assign_advice(
-                        //             || "assign root",
-                        //             self.config.input,
-                        //             0,
-                        //             || root.cloned(),
-                        //         )
-                        //         .unwrap();
-                        // })
                     });
-
-                    // region
-                    //     .assign_advice(
-                    //         || "assign root",
-                    //         self.config.input,
-                    //         0,
-                    //         || root_hash.cloned(),
-                    //     )
-                    //     .unwrap();
-                    // root_hash.clone().map(|vv| {
-                    //     println!("merkle root:{:?}", &vv);
-                    //     region
-                    //         .assign_advice(|| "assign root", self.config.input, 0, || vv.cloned())
-                    //         .unwrap();
-                    // });
                     self.config.s.enable(&mut region, 0)?;
                     Ok(())
                 },
@@ -254,8 +227,8 @@ mod tests {
         }
         let root = tree.root_hash();
         let path_list: Vec<Fr> = tree.merkle_path(index).into_iter().map(|e| e.0).collect();
-        println!("{:?}", root);
-        println!("{:?}", path_list.clone());
+        println!("root first:{:?}", root);
+        println!("paths:{:?}", path_list.clone());
 
         let path: Vec<Fp> = path_list
             .clone()
@@ -268,14 +241,6 @@ mod tests {
             index,
             audit_path: path.clone(),
         };
-        let root: Fp = fr_to_fq(&root);
-        let public_inputs: Vec<Vec<Fp>> = vec![vec![root.clone()]];
-        let prover = MockProver::run(18, &circuit, public_inputs).unwrap();
-        let res = prover.verify();
-        println!("{:?}", res);
-
-        assert_eq!(res, Ok(()));
-
         {
             let root_delta: Fq = get_delta_root(
                 leaf.clone().get_bits_le().as_slice(),
@@ -289,5 +254,12 @@ mod tests {
         tree.insert(index, leaf.clone());
         let root = tree.root_hash();
         println!("new root:{:?}", root);
+
+        let root: Fp = fr_to_fq(&root);
+        let public_inputs: Vec<Vec<Fp>> = vec![vec![root.clone()]];
+        let prover = MockProver::run(18, &circuit, public_inputs).unwrap();
+        let res = prover.verify();
+        println!("{:?}", res);
+        assert_eq!(res, Ok(()));
     }
 }
