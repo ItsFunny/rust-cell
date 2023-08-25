@@ -64,7 +64,7 @@ impl<F: PrimeField> ReverseChip<F> {
         &self,
         mut layout: impl Layouter<F>,
         index: Value<F>,
-        a: Value<CellWrapper<F>>,
+        a: Value<F>,
         b: Value<F>,
         region_name: usize,
     ) -> Result<(CellWrapper<F>, CellWrapper<F>), Error> {
@@ -87,10 +87,7 @@ impl<F: PrimeField> ReverseChip<F> {
                                 || Value::known(F::ONE),
                             )
                             .unwrap();
-                        a.clone().map(|mut v| {
-                            let cell = v.cell();
-                            rhs = cell.value().cloned()
-                        });
+                        rhs = a.clone();
                         lhs = b.clone();
                     } else {
                         region
@@ -101,10 +98,7 @@ impl<F: PrimeField> ReverseChip<F> {
                                 || Value::known(F::ZERO),
                             )
                             .unwrap();
-                        a.clone().map(|mut v| {
-                            let cell = v.cell();
-                            lhs = cell.value().cloned()
-                        });
+                        lhs = a.clone();
                         rhs = b.clone();
                     }
                 });

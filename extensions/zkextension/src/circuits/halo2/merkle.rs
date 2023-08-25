@@ -66,7 +66,8 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
         let index = index_chip.assign(layout.namespace(|| "index"), index)?;
 
         let mut cur_hash = self.assign_fist_leaf(layout.namespace(|| "assign first leaf"), leaf)?;
-        let mut cur_hash = Value::known(cur_hash);
+        let mut cur_hash = cur_hash.cell().value().cloned();
+        // let mut cur_hash = Value::known(cur_hash);
         let mut a = index.map(|v| {
             for (i, direction_bit) in v.iter().enumerate() {
                 // Swap the two if the current subtree is on the right
@@ -93,7 +94,7 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
                     lhs.cell().value().cloned(),
                     rhs.cell().value().cloned(),
                 );
-                cur_hash = Value::known(hash);
+                cur_hash = hash.cell().value().cloned();
                 // cur_hash.clone().as_ref().map(|v| {
                 //     v.cell().value().cloned().map(|vvv| {
                 //         println!("bool:{:?},circuit cur hash:{:?}", index, vvv);
@@ -107,18 +108,21 @@ impl<F: PrimeField, const D: usize> MerkleChip<F, D> {
                 || "assign merkle region",
                 |mut region| {
                     a.clone().map(|v| {
-                        v.map(|vv| {
-                            let cell = vv.cell();
-                            let root = cell.value();
-                            region
-                                .assign_advice(
-                                    || "assign root",
-                                    self.config.input,
-                                    0,
-                                    || root.cloned(),
-                                )
-                                .unwrap();
-                        })
+                        region
+                            .assign_advice(|| "assign root", self.config.input, 0, || v)
+                            .unwrap();
+                        // v.map(|vv| {
+                        //     let cell = vv.cell();
+                        //     let root = cell.value();
+                        //     region
+                        //         .assign_advice(
+                        //             || "assign root",
+                        //             self.config.input,
+                        //             0,
+                        //             || root.cloned(),
+                        //         )
+                        //         .unwrap();
+                        // })
                     });
 
                     // region
