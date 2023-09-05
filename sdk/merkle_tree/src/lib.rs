@@ -37,3 +37,5 @@ pub type PublicKey = PublicKeyImport<Engine>;
 /// Sparse merkle tree used to calculate root hashes for the state in zkSync network.
 pub type SparseMerkleTree<T, H, HH> =
     parallel_smt::SparseMerkleTree<T, H, HH, DefaultMemorySMTStorage<T>>;
+
+pub type DBCompatibleMerkleTree<T, H, HH, DB> = parallel_smt::SparseMerkleTree<T, H, HH, DB>;

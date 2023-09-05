@@ -6910,5 +6910,6 @@ dependencies = [
  "recursive_aggregation_circuit",
  "rescue_poseidon 0.4.1",
  "tabbycat",
+ "thiserror",
  "tree",
 ]

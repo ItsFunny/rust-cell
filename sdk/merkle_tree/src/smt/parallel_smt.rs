@@ -36,7 +36,7 @@ use tree::tree::TreeDB;
 struct NodeIndex(pub u128);
 
 /// Lead index: 0 <= i < N.
-pub(crate) type ItemIndex = u128;
+pub type ItemIndex = u128;
 
 /// Tree of depth 0: 1 item (which is root), level 0 only
 /// Tree of depth 1: 2 items, levels 0 and 1

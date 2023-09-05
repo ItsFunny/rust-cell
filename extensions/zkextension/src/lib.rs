@@ -9,6 +9,8 @@ pub mod suite;
 mod traces;
 pub mod types;
 pub mod utils;
+pub mod vm;
+pub mod error;
 
 use crate::instance::merkle::InstanceMerkleNode;
 use crate::traces::CircuitMerkleNode;
