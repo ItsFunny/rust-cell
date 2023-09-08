@@ -10,10 +10,6 @@ members=[
     "demo/cell",
     "base/cell-base-common",
     "base/core",
-    "useless/hyper",
-    "useless/demo",
-    "useless/shaku",
-    "useless/clapdemo",
     "extensions/zkextension",
     "sdk/merkle_tree",
     "sdk/tree"
