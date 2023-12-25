@@ -12,6 +12,7 @@ members=[
     "base/core",
     "extensions/zkextension",
     "sdk/merkle_tree",
-    "sdk/tree"
+    "sdk/tree",
+    "sdk/zktree_adapter"
 ]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

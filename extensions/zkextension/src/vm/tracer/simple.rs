@@ -4,7 +4,6 @@ use crate::vm::types::op::{Operation, SortOperation, Trace};
 
 pub struct SimpleTracer {
     index: u64,
-
     operations: Vec<SortOperation>,
 }
 
