@@ -91,7 +91,7 @@ impl DataHashRecord {
 }
 
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone,PartialEq)]
 pub struct MerkleRecord {
     #[serde(serialize_with = "self::serialize_u64_as_binary")]
     #[serde(deserialize_with = "self::deserialize_u64_as_binary")]

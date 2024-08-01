@@ -9,9 +9,8 @@ pub struct MerkleKv<T: MerkleDB> {
 
 impl<T: MerkleDB> MerkleKv<T> {
     pub fn new(store: T, root: [u8; 32]) -> Self {
-
         Self {
-            merkle: MerkleAdapter::<T, MERKLE_TREE_HEIGHT>::new(store, [0; 32], root),
+            merkle: MerkleAdapter::<T, MERKLE_TREE_HEIGHT>::new(store),
         }
     }
 
@@ -39,7 +38,7 @@ impl<T: MerkleDB> MerkleKv<T> {
         let mt = &mut self.merkle;
 
         // TODO: add hash abstraction
-        let hash=default_hash(data).to_vec();
+        let hash = default_hash(data).to_vec();
         mt.update_leaf_data_with_proof(index, &hash)
             .await
             .expect("Unexpected failure: update leaf with proof fail");
@@ -97,7 +96,6 @@ impl<T: MerkleDB> MerkleKv<T> {
         (d.len() as u64, proof)
     }
 }
-
 
 
 fn u64_4_to_u8_32(o: &[u64; 4]) -> &[u8; 32] {

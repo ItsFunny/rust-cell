@@ -90,6 +90,8 @@ pub mod log {
     // logger 是无状态的,可以直接实现
     unsafe impl Sync for Logger {}
 
+    unsafe impl Send for Logger {}
+
     impl Logger {
         // TODO macros
         pub fn info(&self, m: &'static dyn Module, msg: String) {
@@ -268,8 +270,8 @@ pub fn set_error_global_level_info() {
 // TODO,add filter & module filter
 // #[cfg(atomic_cas)]
 fn setup_logger_configuration_inner<'a, F>(make_f: F) -> Result<(), CellError>
-where
-    F: FnOnce() -> &'static CellLoggerConfiguration,
+    where
+        F: FnOnce() -> &'static CellLoggerConfiguration,
 {
     unsafe {
         CONFIGURATION = make_f();

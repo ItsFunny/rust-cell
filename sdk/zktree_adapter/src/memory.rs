@@ -66,7 +66,7 @@ impl DefaultMemoryDB {
         format!("{}-{}", index, hex::encode(hash))
     }
 
-    pub fn batch_get_merkle_records(
+    pub async fn batch_get_merkle_records(
         &self,
         records: &Vec<MerkleRecord>,
     ) -> anyhow::Result<(Vec<MerkleRecord>, Vec<MerkleRecord>)> {
@@ -74,7 +74,7 @@ impl DefaultMemoryDB {
         let mut not_find = records.clone();
 
         for rec in records {
-            let got = self.get_merkle_record(rec.index, &rec.hash)?;
+            let got = self.get_record(rec.index, &rec.hash).await?;
             if got.is_some() {
                 find.push(rec.clone());
                 not_find.remove(not_find.iter().position(|x| x == rec).unwrap());

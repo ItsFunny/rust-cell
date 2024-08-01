@@ -29,7 +29,6 @@ use logsdk::module::CellModule;
 use shaku::{module, Component, HasComponent, Interface};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use stopwatch::Stopwatch;
 use tokio::runtime::Runtime;
 use tokio::select;
 use tokio::task::JoinHandle;
@@ -392,7 +391,7 @@ impl ExtensionManager {
         let mut i = 0;
         while i < self.extension.len() {
             let e = self.extension.get_mut(i).unwrap();
-            let wh = Stopwatch::start_new();
+            // let wh = Stopwatch::start_new();
             let res = e.clone().borrow_mut().init(self.ctx.clone());
             match res {
                 Err(err) => {
@@ -408,12 +407,12 @@ impl ExtensionManager {
                 }
                 Ok(..) => {}
             }
-            cinfo!(
-                ModuleEnumsStruct::EXTENSION,
-                "init extension [{}] successfully ,cost:{}",
-                e.clone().borrow_mut().module().get_name(),
-                wh.elapsed().as_secs()
-            );
+            // cinfo!(
+            //     ModuleEnumsStruct::EXTENSION,
+            //     "init extension [{}] successfully ,cost:{}",
+            //     e.clone().borrow_mut().module().get_name(),
+            //     // wh.elapsed().as_secs()
+            // );
             i += 1;
         }
         self.step = step_1;
@@ -425,7 +424,6 @@ impl ExtensionManager {
         let mut i = 0;
         cinfo!(ModuleEnumsStruct::EXTENSION, "{}", START);
         while i < self.extension.len() {
-            let wh = Stopwatch::start_new();
             let e = self.extension.get_mut(i).unwrap();
             let res = e.clone().borrow_mut().start(self.ctx.clone());
             match res {
@@ -442,12 +440,11 @@ impl ExtensionManager {
                 }
                 Ok(..) => {}
             }
-            cinfo!(
-                ModuleEnumsStruct::EXTENSION,
-                "start extension [{}] successfully ,cost:{}",
-                e.clone().borrow_mut().module().get_name(),
-                wh.elapsed().as_secs()
-            );
+            // cinfo!(
+            //     ModuleEnumsStruct::EXTENSION,
+            //     "start extension [{}] successfully ,cost:{}",
+            //     e.clone().borrow_mut().module().get_name(),
+            // );
             i += 1;
         }
         self.step = step_2;
@@ -460,7 +457,6 @@ impl ExtensionManager {
         let mut i = 0;
         cinfo!(ModuleEnumsStruct::EXTENSION, "{}", BLESS);
         while i < self.extension.len() {
-            let wh = Stopwatch::start_new();
             // TODO ,async
             let e = self.extension.get_mut(i).unwrap();
             let res = e.clone().borrow_mut().ready(self.ctx.clone());
@@ -478,12 +474,11 @@ impl ExtensionManager {
                 }
                 Ok(..) => {}
             }
-            cinfo!(
-                ModuleEnumsStruct::EXTENSION,
-                "load extension [{}] successfully ,cost:{}",
-                e.clone().borrow_mut().module().get_name(),
-                wh.elapsed().as_secs()
-            );
+            // cinfo!(
+            //     ModuleEnumsStruct::EXTENSION,
+            //     "load extension [{}] successfully ,cost:{}",
+            //     e.clone().borrow_mut().module().get_name(),
+            // );
             i += 1;
         }
         self.step = step_3;
@@ -495,7 +490,6 @@ impl ExtensionManager {
         cinfo!(ModuleEnumsStruct::EXTENSION, "{}", CLOSE);
         let mut i = 0;
         while i < self.extension.len() {
-            let wh = Stopwatch::start_new();
             let e = self.extension.get_mut(i).unwrap();
             let res = e.clone().borrow_mut().close(self.ctx.clone());
             match res {
@@ -512,12 +506,11 @@ impl ExtensionManager {
                 }
                 Ok(..) => {}
             }
-            cinfo!(
-                ModuleEnumsStruct::EXTENSION,
-                "close extension [{}] successfully ,cost:{}",
-                e.clone().borrow_mut().module().get_name(),
-                wh.elapsed().as_secs()
-            );
+            // cinfo!(
+            //     ModuleEnumsStruct::EXTENSION,
+            //     "close extension [{}] successfully ,cost:{}",
+            //     e.clone().borrow_mut().module().get_name(),
+            // );
             i += 1;
         }
         self.step = step_4;
@@ -710,7 +703,6 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
     use std::{env, thread, time};
-    use stopwatch::Stopwatch;
     use tokio::runtime::Runtime;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::Sender;

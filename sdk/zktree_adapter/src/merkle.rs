@@ -1,6 +1,6 @@
 use crate::db::MerkleDB;
 use crate::error::{MerkleError, MerkleErrorCode, MerkleResult};
-use crate::{default_merkle_hash, MerkleProof, MerkleRecord};
+use crate::{default_merkle_hash, DefaultMemoryDB, MerkleProof, MerkleRecord};
 use crate::MERKLE_HASHER;
 
 // In default_hash vec, it is from leaf to root.
@@ -10,10 +10,10 @@ use crate::MERKLE_HASHER;
 // It has 21 layers including the leaf layer and root layer.
 lazy_static::lazy_static! {
     pub static ref DEFAULT_HASH_VEC: Vec<[u8; 32]> = {
-        let mut leaf_hash = MerkleAdapter::<64>::empty_leaf(0).hash;
+        let mut leaf_hash = MerkleAdapter::<DefaultMemoryDB,64>::empty_leaf(0).hash;
         let mut default_hash = vec![leaf_hash];
-        for _ in 0..(MongoMerkle::<64>::height()) {
-            leaf_hash = MerkleAdapter::<64>::hash(&leaf_hash, &leaf_hash);
+        for _ in 0..(32) {
+            leaf_hash = MerkleAdapter::<DefaultMemoryDB,64>::hash(&leaf_hash, &leaf_hash);
             default_hash.push(leaf_hash);
         }
         default_hash
@@ -227,7 +227,7 @@ impl<T: MerkleDB, const DEPTH: usize> MerkleAdapter<T, DEPTH> {
         if node.hash() == *hash {
             Ok(node)
         } else {
-            Err(MerkleError::new(*hash, index, MerkleErrorCode::InvalidHash))
+            Err(MerkleError::WithErrorCode(*hash, index, MerkleErrorCode::InvalidHash))
         }
     }
 
@@ -235,7 +235,7 @@ impl<T: MerkleDB, const DEPTH: usize> MerkleAdapter<T, DEPTH> {
         if depth <= Self::height() {
             Ok(self.default_hash[Self::height() - depth])
         } else {
-            Err(MerkleError::new(
+            Err(MerkleError::WithErrorCode(
                 [0; 32],
                 depth as u64,
                 MerkleErrorCode::InvalidDepth,
@@ -267,7 +267,7 @@ impl<T: MerkleDB, const DEPTH: usize> MerkleAdapter<T, DEPTH> {
         {
             Ok(())
         } else {
-            Err(MerkleError::new(
+            Err(MerkleError::WithErrorCode(
                 [0; 32],
                 index,
                 MerkleErrorCode::InvalidLeafIndex,
@@ -395,7 +395,7 @@ impl<T: MerkleDB, const DEPTH: usize> MerkleAdapter<T, DEPTH> {
     }
 
     fn hash(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32] {
-        default_merkle_hash(a,b)
+        default_merkle_hash(a, b)
     }
 }
 
